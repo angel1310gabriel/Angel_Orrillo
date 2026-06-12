@@ -1,0 +1,1693 @@
+'use client';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Plus,
+  Search,
+  Filter,
+  RefreshCw,
+  Eye,
+  XCircle,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  DollarSign,
+  User,
+  Phone,
+  MapPin,
+  Calendar,
+  FileText,
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  ArrowRight,
+  ArrowLeft,
+  UserPlus,
+  Calculator,
+  Info,
+  CreditCard,
+  Users,
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useToast } from '@/hooks/use-toast';
+
+// ============================================================
+// Types
+// ============================================================
+
+interface Client {
+  id: string;
+  name: string;
+  documentNumber: string;
+  documentType: string;
+  phone: string;
+  address?: string | null;
+  zoneId?: string | null;
+  creditScore: number | null;
+  zone?: { id: string; name: string } | null;
+  stats?: {
+    totalLoans: number;
+    activeLoans: number;
+    totalLoaned: number;
+    totalPaid: number;
+    hasMora: boolean;
+  };
+}
+
+interface Collector {
+  id: string;
+  name: string | null;
+  email: string;
+  phone?: string | null;
+  role: string;
+  isActive: boolean;
+}
+
+interface Zone {
+  id: string;
+  name: string;
+  stats?: {
+    totalClients: number;
+    totalLoans: number;
+    activeLoans: number;
+  };
+}
+
+interface Payment {
+  id: string;
+  amount: number;
+  paymentMethod: string;
+  status: string;
+  observation?: string | null;
+  paymentDate: string;
+  collector?: { id: string; name: string | null } | null;
+}
+
+interface PaymentScheduleItem {
+  id: string;
+  installmentNumber: number;
+  amount: number;
+  dueDate: string;
+  status: string;
+}
+
+interface LateFeeItem {
+  id: string;
+  daysLate: number;
+  amount: number;
+  ratePerDay: number;
+  status: string;
+  generatedAt: string;
+}
+
+interface Loan {
+  id: string;
+  clientId: string;
+  collectorId: string | null;
+  zoneId: string | null;
+  amount: number;
+  totalAmount: number;
+  interest: number;
+  days: number;
+  dailyPayment: number;
+  paymentFrequency: string;
+  numCuotas: number;
+  amountPaid: number;
+  startDate: string | null;
+  endDate: string | null;
+  status: string;
+  notes: string | null;
+  progressPercent: number;
+  remaining: number;
+  daysElapsed: number;
+  daysRemaining: number | null;
+  isOverdue: boolean;
+  pendingLateFees: number;
+  client: { id: string; name: string; documentNumber: string; documentType: string; phone: string; creditScore: number | null };
+  collector: { id: string; name: string | null } | null;
+  zone: { id: string; name: string } | null;
+  payments: Payment[];
+  lateFees: LateFeeItem[];
+  schedule: PaymentScheduleItem[];
+}
+
+interface LoansTabProps {
+  refreshTrigger?: number;
+}
+
+// ============================================================
+// Helpers
+// ============================================================
+
+const formatCurrency = (amount: number) =>
+  `S/${amount.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const formatDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const formatDateTime = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+};
+
+const getStatusBadge = (status: string) => {
+  switch (status) {
+    case 'active':
+      return { className: 'bg-emerald-100 text-emerald-800 border-emerald-200', label: 'Activo', icon: <TrendingUp className="h-3 w-3" /> };
+    case 'mora':
+      return { className: 'bg-red-100 text-red-800 border-red-200', label: 'Mora', icon: <AlertTriangle className="h-3 w-3" /> };
+    case 'paid':
+      return { className: 'bg-teal-100 text-teal-800 border-teal-200', label: 'Pagado', icon: <CheckCircle2 className="h-3 w-3" /> };
+    case 'completed':
+      return { className: 'bg-teal-100 text-teal-800 border-teal-200', label: 'Completado', icon: <CheckCircle2 className="h-3 w-3" /> };
+    case 'cancelled':
+      return { className: 'bg-slate-100 text-slate-600 border-slate-200', label: 'Cancelado', icon: <XCircle className="h-3 w-3" /> };
+    case 'refinanced':
+      return { className: 'bg-amber-100 text-amber-800 border-amber-200', label: 'Refinanciado', icon: <RefreshCw className="h-3 w-3" /> };
+    default:
+      return { className: 'bg-slate-100 text-slate-600 border-slate-200', label: status, icon: <Info className="h-3 w-3" /> };
+  }
+};
+
+const getProgressColor = (percent: number, status: string) => {
+  if (status === 'mora') return '[&>div]:bg-red-500';
+  if (status === 'cancelled') return '[&>div]:bg-slate-400';
+  if (percent >= 75) return '[&>div]:bg-emerald-500';
+  if (percent >= 50) return '[&>div]:bg-teal-500';
+  if (percent >= 25) return '[&>div]:bg-amber-500';
+  return '[&>div]:bg-orange-500';
+};
+
+const getDocumentLabel = (docType: string) => {
+  switch (docType) {
+    case 'dni': return 'DNI';
+    case 'carnet_extranjeria': return 'Carnet Ext.';
+    case 'pasaporte': return 'Pasaporte';
+    case 'peruano': return 'DNI'; // backward compat
+    case 'extranjero': return 'Carnet Ext.'; // backward compat
+    default: return 'Doc.';
+  }
+};
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  cash: 'Efectivo',
+  yape: 'Yape',
+  plin: 'Plin',
+  transfer: 'Transferencia',
+  lukita: 'Lukita',
+};
+
+// ============================================================
+// Main Component
+// ============================================================
+
+export default function LoansTab({ refreshTrigger }: LoansTabProps) {
+  const { toast } = useToast();
+
+  // Loan list state
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [capital, setCapital] = useState(0);
+
+  // Create loan dialog state
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createStep, setCreateStep] = useState(1);
+  const [creating, setCreating] = useState(false);
+
+  // Step 1 - Client selection
+  const [clients, setClients] = useState<Client[]>([]);
+  const [clientSearch, setClientSearch] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [showNewClient, setShowNewClient] = useState(false);
+  const [newClient, setNewClient] = useState({ name: '', documentNumber: '', documentType: 'dni', phone: '', address: '', zoneId: '' });
+  const [creatingClient, setCreatingClient] = useState(false);
+
+  // Step 2 - Loan parameters
+  const [loanAmount, setLoanAmount] = useState('');
+  const [interestRate, setInterestRate] = useState('');
+  const [loanDays, setLoanDays] = useState('24');
+  const [paymentFrequency, setPaymentFrequency] = useState('daily');
+
+  // Step 3 - Details
+  const [collectorId, setCollectorId] = useState('');
+  const [zoneId, setZoneId] = useState('');
+  const [loanNotes, setLoanNotes] = useState('');
+  const [startDate, setStartDate] = useState('');
+
+  // Reference data
+  const [collectors, setCollectors] = useState<Collector[]>([]);
+  const [zones, setZones] = useState<Zone[]>([]);
+
+  // Detail dialog state
+  const [detailLoan, setDetailLoan] = useState<Loan | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  // Cancel confirmation
+  const [cancelLoanId, setCancelLoanId] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+
+  // ============================================================
+  // Data Fetching
+  // ============================================================
+
+  const fetchLoans = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '20',
+      });
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+
+      const res = await fetch(`/api/loans?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        let filteredLoans = data.loans || [];
+        // Client-side search filter
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          filteredLoans = filteredLoans.filter(
+            (l: Loan) =>
+              l.client?.name?.toLowerCase().includes(q) ||
+              l.client?.documentNumber?.includes(q) ||
+              l.client?.phone?.includes(q) ||
+              l.id?.includes(q)
+          );
+        }
+        setLoans(filteredLoans);
+        setTotalPages(data.pagination?.totalPages || 1);
+        setTotal(data.pagination?.total || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching loans:', error);
+      toast({ title: 'Error', description: 'No se pudieron cargar los préstamos', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  }, [page, statusFilter, searchQuery, toast]);
+
+  const fetchCapital = useCallback(async () => {
+    try {
+      const res = await fetch('/api/capital');
+      if (res.ok) {
+        const data = await res.json();
+        setCapital(data?.currentCapital || 0);
+      }
+    } catch {
+      // silent fail
+    }
+  }, []);
+
+  const fetchClients = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({ limit: '50' });
+      if (clientSearch) params.set('search', clientSearch);
+      const res = await fetch(`/api/clients?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setClients(data?.clients || []);
+      }
+    } catch {
+      // silent fail
+    }
+  }, [clientSearch]);
+
+  const fetchReferenceData = useCallback(async () => {
+    try {
+      const [collectorsRes, zonesRes] = await Promise.all([
+        fetch('/api/collectors'),
+        fetch('/api/zones'),
+      ]);
+      if (collectorsRes.ok) {
+        const data = await collectorsRes.json();
+        setCollectors(data?.collectors || []);
+      }
+      if (zonesRes.ok) {
+        const data = await zonesRes.json();
+        setZones(data?.zones || []);
+      }
+    } catch {
+      // silent fail
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLoans();
+  }, [fetchLoans]);
+
+  useEffect(() => {
+    fetchCapital();
+  }, [fetchCapital]);
+
+  useEffect(() => {
+    if (refreshTrigger) fetchLoans();
+  }, [refreshTrigger, fetchLoans]);
+
+  // Auto-fetch clients when search changes (debounced)
+  useEffect(() => {
+    if (!createOpen) return;
+    const timer = setTimeout(() => {
+      fetchClients();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [clientSearch, createOpen, fetchClients]);
+
+  // ============================================================
+  // Loan Creation Logic
+  // ============================================================
+
+  const calcInterest = loanAmount && interestRate ? parseFloat(loanAmount) * parseFloat(interestRate) / 100 : 0;
+  const calcTotalAmount = loanAmount ? parseFloat(loanAmount) + calcInterest : 0;
+  const calcDailyPayment = calcTotalAmount && loanDays ? calcTotalAmount / parseInt(loanDays) : 0;
+  const calcNumCuotas = parseInt(loanDays) || 0;
+
+  const selectedClient = clients.find((c) => c.id === selectedClientId);
+  const selectedClientHasActiveLoan = selectedClient?.stats?.activeLoans ? selectedClient.stats.activeLoans > 0 : false;
+
+  const canProceedStep1 = selectedClientId && !selectedClientHasActiveLoan;
+  const canProceedStep2 = parseFloat(loanAmount) > 0 && parseFloat(interestRate) >= 0 && parseInt(loanDays) > 0;
+  const canProceedStep3 = true; // collector and zone are optional
+
+  const handleCreateClient = async () => {
+    if (!newClient.name || !newClient.documentNumber || !newClient.phone) {
+      toast({ title: 'Campos requeridos', description: 'Nombre, documento y teléfono son obligatorios', variant: 'destructive' });
+      return;
+    }
+    setCreatingClient(true);
+    try {
+      const res = await fetch('/api/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...newClient,
+          creditScore: 50,
+          documentType: newClient.documentType || 'dni',
+        }),
+      });
+      if (res.ok) {
+        const client = await res.json();
+        setSelectedClientId(client.id);
+        await fetchClients();
+        setShowNewClient(false);
+        toast({ title: 'Cliente creado', description: `${client.name} registrado exitosamente` });
+      } else {
+        const data = await res.json();
+        toast({ title: 'Error', description: data.error || 'No se pudo crear el cliente', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' });
+    } finally {
+      setCreatingClient(false);
+    }
+  };
+
+  const handleCreateLoan = async () => {
+    setCreating(true);
+    try {
+      const body: Record<string, unknown> = {
+        clientId: selectedClientId,
+        amount: parseFloat(loanAmount),
+        interestRate: parseFloat(interestRate),
+        days: parseInt(loanDays),
+        paymentFrequency,
+        notes: loanNotes || null,
+        guarantors: [],
+      };
+      if (collectorId) body.collectorId = collectorId;
+      if (zoneId) body.zoneId = zoneId;
+      if (startDate) body.startDate = startDate;
+
+      const res = await fetch('/api/loans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        toast({
+          title: 'Préstamo creado',
+          description: `Préstamo de ${formatCurrency(parseFloat(loanAmount))} para ${selectedClient?.name} registrado exitosamente`,
+        });
+        resetCreateForm();
+        setCreateOpen(false);
+        fetchLoans();
+        fetchCapital();
+      } else {
+        const data = await res.json();
+        toast({ title: 'Error', description: data.error || 'No se pudo crear el préstamo', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const resetCreateForm = () => {
+    setCreateStep(1);
+    setSelectedClientId('');
+    setClientSearch('');
+    setShowNewClient(false);
+    setNewClient({ name: '', documentNumber: '', documentType: 'dni', phone: '', address: '', zoneId: '' });
+    setLoanAmount('');
+    setInterestRate('');
+    setLoanDays('24');
+    setPaymentFrequency('daily');
+    setCollectorId('');
+    setZoneId('');
+    setLoanNotes('');
+    setStartDate('');
+  };
+
+  const handleCancelLoan = async () => {
+    if (!cancelLoanId) return;
+    setCancelling(true);
+    try {
+      const res = await fetch('/api/loans', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: cancelLoanId, status: 'cancelled' }),
+      });
+      if (res.ok) {
+        toast({ title: 'Préstamo cancelado', description: 'El préstamo ha sido cancelado exitosamente' });
+        setCancelLoanId(null);
+        fetchLoans();
+        fetchCapital();
+      } else {
+        const data = await res.json();
+        toast({ title: 'Error', description: data.error || 'No se pudo cancelar', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' });
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  // ============================================================
+  // Stats
+  // ============================================================
+
+  const activeLoans = loans.filter((l) => l.status === 'active').length;
+  const moraLoans = loans.filter((l) => l.status === 'mora').length;
+  const totalLoaned = loans.reduce((s, l) => s + l.amount, 0);
+  const totalCollected = loans.reduce((s, l) => s + l.amountPaid, 0);
+
+  // ============================================================
+  // Render
+  // ============================================================
+
+  const statusFilters = [
+    { key: 'all', label: 'Todos', count: total },
+    { key: 'active', label: 'Activos' },
+    { key: 'mora', label: 'Mora' },
+    { key: 'completed', label: 'Completados' },
+    { key: 'cancelled', label: 'Cancelados' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-emerald-100 text-xs font-medium">Capital Disponible</p>
+                <p className="text-2xl font-bold mt-1">{formatCurrency(capital)}</p>
+              </div>
+              <DollarSign className="h-8 w-8 text-emerald-200" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-md bg-gradient-to-br from-teal-500 to-teal-600 text-white">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-teal-100 text-xs font-medium">Total Prestado</p>
+                <p className="text-2xl font-bold mt-1">{formatCurrency(totalLoaned)}</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-teal-200" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-md bg-gradient-to-br from-amber-500 to-orange-500 text-white">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-amber-100 text-xs font-medium">Total Cobrado</p>
+                <p className="text-2xl font-bold mt-1">{formatCurrency(totalCollected)}</p>
+              </div>
+              <CreditCard className="h-8 w-8 text-amber-200" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-md bg-gradient-to-br from-red-500 to-rose-600 text-white">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-red-100 text-xs font-medium">En Mora</p>
+                <p className="text-2xl font-bold mt-1">{moraLoans}</p>
+              </div>
+              <AlertTriangle className="h-8 w-8 text-red-200" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          {statusFilters.map((filter) => (
+            <Button
+              key={filter.key}
+              variant={statusFilter === filter.key ? 'default' : 'outline'}
+              size="sm"
+              className={
+                statusFilter === filter.key
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0'
+                  : 'border-slate-200 hover:border-emerald-300 hover:text-emerald-600'
+              }
+              onClick={() => { setStatusFilter(filter.key); setPage(1); }}
+            >
+              {filter.label}
+            </Button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-initial">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Buscar cliente, DNI..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 w-full sm:w-64 bg-white border-slate-200"
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            className="border-slate-200"
+            onClick={() => fetchLoans()}
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <Button
+            className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0 shadow-lg shadow-emerald-500/20"
+            onClick={() => {
+              resetCreateForm();
+              setCreateOpen(true);
+              fetchClients();
+              fetchReferenceData();
+              fetchCapital();
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Nuevo Préstamo</span>
+            <span className="sm:hidden">Nuevo</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Loan List */}
+      {loading ? (
+        <div className="space-y-4">
+          {[...Array(5)].map((_, i) => (
+            <Card key={i} className="border-0 shadow-md">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-12 w-12 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                  <Skeleton className="h-8 w-24" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : loans.length === 0 ? (
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-12 text-center">
+            <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+              <FileText className="h-8 w-8 text-slate-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-700 mb-2">No hay préstamos</h3>
+            <p className="text-slate-500 mb-4">
+              {statusFilter !== 'all'
+                ? `No se encontraron préstamos con estado "${statusFilters.find(f => f.key === statusFilter)?.label}"`
+                : 'Aún no se han registrado préstamos'}
+            </p>
+            <Button
+              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
+              onClick={() => {
+                resetCreateForm();
+                setCreateOpen(true);
+                fetchClients();
+                fetchReferenceData();
+                fetchCapital();
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Crear Primer Préstamo
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {loans.map((loan) => {
+            const statusBadge = getStatusBadge(loan.status);
+            const progressColor = getProgressColor(loan.progressPercent, loan.status);
+            return (
+              <Card
+                key={loan.id}
+                className={`border-0 shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer ${
+                  loan.status === 'mora' ? 'border-l-4 border-l-red-500' : ''
+                }`}
+                onClick={() => { setDetailLoan(loan); setDetailOpen(true); }}
+              >
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    {/* Client Info */}
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                        loan.status === 'mora' ? 'bg-red-100' :
+                        loan.status === 'completed' || loan.status === 'paid' ? 'bg-emerald-100' :
+                        'bg-teal-100'
+                      }`}>
+                        <User className={`h-5 w-5 ${
+                          loan.status === 'mora' ? 'text-red-600' :
+                          loan.status === 'completed' || loan.status === 'paid' ? 'text-emerald-600' :
+                          'text-teal-600'
+                        }`} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-semibold text-slate-900 truncate">{loan.client.name}</h4>
+                          <Badge variant="outline" className={`text-xs shrink-0 ${statusBadge.className}`}>
+                            {statusBadge.icon}
+                            <span className="ml-1">{statusBadge.label}</span>
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                          <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{loan.client.phone}</span>
+                          {loan.zone && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{loan.zone.name}</span>}
+                          {loan.collector && <span className="flex items-center gap-1"><Users className="h-3 w-3" />{loan.collector.name}</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Financial Info */}
+                    <div className="flex items-center gap-6 sm:gap-8">
+                      <div className="hidden md:flex flex-col items-center gap-3">
+                        <div className="text-center">
+                          <p className="text-xs text-slate-500">Monto</p>
+                          <p className="font-bold text-slate-900">{formatCurrency(loan.amount)}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-slate-500">Total</p>
+                          <p className="font-bold text-slate-700">{formatCurrency(loan.totalAmount)}</p>
+                        </div>
+                      </div>
+
+                      <div className="hidden md:flex flex-col items-center">
+                        <p className="text-xs text-slate-500">Cuota {loan.paymentFrequency === 'daily' ? 'Diaria' : 'Semanal'}</p>
+                        <p className="font-bold text-emerald-600">{formatCurrency(loan.dailyPayment)}</p>
+                      </div>
+
+                      {/* Progress */}
+                      <div className="w-32 sm:w-40">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-slate-500">Progreso</span>
+                          <span className={`text-xs font-semibold ${
+                            loan.status === 'mora' ? 'text-red-600' :
+                            loan.progressPercent >= 75 ? 'text-emerald-600' :
+                            'text-amber-600'
+                          }`}>
+                            {loan.progressPercent.toFixed(1)}%
+                          </span>
+                        </div>
+                        <Progress value={loan.progressPercent} className={`h-2 ${progressColor}`} />
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-xs text-slate-400">{formatCurrency(loan.amountPaid)}</span>
+                          <span className="text-xs text-slate-400">{formatCurrency(loan.totalAmount)}</span>
+                        </div>
+                      </div>
+
+                      {/* Days Remaining */}
+                      <div className="hidden lg:flex flex-col items-center">
+                        <p className="text-xs text-slate-500">Días Rest.</p>
+                        <p className={`font-bold ${
+                          loan.daysRemaining !== null && loan.daysRemaining < 0 ? 'text-red-600' :
+                          loan.daysRemaining !== null && loan.daysRemaining < 5 ? 'text-amber-600' :
+                          'text-slate-700'
+                        }`}>
+                          {loan.daysRemaining !== null ? `${loan.daysRemaining}d` : '—'}
+                        </p>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDetailLoan(loan);
+                            setDetailOpen(true);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {(loan.status === 'active' || loan.status === 'mora') && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCancelLoanId(loan.id);
+                            }}
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mobile-only financial row */}
+                  <div className="flex md:hidden items-center justify-between mt-3 pt-3 border-t border-slate-100">
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <p className="text-xs text-slate-500">Monto</p>
+                        <p className="font-bold text-sm text-slate-900">{formatCurrency(loan.amount)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Cuota</p>
+                        <p className="font-bold text-sm text-emerald-600">{formatCurrency(loan.dailyPayment)}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-slate-500">Restante</p>
+                      <p className="font-bold text-sm text-slate-700">{formatCurrency(loan.remaining)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage(page - 1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-slate-600">
+                Página {page} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage(page + 1)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* CREATE LOAN DIALOG (Multi-Step) */}
+      {/* ============================================================ */}
+      <Dialog open={createOpen} onOpenChange={(open) => { if (!open) resetCreateForm(); setCreateOpen(open); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100">
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
+                <Plus className="h-4 w-4 text-white" />
+              </div>
+              Nuevo Préstamo
+            </DialogTitle>
+            <DialogDescription>
+              Paso {createStep} de 3 — {createStep === 1 ? 'Seleccionar cliente' : createStep === 2 ? 'Parámetros del préstamo' : 'Detalles adicionales'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Step Indicator */}
+          <div className="px-6 py-3 bg-slate-50 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              {[1, 2, 3].map((step) => (
+                <React.Fragment key={step}>
+                  <div className={`flex items-center gap-2 ${createStep >= step ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                      createStep > step
+                        ? 'bg-emerald-500 text-white'
+                        : createStep === step
+                        ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-500'
+                        : 'bg-slate-200 text-slate-500'
+                    }`}>
+                      {createStep > step ? <CheckCircle2 className="h-4 w-4" /> : step}
+                    </div>
+                    <span className="text-xs font-medium hidden sm:inline">
+                      {step === 1 ? 'Cliente' : step === 2 ? 'Parámetros' : 'Detalles'}
+                    </span>
+                  </div>
+                  {step < 3 && (
+                    <div className={`flex-1 h-0.5 ${createStep > step ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+
+          <ScrollArea className="flex-1 px-6">
+            <div className="py-4 space-y-5">
+              {/* ========== STEP 1: Client Selection ========== */}
+              {createStep === 1 && (
+                <>
+                  <div>
+                    <Label className="text-sm font-semibold text-slate-700">Buscar Cliente</Label>
+                    <div className="relative mt-1.5">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input
+                        placeholder="Buscar por nombre, DNI o teléfono..."
+                        value={clientSearch}
+                        onChange={(e) => setClientSearch(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+
+                  {clientSearch && (
+                    <ScrollArea className="max-h-48">
+                      <div className="space-y-1">
+                        {clients.length === 0 ? (
+                          <p className="text-sm text-slate-500 text-center py-4">No se encontraron clientes</p>
+                        ) : (
+                          clients.map((client) => {
+                            const hasActive = (client.stats?.activeLoans || 0) > 0;
+                            const isSelected = selectedClientId === client.id;
+                            return (
+                              <button
+                                key={client.id}
+                                className={`w-full text-left p-3 rounded-lg border transition-all ${
+                                  isSelected
+                                    ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200'
+                                    : hasActive
+                                    ? 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed'
+                                    : 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50'
+                                }`}
+                                onClick={() => !hasActive && setSelectedClientId(client.id)}
+                                disabled={hasActive}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="font-medium text-sm text-slate-900">{client.name}</p>
+                                    <p className="text-xs text-slate-500">{getDocumentLabel(client.documentType)}: {client.documentNumber} | Tel: {client.phone}</p>
+                                  </div>
+                                  {hasActive ? (
+                                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
+                                      Préstamo activo
+                                    </Badge>
+                                  ) : client.zone ? (
+                                    <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 text-xs">
+                                      {client.zone.name}
+                                    </Badge>
+                                  ) : null}
+                                </div>
+                                {client.creditScore !== null && (
+                                  <div className="mt-1 flex items-center gap-1">
+                                    <span className="text-xs text-slate-400">Score:</span>
+                                    <span className={`text-xs font-semibold ${
+                                      client.creditScore < 30 ? 'text-red-600' :
+                                      client.creditScore < 50 ? 'text-amber-600' :
+                                      'text-emerald-600'
+                                    }`}>
+                                      {client.creditScore}/100
+                                    </span>
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    </ScrollArea>
+                  )}
+
+                  {/* Selected client summary */}
+                  {selectedClientId && selectedClient && (
+                    <Alert className="bg-emerald-50 border-emerald-200">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      <AlertDescription className="text-emerald-800">
+                        <span className="font-semibold">{selectedClient.name}</span> — {getDocumentLabel(selectedClient.documentType)}: {selectedClient.documentNumber} | Tel: {selectedClient.phone}
+                        {selectedClient.creditScore !== null && ` | Score: ${selectedClient.creditScore}/100`}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  <Separator />
+
+                  {/* Create new client inline */}
+                  <div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                      onClick={() => setShowNewClient(!showNewClient)}
+                    >
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      {showNewClient ? 'Ocultar formulario' : 'Crear nuevo cliente'}
+                    </Button>
+
+                    {showNewClient && (
+                      <Card className="mt-3 border-emerald-200 bg-emerald-50/30">
+                        <CardContent className="p-4 space-y-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs">Nombre completo *</Label>
+                              <Input
+                                placeholder="Juan Pérez"
+                                value={newClient.name}
+                                onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Tipo Doc. *</Label>
+                              <Select value={newClient.documentType} onValueChange={(v) => setNewClient({ ...newClient, documentType: v })}>
+                                <SelectTrigger className="mt-1">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="dni">DNI</SelectItem>
+                                  <SelectItem value="carnet_extranjeria">Carnet Ext.</SelectItem>
+                                  <SelectItem value="pasaporte">Pasaporte</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label className="text-xs">N° Documento *</Label>
+                              <Input
+                                placeholder={newClient.documentType === 'dni' ? '12345678' : 'N° documento'}
+                                value={newClient.documentNumber}
+                                onChange={(e) => setNewClient({ ...newClient, documentNumber: e.target.value })}
+                                className="mt-1"
+                                maxLength={newClient.documentType === 'dni' ? 8 : 20}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Teléfono *</Label>
+                              <Input
+                                placeholder="999111222"
+                                value={newClient.phone}
+                                onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Dirección</Label>
+                              <Input
+                                placeholder="Av. Principal 123"
+                                value={newClient.address}
+                                onChange={(e) => setNewClient({ ...newClient, address: e.target.value })}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <Label className="text-xs">Zona</Label>
+                              <Select value={newClient.zoneId} onValueChange={(v) => setNewClient({ ...newClient, zoneId: v })}>
+                                <SelectTrigger className="mt-1">
+                                  <SelectValue placeholder="Seleccionar zona" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {zones.map((z) => (
+                                    <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <Button
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                            onClick={handleCreateClient}
+                            disabled={creatingClient}
+                          >
+                            {creatingClient ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <UserPlus className="h-4 w-4 mr-2" />}
+                            Registrar Cliente
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* ========== STEP 2: Loan Parameters ========== */}
+              {createStep === 2 && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-semibold text-slate-700">
+                        Monto del Préstamo (S/) *
+                      </Label>
+                      <div className="relative mt-1.5">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          type="number"
+                          placeholder="1000.00"
+                          value={loanAmount}
+                          onChange={(e) => setLoanAmount(e.target.value)}
+                          className="pl-9 text-lg font-semibold"
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+                      {parseFloat(loanAmount) > capital && (
+                        <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Capital insuficiente. Disponible: {formatCurrency(capital)}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-semibold text-slate-700">
+                        Tasa de Interés (%) *
+                      </Label>
+                      <Input
+                        type="number"
+                        placeholder="24"
+                        value={interestRate}
+                        onChange={(e) => setInterestRate(e.target.value)}
+                        className="mt-1.5 text-lg font-semibold"
+                        min="0"
+                        max="100"
+                        step="0.5"
+                      />
+                      <p className="text-xs text-slate-400 mt-1">Ejemplo: 24 = 24% del monto</p>
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-semibold text-slate-700">
+                        Número de Cuotas *
+                      </Label>
+                      <Select value={loanDays} onValueChange={setLoanDays}>
+                        <SelectTrigger className="mt-1.5">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[7, 14, 15, 21, 24, 28, 30, 45, 60, 90].map((d) => (
+                            <SelectItem key={d} value={d.toString()}>{d} cuotas</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-semibold text-slate-700">
+                        Frecuencia de Pago
+                      </Label>
+                      <RadioGroup value={paymentFrequency} onValueChange={setPaymentFrequency} className="mt-2">
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="daily" id="daily" />
+                          <Label htmlFor="daily" className="text-sm cursor-pointer">Diario</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="weekly" id="weekly" />
+                          <Label htmlFor="weekly" className="text-sm cursor-pointer">Semanal</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-semibold text-slate-700">Fecha de Inicio</Label>
+                    <Input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="mt-1.5"
+                    />
+                  </div>
+
+                  {/* Live Calculation Preview */}
+                  {parseFloat(loanAmount) > 0 && parseFloat(interestRate) >= 0 && parseInt(loanDays) > 0 && (
+                    <Card className="border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-lg shadow-emerald-500/10">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-2 text-base">
+                          <Calculator className="h-5 w-5 text-emerald-600" />
+                          Vista Previa del Préstamo
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                            <p className="text-xs text-slate-500">Monto Prestado</p>
+                            <p className="text-lg font-bold text-slate-900">{formatCurrency(parseFloat(loanAmount) || 0)}</p>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                            <p className="text-xs text-slate-500">Interés ({interestRate}%)</p>
+                            <p className="text-lg font-bold text-amber-600">{formatCurrency(calcInterest)}</p>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                            <p className="text-xs text-slate-500">Total a Pagar</p>
+                            <p className="text-lg font-bold text-emerald-700">{formatCurrency(calcTotalAmount)}</p>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                            <p className="text-xs text-slate-500">
+                              Cuota {paymentFrequency === 'daily' ? 'Diaria' : 'Semanal'}
+                            </p>
+                            <p className="text-lg font-bold text-emerald-600">{formatCurrency(calcDailyPayment)}</p>
+                          </div>
+                        </div>
+                        <Separator />
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-600">Ganancia esperada:</span>
+                          <span className="font-bold text-emerald-600">{formatCurrency(calcInterest)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-600">Número de cuotas:</span>
+                          <span className="font-bold text-slate-700">{calcNumCuotas}</span>
+                        </div>
+                        {parseFloat(loanAmount) > capital && (
+                          <Alert className="bg-red-50 border-red-200">
+                            <AlertTriangle className="h-4 w-4 text-red-600" />
+                            <AlertDescription className="text-red-700">
+                              Capital insuficiente. Disponible: <strong>{formatCurrency(capital)}</strong>, Necesario: <strong>{formatCurrency(parseFloat(loanAmount))}</strong>
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
+              )}
+
+              {/* ========== STEP 3: Additional Details ========== */}
+              {createStep === 3 && (
+                <>
+                  {/* Summary of loan */}
+                  <Card className="border-2 border-emerald-200 bg-emerald-50/50">
+                    <CardContent className="p-4">
+                      <h4 className="font-semibold text-sm text-emerald-800 mb-2">Resumen del Préstamo</h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-slate-500">Cliente:</span>
+                          <p className="font-semibold text-slate-900">{selectedClient?.name}</p>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">{getDocumentLabel(selectedClient?.documentType || 'dni')}:</span>
+                          <p className="font-semibold text-slate-900">{selectedClient?.documentNumber}</p>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">Monto:</span>
+                          <p className="font-semibold text-slate-900">{formatCurrency(parseFloat(loanAmount) || 0)}</p>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">Total a Pagar:</span>
+                          <p className="font-semibold text-emerald-700">{formatCurrency(calcTotalAmount)}</p>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">Cuota {paymentFrequency === 'daily' ? 'Diaria' : 'Semanal'}:</span>
+                          <p className="font-semibold text-emerald-600">{formatCurrency(calcDailyPayment)}</p>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">Cuotas:</span>
+                          <p className="font-semibold text-slate-900">{calcNumCuotas}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-semibold text-slate-700">Cobrador</Label>
+                      <Select value={collectorId} onValueChange={setCollectorId}>
+                        <SelectTrigger className="mt-1.5">
+                          <SelectValue placeholder="Seleccionar cobrador (opcional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {collectors.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name || c.email} ({c.role})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-semibold text-slate-700">Zona</Label>
+                      <Select value={zoneId} onValueChange={setZoneId}>
+                        <SelectTrigger className="mt-1.5">
+                          <SelectValue placeholder="Seleccionar zona (opcional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {zones.map((z) => (
+                            <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-semibold text-slate-700">Notas</Label>
+                    <Textarea
+                      placeholder="Observaciones adicionales sobre el préstamo..."
+                      value={loanNotes}
+                      onChange={(e) => setLoanNotes(e.target.value)}
+                      className="mt-1.5"
+                      rows={3}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          </ScrollArea>
+
+          {/* Dialog Footer - Navigation */}
+          <div className="px-6 py-4 border-t border-slate-100 bg-slate-50">
+            <div className="flex items-center justify-between">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (createStep > 1) {
+                    setCreateStep(createStep - 1);
+                  } else {
+                    setCreateOpen(false);
+                    resetCreateForm();
+                  }
+                }}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                {createStep > 1 ? 'Anterior' : 'Cancelar'}
+              </Button>
+
+              {createStep < 3 ? (
+                <Button
+                  className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
+                  disabled={
+                    (createStep === 1 && !canProceedStep1) ||
+                    (createStep === 2 && !canProceedStep2)
+                  }
+                  onClick={() => setCreateStep(createStep + 1)}
+                >
+                  Siguiente
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              ) : (
+                <Button
+                  className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0 shadow-lg shadow-emerald-500/20"
+                  disabled={creating || parseFloat(loanAmount) > capital}
+                  onClick={handleCreateLoan}
+                >
+                  {creating ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                  )}
+                  Crear Préstamo
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================ */}
+      {/* LOAN DETAIL SHEET */}
+      {/* ============================================================ */}
+      <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
+        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+          {detailLoan && (
+            <>
+              <SheetHeader className="pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    detailLoan.status === 'mora' ? 'bg-red-100' :
+                    detailLoan.status === 'completed' || detailLoan.status === 'paid' ? 'bg-emerald-100' :
+                    'bg-teal-100'
+                  }`}>
+                    <DollarSign className={`h-5 w-5 ${
+                      detailLoan.status === 'mora' ? 'text-red-600' :
+                      detailLoan.status === 'completed' || detailLoan.status === 'paid' ? 'text-emerald-600' :
+                      'text-teal-600'
+                    }`} />
+                  </div>
+                  <div>
+                    <SheetTitle className="text-lg">{detailLoan.client.name}</SheetTitle>
+                    <SheetDescription className="flex items-center gap-2">
+                      <Badge variant="outline" className={getStatusBadge(detailLoan.status).className}>
+                        {getStatusBadge(detailLoan.status).icon}
+                        <span className="ml-1">{getStatusBadge(detailLoan.status).label}</span>
+                      </Badge>
+                      <span className="text-xs">ID: ...{detailLoan.id.slice(-6)}</span>
+                    </SheetDescription>
+                  </div>
+                </div>
+              </SheetHeader>
+
+              <div className="py-4 space-y-6">
+                {/* Client Info */}
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-slate-400" />
+                    <span className="text-slate-500">Tel:</span>
+                    <span className="font-medium">{detailLoan.client.phone}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-slate-400" />
+                    <span className="text-slate-500">{getDocumentLabel(detailLoan.client.documentType || 'dni')}:</span>
+                    <span className="font-medium">{detailLoan.client.documentNumber}</span>
+                  </div>
+                  {detailLoan.zone && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-slate-400" />
+                      <span className="text-slate-500">Zona:</span>
+                      <span className="font-medium">{detailLoan.zone.name}</span>
+                    </div>
+                  )}
+                  {detailLoan.collector && (
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-slate-400" />
+                      <span className="text-slate-500">Cobrador:</span>
+                      <span className="font-medium">{detailLoan.collector.name}</span>
+                    </div>
+                  )}
+                  {detailLoan.client.creditScore !== null && (
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="h-4 w-4 text-slate-400" />
+                      <span className="text-slate-500">Score:</span>
+                      <span className={`font-semibold ${
+                        detailLoan.client.creditScore < 30 ? 'text-red-600' :
+                        detailLoan.client.creditScore < 50 ? 'text-amber-600' :
+                        'text-emerald-600'
+                      }`}>
+                        {detailLoan.client.creditScore}/100
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Financial Summary */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="bg-slate-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-slate-500">Monto</p>
+                    <p className="text-base font-bold text-slate-900">{formatCurrency(detailLoan.amount)}</p>
+                  </div>
+                  <div className="bg-amber-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-slate-500">Interés</p>
+                    <p className="text-base font-bold text-amber-600">{formatCurrency(detailLoan.interest)}</p>
+                  </div>
+                  <div className="bg-emerald-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-slate-500">Total</p>
+                    <p className="text-base font-bold text-emerald-700">{formatCurrency(detailLoan.totalAmount)}</p>
+                  </div>
+                  <div className="bg-teal-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-slate-500">Cuota</p>
+                    <p className="text-base font-bold text-teal-600">{formatCurrency(detailLoan.dailyPayment)}</p>
+                  </div>
+                </div>
+
+                {/* Progress */}
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold text-slate-700">Progreso de Pago</span>
+                      <span className={`text-sm font-bold ${
+                        detailLoan.status === 'mora' ? 'text-red-600' :
+                        detailLoan.progressPercent >= 75 ? 'text-emerald-600' :
+                        'text-amber-600'
+                      }`}>
+                        {detailLoan.progressPercent.toFixed(1)}%
+                      </span>
+                    </div>
+                    <Progress value={detailLoan.progressPercent} className={`h-3 ${getProgressColor(detailLoan.progressPercent, detailLoan.status)}`} />
+                    <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
+                      <span>Pagado: {formatCurrency(detailLoan.amountPaid)}</span>
+                      <span>Restante: {formatCurrency(detailLoan.remaining)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Dates */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-emerald-500" />
+                    <div>
+                      <p className="text-xs text-slate-500">Fecha Inicio</p>
+                      <p className="text-sm font-medium">{detailLoan.startDate ? formatDate(detailLoan.startDate) : 'No definida'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-amber-500" />
+                    <div>
+                      <p className="text-xs text-slate-500">Fecha Fin</p>
+                      <p className="text-sm font-medium">{detailLoan.endDate ? formatDate(detailLoan.endDate) : 'No definida'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Time info */}
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="bg-slate-50 rounded-lg p-2">
+                    <p className="text-xs text-slate-500">Días Transcurridos</p>
+                    <p className="text-sm font-bold text-slate-700">{detailLoan.daysElapsed}d</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-lg p-2">
+                    <p className="text-xs text-slate-500">Días Restantes</p>
+                    <p className={`text-sm font-bold ${
+                      detailLoan.daysRemaining !== null && detailLoan.daysRemaining < 0 ? 'text-red-600' :
+                      detailLoan.daysRemaining !== null && detailLoan.daysRemaining < 5 ? 'text-amber-600' :
+                      'text-slate-700'
+                    }`}>
+                      {detailLoan.daysRemaining !== null ? `${detailLoan.daysRemaining}d` : '—'}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 rounded-lg p-2">
+                    <p className="text-xs text-slate-500">Frecuencia</p>
+                    <p className="text-sm font-bold text-slate-700">
+                      {detailLoan.paymentFrequency === 'daily' ? 'Diario' : 'Semanal'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                {detailLoan.notes && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                      <FileText className="h-4 w-4" /> Notas
+                    </h4>
+                    <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg">{detailLoan.notes}</p>
+                  </div>
+                )}
+
+                {/* Late Fees */}
+                {detailLoan.lateFees && detailLoan.lateFees.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1">
+                      <AlertTriangle className="h-4 w-4 text-red-500" /> Recargos por Mora
+                    </h4>
+                    <div className="space-y-2">
+                      {detailLoan.lateFees.map((fee) => (
+                        <div key={fee.id} className="flex items-center justify-between bg-red-50 p-3 rounded-lg border border-red-100">
+                          <div>
+                            <p className="text-sm font-medium text-red-800">{fee.daysLate} días de atraso</p>
+                            <p className="text-xs text-red-600">Tasa: S/{fee.ratePerDay}/día</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-red-700">{formatCurrency(fee.amount)}</p>
+                            <Badge variant="outline" className={`text-xs ${
+                              fee.status === 'pending' ? 'bg-red-100 text-red-700 border-red-200' :
+                              fee.status === 'paid' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                              'bg-slate-100 text-slate-600 border-slate-200'
+                            }`}>
+                              {fee.status === 'pending' ? 'Pendiente' : fee.status === 'paid' ? 'Pagado' : 'Condonado'}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <Separator />
+
+                {/* Payment Schedule */}
+                {detailLoan.schedule && detailLoan.schedule.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1">
+                      <Calendar className="h-4 w-4 text-emerald-500" /> Cronograma de Pagos
+                    </h4>
+                    <ScrollArea className="max-h-64">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">#</TableHead>
+                            <TableHead className="text-xs">Fecha</TableHead>
+                            <TableHead className="text-xs">Monto</TableHead>
+                            <TableHead className="text-xs">Estado</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {detailLoan.schedule.map((s) => (
+                            <TableRow key={s.id}>
+                              <TableCell className="text-xs font-medium">{s.installmentNumber}</TableCell>
+                              <TableCell className="text-xs">{formatDate(s.dueDate)}</TableCell>
+                              <TableCell className="text-xs font-semibold">{formatCurrency(s.amount)}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className={`text-xs ${
+                                  s.status === 'paid'
+                                    ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                                    : 'bg-slate-100 text-slate-600 border-slate-200'
+                                }`}>
+                                  {s.status === 'paid' ? 'Pagado' : 'Pendiente'}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </div>
+                )}
+
+                {/* Recent Payments */}
+                {detailLoan.payments && detailLoan.payments.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1">
+                      <CreditCard className="h-4 w-4 text-teal-500" /> Últimos Pagos
+                    </h4>
+                    <ScrollArea className="max-h-64">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">Fecha</TableHead>
+                            <TableHead className="text-xs">Monto</TableHead>
+                            <TableHead className="text-xs">Método</TableHead>
+                            <TableHead className="text-xs">Cobrador</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {detailLoan.payments.map((p) => (
+                            <TableRow key={p.id}>
+                              <TableCell className="text-xs whitespace-nowrap">{formatDateTime(p.paymentDate)}</TableCell>
+                              <TableCell className="text-xs font-semibold">{formatCurrency(p.amount)}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="text-xs bg-slate-50">
+                                  {PAYMENT_METHOD_LABELS[p.paymentMethod] || p.paymentMethod}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-xs text-slate-500">
+                                {p.collector?.name || '—'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </div>
+                )}
+
+                {/* Actions */}
+                {(detailLoan.status === 'active' || detailLoan.status === 'mora') && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="destructive"
+                        className="flex-1"
+                        onClick={() => {
+                          setCancelLoanId(detailLoan.id);
+                          setDetailOpen(false);
+                        }}
+                      >
+                        <XCircle className="h-4 w-4 mr-2" />
+                        Cancelar Préstamo
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* ============================================================ */}
+      {/* CANCEL CONFIRMATION DIALOG */}
+      {/* ============================================================ */}
+      <Dialog open={!!cancelLoanId} onOpenChange={(open) => { if (!open) setCancelLoanId(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <AlertTriangle className="h-5 w-5" />
+              Confirmar Cancelación
+            </DialogTitle>
+            <DialogDescription>
+              ¿Está seguro que desea cancelar este préstamo? Esta acción no se puede deshacer. El monto pendiente será devuelto al capital.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex items-center gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setCancelLoanId(null)} disabled={cancelling}>
+              No, volver
+            </Button>
+            <Button variant="destructive" onClick={handleCancelLoan} disabled={cancelling}>
+              {cancelling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
+              Sí, cancelar préstamo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

@@ -1,0 +1,333 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// KC Cobranzas - Professional Daily Collection Management System
+// ============================================================
+
+model Profile {
+  id                  String   @id @default(cuid())
+  email               String   @unique
+  name                String?
+  documentType        String   @default("dni") // dni, carnet_extranjeria, pasaporte
+  documentNumber      String?
+  phone               String?
+  address             String?
+  role                String   @default("collector") // admin, supervisor, collector
+  photoUrl            String?
+  isActive            Boolean  @default(true)
+  biometricEnabled    Boolean  @default(false)
+  password            String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  loans               Loan[]
+  payments            Payment[]
+  expenses            Expense[]
+  settlements         DailySettlement[]
+  sentMessages        ChatMessage[]       @relation("SentMessages")
+  receivedMessages    ChatMessage[]       @relation("ReceivedMessages")
+  sentNotifications   Notification[]      @relation("SentNotifications")
+  receivedNotifications Notification[]    @relation("ReceivedNotifications")
+  collectorZones      CollectorZone[]
+  supervisorAssignments SupervisorAssignment[]
+  collectorAssignments  SupervisorAssignment[]  @relation("CollectorAssignments")
+  auditLogs           AuditLog[]
+}
+
+model Zone {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clients         Client[]
+  collectorZones  CollectorZone[]
+  loans           Loan[]
+}
+
+model Client {
+  id              String   @id @default(cuid())
+  name            String
+  documentType    String   @default("dni") // dni, carnet_extranjeria, pasaporte
+  documentNumber  String
+  phone           String
+  address         String?
+  zoneId          String?
+  zone            Zone?    @relation(fields: [zoneId], references: [id])
+  photoUrl        String?
+  creditScore     Float?
+  latitude        Float?
+  longitude       Float?
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  loans      Loan[]
+  guarantors Guarantor[]
+  notes      ClientNote[]
+}
+
+model Guarantor {
+  id              String   @id @default(cuid())
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id])
+  name            String
+  documentType    String   @default("dni") // dni, carnet_extranjeria, pasaporte
+  documentNumber  String?
+  phone           String?
+  address         String?
+  photoUrl        String?
+  createdAt       DateTime @default(now())
+}
+
+model ClientNote {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id])
+  createdBy String?
+  note      String
+  isImportant Boolean @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Loan {
+  id                String   @id @default(cuid())
+  clientId          String
+  client            Client   @relation(fields: [clientId], references: [id])
+  collectorId       String?
+  collector         Profile? @relation(fields: [collectorId], references: [id])
+  zoneId            String?
+  zone              Zone?    @relation(fields: [zoneId], references: [id])
+  amount            Float
+  totalAmount       Float
+  interest          Float
+  days              Int      @default(24)
+  dailyPayment      Float
+  paymentFrequency  String   @default("daily") // daily, weekly
+  numCuotas         Int      @default(24)
+  amountPaid        Float    @default(0)
+  startDate         DateTime?
+  endDate           DateTime?
+  status            String   @default("active") // active, mora, paid, completed, cancelled, refinanced
+  creditApproved    Boolean  @default(true)
+  signature         String?
+  notes             String?
+  chargedOff        Boolean  @default(false)
+  chargedOffAt      DateTime?
+  chargedOffBy      String?
+  recoveryCollectorId String?
+  createdBy         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  payments         Payment[]
+  schedule         PaymentSchedule[]
+  lateFees         LateFee[]
+  deferredPayments DeferredPayment[]
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  loanId          String
+  loan            Loan     @relation(fields: [loanId], references: [id])
+  collectorId     String?
+  collector       Profile? @relation(fields: [collectorId], references: [id])
+  clientId        String?
+  amount          Float
+  interest        Float?
+  paymentMethod   String   @default("cash") // cash, yape, plin, lukita, transfer
+  status          String   @default("completed") // completed, cancelled
+  observation     String?
+  proofPhoto      String?
+  photoUrl        String?
+  gpsLatitude     Float?
+  gpsLongitude    Float?
+  paymentDate     DateTime @default(now())
+  createdAt       DateTime @default(now())
+}
+
+model PaymentSchedule {
+  id               String   @id @default(cuid())
+  loanId           String
+  loan             Loan     @relation(fields: [loanId], references: [id])
+  installmentNumber Int
+  amount           Float
+  dueDate          DateTime
+  status           String   @default("pending") // pending, paid
+  createdAt        DateTime @default(now())
+}
+
+model LateFee {
+  id           String   @id @default(cuid())
+  loanId       String
+  loan         Loan     @relation(fields: [loanId], references: [id])
+  daysLate     Int
+  amount       Float
+  ratePerDay   Float    @default(2.0)
+  status       String   @default("pending") // pending, paid, waived
+  waivedBy     String?
+  waivedReason String?
+  waivedAt     DateTime?
+  paidAt       DateTime?
+  generatedAt  DateTime @default(now())
+}
+
+model DeferredPayment {
+  id              String   @id @default(cuid())
+  loanId          String
+  loan            Loan     @relation(fields: [loanId], references: [id])
+  originalAmount  Float
+  surcharge       Float
+  totalDeferred   Float
+  status          String   @default("pending")
+  deferredDate    String
+  createdAt       DateTime @default(now())
+}
+
+model Expense {
+  id            String   @id @default(cuid())
+  collectorId   String
+  collector     Profile   @relation(fields: [collectorId], references: [id])
+  amount        Float
+  category      String    // pasaje, almuerzo, movilidad, otros
+  description   String?
+  expenseDate   String
+  receiptPhoto  String?
+  status        String    @default("pending") // pending, approved, rejected
+  approvedBy    String?
+  createdAt     DateTime  @default(now())
+}
+
+model DailySettlement {
+  id              String   @id @default(cuid())
+  collectorId     String
+  collector       Profile  @relation(fields: [collectorId], references: [id])
+  date            String
+  expectedCount   Int      @default(0)
+  expectedAmount  Float    @default(0)
+  collectedCount  Int      @default(0)
+  collectedAmount Float    @default(0)
+  difference      Float    @default(0)
+  notes           String?
+  status          String   @default("pending") // pending, approved, disputed
+  createdAt       DateTime @default(now())
+}
+
+model CapitalMovement {
+  id              String   @id @default(cuid())
+  type            String   // INYECCION, RETIRO
+  amount          Float
+  previousCapital Float
+  newCapital      Float
+  description     String?
+  createdAt       DateTime @default(now())
+}
+
+model CollectorZone {
+  id          String  @id @default(cuid())
+  collectorId String
+  collector   Profile @relation(fields: [collectorId], references: [id])
+  zoneId      String
+  zone        Zone    @relation(fields: [zoneId], references: [id])
+
+  @@unique([collectorId, zoneId])
+}
+
+model SupervisorAssignment {
+  id           String  @id @default(cuid())
+  supervisorId String
+  supervisor   Profile @relation(fields: [supervisorId], references: [id])
+  collectorId  String
+  collector    Profile @relation("CollectorAssignments", fields: [collectorId], references: [id])
+
+  @@unique([supervisorId, collectorId])
+}
+
+model ChatMessage {
+  id          String   @id @default(cuid())
+  senderId    String
+  sender      Profile  @relation("SentMessages", fields: [senderId], references: [id])
+  receiverId  String
+  receiver    Profile  @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  message     String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id             String   @id @default(cuid())
+  userId         String
+  user           Profile  @relation("ReceivedNotifications", fields: [userId], references: [id])
+  sentById       String?
+  sentBy         Profile? @relation("SentNotifications", fields: [sentById], references: [id])
+  title          String
+  body           String
+  type           String   @default("info") // info, payment, late_fee, expense, system
+  referenceType  String?
+  referenceId    String?
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+}
+
+model Setting {
+  id       String @id @default(cuid())
+  key      String @unique
+  value    String
+}
+
+model PaymentLink {
+  id          String   @id @default(cuid())
+  loanId      String
+  amount      Float
+  token       String   @unique
+  status      String   @default("pending") // pending, paid, expired, cancelled
+  description String?
+  expiresAt   DateTime
+  createdBy   String?
+  createdAt   DateTime @default(now())
+}
+
+// ============================================================
+// NEW: Audit & Traceability System
+// ============================================================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        Profile? @relation(fields: [userId], references: [id])
+  action      String   // CREATE, UPDATE, DELETE, CANCEL, WAIVE, APPROVE, REJECT
+  entityType  String   // loan, payment, client, expense, settlement, late_fee, etc.
+  entityId    String?
+  entityName  String?  // Human-readable name of the affected entity
+  changes     String?  // JSON string with {field, oldValue, newValue}
+  ipAddress   String?
+  userAgent   String?
+  severity    String   @default("info") // info, warning, critical
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+// ============================================================
+// NEW: Late Fee Automation Execution Log
+// ============================================================
+
+model LateFeeExecution {
+  id                String   @id @default(cuid())
+  executionDate     DateTime
+  loansProcessed    Int      @default(0)
+  feesGenerated     Int      @default(0)
+  totalFeeAmount    Float    @default(0)
+  loansMovedToMora  Int      @default(0)
+  status            String   @default("completed") // completed, failed, partial
+  errorMessage      String?
+  executionTimeMs   Int      @default(0)
+  triggeredBy       String   @default("automatic") // automatic, manual
+  createdAt         DateTime @default(now())
+}
