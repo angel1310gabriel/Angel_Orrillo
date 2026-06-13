@@ -101,11 +101,9 @@ export default function KCobranzasDashboard() {
       Promise.resolve().then(() => {
         setIsHydrated(true);
         checkSession();
-        // Always force-refresh role from server to fix cached wrong roles
-        refreshRole();
       });
     }
-  }, [checkSession, refreshRole]);
+  }, [checkSession]);
 
   // Supabase Realtime
   const handleRealtimeChange = () => {
@@ -240,8 +238,8 @@ export default function KCobranzasDashboard() {
                 key={item.value}
                 onClick={() => setActiveTab(item.value)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 mb-0.5 ${isActive
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                   }`}
               >
                 <Icon className={`h-4.5 w-4.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
@@ -351,8 +349,8 @@ export default function KCobranzasDashboard() {
                     data-tab={item.value}
                     onClick={() => handleTabChange(item.value)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 ${isActive
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm'
-                      : 'bg-slate-100 text-slate-600'
+                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600'
                       }`}
                   >
                     <Icon className="h-3.5 w-3.5" />
@@ -413,8 +411,8 @@ export default function KCobranzasDashboard() {
                     key={item.value}
                     onClick={() => handleTabChange(item.value)}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 mb-1 ${isActive
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                       }`}
                   >
                     <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
