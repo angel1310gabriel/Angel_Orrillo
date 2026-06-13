@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 
 // ============================================================
 // KC Cobranzas - Login Screen
-// Login con DNI, Email o Celular via Supabase
+// Login con DNI o Email via Supabase
 // ============================================================
 
 
@@ -41,19 +41,19 @@ export default function LoginScreen() {
         <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 p-6 sm:p-8">
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-slate-900">Iniciar Sesión</h2>
-            <p className="text-sm text-slate-500 mt-1">Ingrese su DNI, correo o celular</p>
+            <p className="text-sm text-slate-500 mt-1">Ingrese su DNI o correo electrónico</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Username / DNI */}
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-slate-700 mb-1.5">
-                DNI, Correo o Celular
+                DNI o Correo electrónico
               </label>
               <Input
                 id="username"
                 type="text"
-                placeholder="Ej: 71057098, correo@gmail.com o 951959763"
+                placeholder="Ej: 71208379 o correo@gmail.com"
                 value={username}
                 onChange={(e) => {
                   setUsername(e.target.value);
@@ -121,8 +121,6 @@ export default function LoginScreen() {
             </Button>
           </form>
         </div>
-
-
       </div>
     </div>
   );
