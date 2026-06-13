@@ -66,7 +66,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
 
 // ============================================================
 // Auth Store with Zustand + Persist
-// Login con DNI, Email o Celular via Supabase
+// Login con DNI o Email via Supabase
 // ============================================================
 
 export const useAuth = create<AuthState>()(
@@ -133,7 +133,7 @@ export const useAuth = create<AuthState>()(
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'logout' }),
-        }).catch(() => { });
+        }).catch(() => {});
 
         set({
           user: null,
@@ -226,18 +226,10 @@ export const useAuth = create<AuthState>()(
     }),
     {
       name: 'kc-cobranzas-auth',
-      version: 2, // Bump para invalidar sesiones antiguas con rol incorrecto
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
-      migrate: (persistedState: unknown, version: number) => {
-        // Si viene de versión 1 (caché vieja con rol incorrecto), limpiarla
-        if (version < 2) {
-          return null as unknown as Partial<AuthState>;
-        }
-        return persistedState as Partial<AuthState>;
-      },
     }
   )
 );
