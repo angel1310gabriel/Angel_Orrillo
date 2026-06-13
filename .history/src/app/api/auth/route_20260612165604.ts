@@ -73,6 +73,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 401 });
     }
 
+    // Use Supabase directly (works on both Vercel and local)
     const supabase = await getSupabaseClient();
     if (!supabase) {
       return NextResponse.json({ success: false, error: 'Supabase no configurado' }, { status: 500 });
@@ -80,7 +81,7 @@ export async function GET(request: NextRequest) {
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, email, name, role, phone, dni, is_active')
+      .select('id, email, name, role, phone, document_number, is_active')
       .eq('id', userId)
       .single();
 
@@ -96,7 +97,7 @@ export async function GET(request: NextRequest) {
         name: profile.name,
         role: profile.role,
         phone: profile.phone,
-        documentNumber: profile.dni,
+        documentNumber: profile.document_number,
         isActive: profile.is_active ?? true,
       },
     });
@@ -135,7 +136,7 @@ async function handleLogin(body: { username: string; password: string }) {
     const { data: profileByEmail } = await supabase
       .from('profiles')
       .select('email')
-      .eq('dni', username)
+      .eq('document_number', username)
       .single();
 
     if (profileByEmail?.email) {
@@ -173,7 +174,7 @@ async function handleLogin(body: { username: string; password: string }) {
   // Step 3: Get profile from Supabase profiles table
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('id, email, name, role, phone, dni, is_active')
+    .select('id, email, name, role, phone, document_number, is_active')
     .eq('id', authData.user.id)
     .single();
 
@@ -187,14 +188,14 @@ async function handleLogin(body: { username: string; password: string }) {
     name: profile?.name || authData.user.user_metadata?.name || emailToTry.split('@')[0],
     role: profile?.role || 'collector',
     phone: profile?.phone || null,
-    documentNumber: profile?.dni || null,
+    documentNumber: profile?.document_number || null,
     isActive: profile?.is_active ?? true,
   };
 
   // Step 4: On local, sync to SQLite in background (non-blocking)
   if (!isVercel) {
-    syncToLocalDB(user, password).catch(() => { });
-    syncFromSupabaseBackground().catch(() => { });
+    syncToLocalDB(user, password).catch(() => {});
+    syncFromSupabaseBackground().catch(() => {});
   }
 
   return NextResponse.json({ success: true, user });
@@ -296,7 +297,7 @@ async function handleSyncUsers() {
             name: profile.name,
             role: profile.role,
             phone: profile.phone,
-            documentNumber: profile.dni,
+            documentNumber: profile.document_number,
             isActive: profile.is_active ?? true,
           },
           create: {
@@ -305,7 +306,7 @@ async function handleSyncUsers() {
             name: profile.name || profile.email.split('@')[0],
             role: profile.role || 'collector',
             phone: profile.phone,
-            documentNumber: profile.dni,
+            documentNumber: profile.document_number,
             password: 'synced_from_supabase',
             isActive: profile.is_active ?? true,
           },
@@ -428,7 +429,7 @@ async function syncFromSupabaseBackground() {
               name: profile.name,
               role: profile.role,
               phone: profile.phone,
-              documentNumber: profile.dni,
+              documentNumber: profile.document_number,
               isActive: profile.is_active ?? true,
             },
             create: {
@@ -437,7 +438,7 @@ async function syncFromSupabaseBackground() {
               name: profile.name || profile.email.split('@')[0],
               role: profile.role || 'collector',
               phone: profile.phone,
-              documentNumber: profile.dni,
+              documentNumber: profile.document_number,
               password: 'synced_from_supabase',
               isActive: profile.is_active ?? true,
             },

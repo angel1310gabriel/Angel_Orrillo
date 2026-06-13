@@ -22,7 +22,8 @@ export function getClient() {
 
 export const FIELD_MAP: Record<string, Record<string, string>> = {
   // profiles table: Prisma field → Supabase column
-  // Supabase profiles table uses 'dni' column (not document_number)
+  // NOTE: Supabase profiles table only has: id, email, name, phone, role, is_active, photo_url, biometric_enabled, daily_goal, created_at
+  // Missing columns (exist in Prisma only): document_number, document_type, address, password, updated_at
   profiles: {
     id: 'id',
     email: 'email',
@@ -34,7 +35,7 @@ export const FIELD_MAP: Record<string, Record<string, string>> = {
     biometricEnabled: 'biometric_enabled',
     dailyGoal: 'daily_goal',
     createdAt: 'created_at',
-    // Supabase profiles table uses 'dni' column
+    // These columns don't exist in Supabase - mapping kept for Prisma compatibility
     documentNumber: 'dni',
     documentType: 'document_type',
     address: 'address',
@@ -42,7 +43,8 @@ export const FIELD_MAP: Record<string, Record<string, string>> = {
     updatedAt: 'updated_at',
   },
   // clients table
-  // Supabase clients table uses `dni` instead of `document_number`
+  // NOTE: Supabase clients table uses `dni` instead of `document_number`
+  // Missing columns (exist in Prisma only): updated_at
   clients: {
     id: 'id',
     name: 'name',
@@ -57,7 +59,7 @@ export const FIELD_MAP: Record<string, Record<string, string>> = {
     longitude: 'longitude',
     createdBy: 'created_by',
     createdAt: 'created_at',
-    updatedAt: 'updated_at',
+    updatedAt: 'updated_at', // Doesn't exist in Supabase - kept for Prisma compatibility
   },
   // loans table
   loans: {
@@ -66,7 +68,7 @@ export const FIELD_MAP: Record<string, Record<string, string>> = {
     collectorId: 'collector_id',
     zoneId: 'zone_id',
     amount: 'amount',
-    totalAmount: 'total_amount',
+    totalAmount: 'total_amount', // might be 'total' in some schemas
     interest: 'interest',
     days: 'days',
     dailyPayment: 'daily_payment',
@@ -153,7 +155,7 @@ export const FIELD_MAP: Record<string, Record<string, string>> = {
     paidAt: 'paid_at',
     generatedAt: 'generated_at',
   },
-  // payment_schedule table
+  // payment_schedule table (singular - matches Supabase)
   payment_schedule: {
     id: 'id',
     loanId: 'loan_id',
@@ -178,7 +180,7 @@ export const FIELD_MAP: Record<string, Record<string, string>> = {
     notes: 'notes',
     createdAt: 'created_at',
   },
-  // collector_expenses table
+  // collector_expenses table (matches Supabase Flutter app schema)
   collector_expenses: {
     id: 'id',
     collectorId: 'collector_id',
@@ -291,14 +293,17 @@ export async function fetchFromTable(
   const supabase = getSupabaseClient();
 
   if (supabase) {
+    // Use Supabase
     let query = supabase
       .from(tableName)
       .select(options?.select || '*', { count: 'exact' });
 
+    // Apply filters
     if (options?.filter) {
       for (const [key, value] of Object.entries(options.filter)) {
         if (value !== undefined && value !== null) {
           if (typeof value === 'object' && value !== null) {
+            // Handle operators like { gte: x }, { in: [...] }, etc.
             for (const [op, val] of Object.entries(value as Record<string, unknown>)) {
               switch (op) {
                 case 'gte': query = query.gte(key, val as string | number); break;
@@ -318,10 +323,12 @@ export async function fetchFromTable(
       }
     }
 
+    // Apply ordering
     if (options?.orderBy) {
       query = query.order(options.orderBy, { ascending: options.orderAsc ?? false });
     }
 
+    // Apply pagination
     if (options?.limit) {
       query = query.limit(options.limit);
     }
@@ -339,6 +346,8 @@ export async function fetchFromTable(
     return { data: (data || []) as unknown[], count: count || 0 };
   }
 
+  // Fallback: return empty result if Supabase not configured
+  // The API routes will use Prisma directly as fallback
   return { data: [], count: 0 };
 }
 
@@ -484,6 +493,7 @@ export async function sumColumn(
   const supabase = getSupabaseClient();
 
   if (supabase) {
+    // Supabase doesn't have a direct sum, we need to fetch and calculate
     let query = supabase.from(tableName).select(column);
 
     if (filter) {
@@ -511,9 +521,7 @@ export async function sumColumn(
       return 0;
     }
 
-    // ✅ DESPUÉS (correcto - pasa por unknown primero)
-    const rows = (data || []) as unknown as Record<string, unknown>[];
-    return rows.reduce((sum: number, row: Record<string, unknown>) => {
+    return (data || []).reduce((sum: number, row: Record<string, unknown>) => {
       return sum + (Number(row[column]) || 0);
     }, 0);
   }

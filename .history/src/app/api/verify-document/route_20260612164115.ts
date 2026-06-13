@@ -20,6 +20,7 @@ async function getSupabase() {
 }
 
 // GET /api/verify-document?documentType=X&documentNumber=Y
+// Verifies a document number and returns any matching records (clients, staff/collectors)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
 
       // Search staff/collectors by document number
       try {
-        const { data: profiles } = await supabase.from('profiles').select('id, name, phone, role, is_active').eq('dni', documentNumber).limit(5);
+        const { data: profiles } = await supabase.from('profiles').select('id, name, phone, role, is_active').eq('document_number', documentNumber).limit(5);
 
         results.staff = (profiles || []).map((p: Record<string, unknown>) => ({
           id: p.id as string,
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
           isActive: (p.is_active as boolean) ?? true,
         }));
       } catch {
-        // Skip silently
+        // Profile table might not have document_number field, skip silently
       }
 
       return NextResponse.json({
@@ -108,6 +109,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Local: Prisma
+    // Search clients by document number
     const clients = await db.client.findMany({
       where: {
         documentNumber,
@@ -131,6 +133,7 @@ export async function GET(request: NextRequest) {
       hasActiveLoans: c.loans.some((l) => l.status === 'active' || l.status === 'mora'),
     }));
 
+    // Search staff/collectors by document number if profile table has document fields
     try {
       const profiles = await db.profile.findMany({
         where: {
@@ -154,7 +157,7 @@ export async function GET(request: NextRequest) {
         isActive: p.isActive,
       }));
     } catch {
-      // Skip silently
+      // Profile table might not have documentNumber field, skip silently
     }
 
     return NextResponse.json({

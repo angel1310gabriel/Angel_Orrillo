@@ -519,7 +519,7 @@ export async function sumColumn(
   }
 
   return 0;
-}
+  }
 
-// Export the Prisma client as fallback
-export { db };
+  // Export the Prisma client as fallback
+  export { db };

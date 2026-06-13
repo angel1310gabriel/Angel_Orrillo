@@ -511,9 +511,7 @@ export async function sumColumn(
       return 0;
     }
 
-    // ✅ DESPUÉS (correcto - pasa por unknown primero)
-    const rows = (data || []) as unknown as Record<string, unknown>[];
-    return rows.reduce((sum: number, row: Record<string, unknown>) => {
+    return (data as Record<string, unknown>[] || []).reduce((sum: number, row: Record<string, unknown>) => {
       return sum + (Number(row[column]) || 0);
     }, 0);
   }
