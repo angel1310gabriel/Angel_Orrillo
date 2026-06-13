@@ -545,12 +545,13 @@ async function syncProfilesToLocal(profiles: Record<string, unknown>[]) {
 
   try {
     for (const profile of profiles) {
+      const profileRole = (profile.role as string) || 'collector';
       await db.profile.upsert({
         where: { id: profile.id as string },
         update: {
           email: profile.email as string,
           name: profile.name as string,
-          role: profile.role as string,
+          role: profileRole,
           phone: (profile.phone as string) || null,
           documentNumber: (profile.dni as string) || null,
           isActive: (profile.is_active as boolean) ?? true,
@@ -559,7 +560,7 @@ async function syncProfilesToLocal(profiles: Record<string, unknown>[]) {
           id: profile.id as string,
           email: profile.email as string,
           name: (profile.name as string) || (profile.email as string).split('@')[0],
-          role: (profile.role as string) || 'collector',
+          role: profileRole,
           phone: (profile.phone as string) || null,
           documentNumber: (profile.dni as string) || null,
           password: 'synced_from_supabase',

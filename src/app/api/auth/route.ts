@@ -89,13 +89,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Usuario no encontrado' }, { status: 404 });
     }
 
+    const profileRole = profile.role
+      || (await supabase.auth.admin.getUserById(profile.id)).data?.user?.user_metadata?.role
+      || 'collector';
+
     return NextResponse.json({
       success: true,
       user: {
         id: profile.id,
         email: profile.email,
         name: profile.name,
-        role: profile.role,
+        role: profileRole,
         phone: profile.phone,
         documentNumber: profile.dni,
         isActive: profile.is_active ?? true,
@@ -137,8 +141,8 @@ async function handleLogin(body: { username: string; password: string }) {
     }
 
     // Search by DNI first, then by phone if not found
-    let profileLookup = null;
-    let lookupError = null;
+    let profileLookup: Record<string, unknown> | null = null;
+    let lookupError: unknown = null;
 
     if (isPhone) {
       // Search by phone number
@@ -190,8 +194,8 @@ async function handleLogin(body: { username: string; password: string }) {
     }
 
     if (profileLookup?.email) {
-      emailToTry = profileLookup.email;
-      step1ProfileId = profileLookup.id;
+      emailToTry = String(profileLookup.email);
+      step1ProfileId = String(profileLookup.id || '');
     } else {
       return NextResponse.json(
         { success: false, error: 'Usuario no encontrado en el sistema' },
@@ -279,11 +283,28 @@ async function handleLogin(body: { username: string; password: string }) {
     console.error('[Auth] Profile fetch error (all attempts):', profileError.message);
   }
 
+  // Determine role with fallback chain:
+  // 1. From profiles table (role column)
+  // 2. From auth user_metadata (set by Flutter app)
+  // 3. From auth app_metadata
+  // 4. Default to 'collector'
+  const userRole = profile?.role
+    || authData.user?.user_metadata?.role
+    || authData.user?.app_metadata?.role
+    || 'collector';
+
+  console.log('[Auth] Role resolution:', {
+    profileRole: profile?.role,
+    userMetaRole: authData.user?.user_metadata?.role,
+    appMetaRole: authData.user?.app_metadata?.role,
+    finalRole: userRole,
+  });
+
   const user = {
     id: authData.user.id,
     email: profile?.email || authData.user.email || emailToTry,
     name: profile?.name || authData.user.user_metadata?.name || emailToTry.split('@')[0],
-    role: profile?.role || 'collector',
+    role: userRole,
     phone: profile?.phone || null,
     documentNumber: profile?.dni || null,
     isActive: profile?.is_active ?? true,
@@ -389,12 +410,13 @@ async function handleSyncUsers() {
     let synced = 0;
     for (const profile of profiles) {
       try {
+        const profileRole = profile.role || 'collector';
         await db.profile.upsert({
           where: { id: profile.id },
           update: {
             email: profile.email,
             name: profile.name,
-            role: profile.role,
+            role: profileRole,
             phone: profile.phone,
             documentNumber: profile.dni,
             isActive: profile.is_active ?? true,
@@ -403,7 +425,7 @@ async function handleSyncUsers() {
             id: profile.id,
             email: profile.email,
             name: profile.name || profile.email.split('@')[0],
-            role: profile.role || 'collector',
+            role: profileRole,
             phone: profile.phone,
             documentNumber: profile.dni,
             password: 'synced_from_supabase',
@@ -521,12 +543,13 @@ async function syncFromSupabaseBackground() {
     if (profiles && profiles.length > 0) {
       for (const profile of profiles) {
         try {
+          const profileRole = profile.role || 'collector';
           await db.profile.upsert({
             where: { id: profile.id },
             update: {
               email: profile.email,
               name: profile.name,
-              role: profile.role,
+              role: profileRole,
               phone: profile.phone,
               documentNumber: profile.dni,
               isActive: profile.is_active ?? true,
@@ -535,7 +558,7 @@ async function syncFromSupabaseBackground() {
               id: profile.id,
               email: profile.email,
               name: profile.name || profile.email.split('@')[0],
-              role: profile.role || 'collector',
+              role: profileRole,
               phone: profile.phone,
               documentNumber: profile.dni,
               password: 'synced_from_supabase',
