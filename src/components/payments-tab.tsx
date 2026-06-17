@@ -340,27 +340,6 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
     }
   }, [refreshTrigger, fetchLoans, fetchTodayPayments]);
 
-  // Generate QR for Yape/Plin
-  useEffect(() => {
-    if ((paymentMethod === 'yape' || paymentMethod === 'plin') && selectedLoan && paymentAmount) {
-      const generateQR = async () => {
-        try {
-          const QRCode = (await import('qrcode')).default;
-          const data = await QRCode.toDataURL(
-            `${paymentMethod === 'yape' ? 'Yape' : 'Plin'} - KC Cobranzas - S/${paymentAmount} - Ref: ${selectedLoan.id.slice(0, 8)}`,
-            { width: 220, margin: 2, color: { dark: '#000', light: '#fff' } }
-          );
-          setQrDataUrl(data);
-        } catch {
-          setQrDataUrl('');
-        }
-      };
-      generateQR();
-    } else {
-      setQrDataUrl('');
-    }
-  }, [paymentMethod, paymentAmount, selectedLoan]);
-
   // ============================================================
   // Computed Values
   // ============================================================
@@ -387,6 +366,27 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
     : activeLoans;
 
   const selectedLoan = activeLoans.find((l) => l.id === selectedLoanId);
+
+  // Generate QR for Yape/Plin
+  useEffect(() => {
+    if ((paymentMethod === 'yape' || paymentMethod === 'plin') && selectedLoan && paymentAmount) {
+      const generateQR = async () => {
+        try {
+          const QRCode = (await import('qrcode')).default;
+          const data = await QRCode.toDataURL(
+            `${paymentMethod === 'yape' ? 'Yape' : 'Plin'} - KC Cobranzas - S/${paymentAmount} - Ref: ${selectedLoan.id.slice(0, 8)}`,
+            { width: 220, margin: 2, color: { dark: '#000', light: '#fff' } }
+          );
+          setQrDataUrl(data);
+        } catch {
+          setQrDataUrl('');
+        }
+      };
+      generateQR();
+    } else {
+      setQrDataUrl('');
+    }
+  }, [paymentMethod, paymentAmount, selectedLoan]);
 
   const vueltoAmount = cashReceived && paymentAmount ? Math.max(0, parseFloat(cashReceived) - parseFloat(paymentAmount)) : 0;
 
