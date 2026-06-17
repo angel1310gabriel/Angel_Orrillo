@@ -105,7 +105,7 @@ export default function DashboardTab() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-emerald-100 text-xs font-medium">Capital Actual</p>
-                <p className="text-2xl font-bold mt-1">{formatCurrency(overview?.capital?.current || 0)}</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold mt-1">{formatCurrency(overview?.capital?.current || 0)}</p>
               </div>
               <DollarSign className="h-8 w-8 text-emerald-200" />
             </div>
@@ -198,7 +198,7 @@ export default function DashboardTab() {
                 Análisis de riesgo basado en score crediticio, historial de pagos y tendencias
               </CardDescription>
             </div>
-            <Button size="sm" variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700" onClick={() => fetchData()}>
+            <Button size="sm" variant="outline" className="border-slate-600 text-white hover:bg-slate-700" onClick={() => fetchData()}>
               <RefreshCw className="h-4 w-4 mr-1" />
               Actualizar
             </Button>
