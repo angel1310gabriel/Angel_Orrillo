@@ -29,8 +29,7 @@ export async function GET(request: NextRequest) {
             new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), 5000)),
           ]);
           if (data === null) throw new Error('Supabase timeout');
-          // Only return Supabase data if it has records or total > 0
-          if (data && (data.payments.length > 0 || (data.pagination?.total || 0) > 0)) {
+          if (data) {
             return NextResponse.json(data);
           }
         } catch (error) {
@@ -355,4 +354,79 @@ async function pushPaymentToSupabase(payment: {
 
   if (error) console.error('[Payments] Push to Supabase error:', error.message);
   else console.log('[Payments] Payment pushed to Supabase:', payment.id);
+}
+
+// DELETE /api/payments - Delete a payment
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
+    }
+
+    // On Vercel: use Supabase as primary DB
+    if (isVercel) {
+      const supabase = await getSupabase();
+      if (!supabase) {
+        return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
+      }
+
+      // Check existing via Supabase
+      const { data: payment, error: findError } = await supabase.from('payments').select('id, loan_id, amount, status').eq('id', id).maybeSingle();
+      if (!payment || findError) {
+        return NextResponse.json({ error: 'Pago no encontrado' }, { status: 404 });
+      }
+
+      // Delete via Supabase
+      const { error: deleteError } = await supabase.from('payments').delete().eq('id', id);
+      if (deleteError) {
+        console.error('[Payments] Supabase delete error:', deleteError.message);
+        return NextResponse.json({ error: 'Error al eliminar pago' }, { status: 500 });
+      }
+
+      return NextResponse.json({ message: 'Pago eliminado', loanId: payment.loan_id, amount: payment.amount });
+    }
+
+    // Local mode: Prisma-first with Supabase
+    const payment = await db.payment.findUnique({ where: { id }, include: { loan: { include: { client: { select: { name: true } } } } } });
+    if (!payment) {
+      return NextResponse.json({ error: 'Pago no encontrado' }, { status: 404 });
+    }
+
+    // Update loan amountPaid
+    const newAmountPaid = Math.max(0, payment.loan.amountPaid - payment.amount);
+    const newStatus = newAmountPaid >= payment.loan.totalAmount ? 'completed' : (newAmountPaid > 0 ? 'active' : 'active');
+
+    await db.loan.update({
+      where: { id: payment.loanId },
+      data: { amountPaid: newAmountPaid, status: newStatus },
+    });
+
+    await db.payment.delete({ where: { id } });
+
+    // Also delete from Supabase in background
+    const supabase = await getSupabase();
+    if (supabase) {
+      supabase.from('payments').delete().eq('id', id).then(({ error }) => {
+        if (error) console.error('[Payments] Delete from Supabase error:', error.message);
+      });
+    }
+
+    // Audit log
+    await db.auditLog.create({
+      data: {
+        action: 'DELETE', entityType: 'payment', entityId: id,
+        entityName: `Pago S/${payment.amount} - ${payment.loan.client.name}`,
+        severity: 'warning',
+        notes: `Pago eliminado: S/${payment.amount} de ${payment.loan.client.name}`,
+      },
+    }).catch(() => {});
+
+    return NextResponse.json({ message: 'Pago eliminado', loanId: payment.loanId, amount: payment.amount });
+  } catch (error) {
+    console.error('Error deleting payment:', error);
+    return NextResponse.json({ error: 'Error al eliminar pago' }, { status: 500 });
+  }
 }

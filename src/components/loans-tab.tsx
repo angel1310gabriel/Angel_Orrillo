@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Eye,
   XCircle,
+  Trash2,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -53,6 +54,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 
 // ============================================================
 // Types
@@ -219,7 +221,6 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   yape: 'Yape',
   plin: 'Plin',
   transfer: 'Transferencia',
-  lukita: 'Lukita',
 };
 
 // ============================================================
@@ -228,6 +229,8 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 
 export default function LoansTab({ refreshTrigger }: LoansTabProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   // Loan list state
   const [loans, setLoans] = useState<Loan[]>([]);
@@ -257,6 +260,15 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
   const [interestRate, setInterestRate] = useState('');
   const [loanDays, setLoanDays] = useState('24');
   const [paymentFrequency, setPaymentFrequency] = useState('daily');
+  const [restDays, setRestDays] = useState<number[]>([]);
+  const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+  // Auto-set interest when loanDays changes
+  const handleLoanDaysChange = (val: string) => {
+    setLoanDays(val);
+    if (val === '24') setInterestRate('20');
+    else if (val === '36') setInterestRate('32.10');
+  };
 
   // Step 3 - Details
   const [collectorId, setCollectorId] = useState('');
@@ -275,6 +287,10 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
   // Cancel confirmation
   const [cancelLoanId, setCancelLoanId] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+
+  // Delete confirmation
+  const [deleteLoanId, setDeleteLoanId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // ============================================================
   // Data Fetching
@@ -388,8 +404,88 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
   const calcInterest = loanAmount && interestRate ? parseFloat(loanAmount) * parseFloat(interestRate) / 100 : 0;
   const calcTotalAmount = loanAmount ? parseFloat(loanAmount) + calcInterest : 0;
-  const calcDailyPayment = calcTotalAmount && loanDays ? calcTotalAmount / parseInt(loanDays) : 0;
-  const calcNumCuotas = parseInt(loanDays) || 0;
+  const calcDailyRate = calcTotalAmount && loanDays ? calcTotalAmount / parseInt(loanDays) : 0;
+
+  const totalDays = parseInt(loanDays) || 0;
+  const fullWeeks = Math.floor(totalDays / 7);
+  const remainingDays = totalDays % 7;
+
+  // Weekly with rest day: equal weekly payments over ceil(days/7) weeks
+  const weeklyHasRest = paymentFrequency === 'weekly' && restDays.length > 0;
+  const weeklyWeeks = Math.ceil(totalDays / 7);
+  const calcNumCuotas = weeklyHasRest ? weeklyWeeks : (paymentFrequency === 'weekly' ? fullWeeks + remainingDays : totalDays);
+  const calcPaymentAmount = calcDailyRate;
+  const calcWeeklyPayment = weeklyHasRest ? calcTotalAmount / weeklyWeeks : calcDailyRate * 7;
+
+  const calcSchedule = (() => {
+    if (!totalDays || !calcDailyRate || !startDate) return [];
+    const restSet = new Set(restDays);
+    const schedule: { date: string; amount: number; num: number; type: string }[] = [];
+    let num = 0;
+
+    const nextBusinessDay = (d: Date) => {
+      const d2 = new Date(d);
+      while (restSet.has(d2.getDay())) d2.setDate(d2.getDate() + 1);
+      return d2;
+    };
+
+    // First payment = next day after start date (no same-day payment)
+    let cursor = new Date(startDate);
+    cursor.setDate(cursor.getDate() + 1);
+    cursor = nextBusinessDay(cursor);
+
+    if (paymentFrequency === 'weekly') {
+      if (weeklyHasRest) {
+        for (let w = 0; w < weeklyWeeks; w++) {
+          num++;
+          schedule.push({
+            date: cursor.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' }),
+            amount: calcWeeklyPayment,
+            num,
+            type: 'Semana',
+          });
+          cursor.setDate(cursor.getDate() + 7);
+          cursor = nextBusinessDay(cursor);
+        }
+      } else {
+        for (let w = 0; w < fullWeeks; w++) {
+          num++;
+          schedule.push({
+            date: cursor.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' }),
+            amount: calcDailyRate * 7,
+            num,
+            type: 'Semana',
+          });
+          cursor.setDate(cursor.getDate() + 7);
+          cursor = nextBusinessDay(cursor);
+        }
+        for (let d = 0; d < remainingDays; d++) {
+          num++;
+          schedule.push({
+            date: cursor.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' }),
+            amount: calcDailyRate,
+            num,
+            type: 'Día',
+          });
+          cursor.setDate(cursor.getDate() + 1);
+          cursor = nextBusinessDay(cursor);
+        }
+      }
+    } else {
+      for (let i = 0; i < totalDays; i++) {
+        num++;
+        schedule.push({
+          date: cursor.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' }),
+          amount: calcDailyRate,
+          num,
+          type: 'Día',
+        });
+        cursor.setDate(cursor.getDate() + 1);
+        cursor = nextBusinessDay(cursor);
+      }
+    }
+    return schedule;
+  })();
 
   const selectedClient = clients.find((c) => c.id === selectedClientId);
   const selectedClientHasActiveLoan = selectedClient?.stats?.activeLoans ? selectedClient.stats.activeLoans > 0 : false;
@@ -439,7 +535,10 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
         amount: parseFloat(loanAmount),
         interestRate: parseFloat(interestRate),
         days: parseInt(loanDays),
+        numCuotas: calcNumCuotas,
+        dailyPayment: parseFloat((paymentFrequency === 'weekly' ? calcWeeklyPayment : calcPaymentAmount).toFixed(2)),
         paymentFrequency,
+        restDays: restDays.join(','),
         notes: loanNotes || null,
         guarantors: [],
       };
@@ -480,13 +579,14 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
     setShowNewClient(false);
     setNewClient({ name: '', documentNumber: '', documentType: 'dni', phone: '', address: '', zoneId: '' });
     setLoanAmount('');
-    setInterestRate('');
     setLoanDays('24');
+    setInterestRate('20');
     setPaymentFrequency('daily');
+    setRestDays([]);
     setCollectorId('');
     setZoneId('');
     setLoanNotes('');
-    setStartDate('');
+    setStartDate(new Date().toISOString().split('T')[0]);
   };
 
   const handleCancelLoan = async () => {
@@ -511,6 +611,26 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' });
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleDeleteLoan = async () => {
+    if (!deleteLoanId) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/loans?id=${deleteLoanId}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast({ title: 'Préstamo eliminado', description: 'El préstamo ha sido eliminado' });
+        setDeleteLoanId(null);
+        fetchLoans();
+      } else {
+        const data = await res.json();
+        toast({ title: 'Error', description: data.error || 'No se pudo eliminar', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -544,7 +664,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-emerald-100 text-xs font-medium">Capital Disponible</p>
-                <p className="text-2xl font-bold mt-1">{formatCurrency(capital)}</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold mt-1">{formatCurrency(capital)}</p>
               </div>
               <DollarSign className="h-8 w-8 text-emerald-200" />
             </div>
@@ -556,7 +676,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-teal-100 text-xs font-medium">Total Prestado</p>
-                <p className="text-2xl font-bold mt-1">{formatCurrency(totalLoaned)}</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold mt-1">{formatCurrency(totalLoaned)}</p>
               </div>
               <TrendingUp className="h-8 w-8 text-teal-200" />
             </div>
@@ -568,7 +688,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-amber-100 text-xs font-medium">Total Cobrado</p>
-                <p className="text-2xl font-bold mt-1">{formatCurrency(totalCollected)}</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold mt-1">{formatCurrency(totalCollected)}</p>
               </div>
               <CreditCard className="h-8 w-8 text-amber-200" />
             </div>
@@ -795,7 +915,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {(loan.status === 'active' || loan.status === 'mora') && (
+                        {isAdmin && (loan.status === 'active' || loan.status === 'mora') && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -806,6 +926,19 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                             }}
                           >
                             <XCircle className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {isAdmin && (loan.status === 'cancelled' || loan.status === 'completed') && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteLoanId(loan.id);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
@@ -865,7 +998,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       {/* CREATE LOAN DIALOG (Multi-Step) */}
       {/* ============================================================ */}
       <Dialog open={createOpen} onOpenChange={(open) => { if (!open) resetCreateForm(); setCreateOpen(open); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col p-0">
           <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100">
             <DialogTitle className="flex items-center gap-2 text-xl">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
@@ -879,12 +1012,12 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
           </DialogHeader>
 
           {/* Step Indicator */}
-          <div className="px-6 py-3 bg-slate-50 border-b border-slate-100">
-            <div className="flex items-center gap-2">
+          <div className="px-6 py-4 bg-slate-50 border-b border-slate-100">
+            <div className="flex items-center gap-3">
               {[1, 2, 3].map((step) => (
                 <React.Fragment key={step}>
                   <div className={`flex items-center gap-2 ${createStep >= step ? 'text-emerald-600' : 'text-slate-400'}`}>
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
                       createStep > step
                         ? 'bg-emerald-500 text-white'
                         : createStep === step
@@ -924,8 +1057,8 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                   </div>
 
                   {clientSearch && (
-                    <ScrollArea className="max-h-48">
-                      <div className="space-y-1">
+                    <ScrollArea className="max-h-56">
+                      <div className="space-y-2">
                         {clients.length === 0 ? (
                           <p className="text-sm text-slate-500 text-center py-4">No se encontraron clientes</p>
                         ) : (
@@ -935,14 +1068,14 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                             return (
                               <button
                                 key={client.id}
-                                className={`w-full text-left p-3 rounded-lg border transition-all ${
+                                className={`w-full text-left p-4 rounded-lg border transition-all ${
                                   isSelected
                                     ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200'
                                     : hasActive
                                     ? 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed'
                                     : 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50'
                                 }`}
-                                onClick={() => !hasActive && setSelectedClientId(client.id)}
+                                onClick={() => { if (!hasActive) { setSelectedClientId(client.id); setClientSearch(''); } }}
                                 disabled={hasActive}
                               >
                                 <div className="flex items-center justify-between">
@@ -951,17 +1084,17 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                                     <p className="text-xs text-slate-500">{getDocumentLabel(client.documentType)}: {client.documentNumber} | Tel: {client.phone}</p>
                                   </div>
                                   {hasActive ? (
-                                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
+                                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs shrink-0 ml-2">
                                       Préstamo activo
                                     </Badge>
                                   ) : client.zone ? (
-                                    <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 text-xs">
+                                    <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 text-xs shrink-0 ml-2">
                                       {client.zone.name}
                                     </Badge>
                                   ) : null}
                                 </div>
                                 {client.creditScore !== null && (
-                                  <div className="mt-1 flex items-center gap-1">
+                                  <div className="mt-2 flex items-center gap-1.5">
                                     <span className="text-xs text-slate-400">Score:</span>
                                     <span className={`text-xs font-semibold ${
                                       client.creditScore < 30 ? 'text-red-600' :
@@ -1116,54 +1249,85 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                       )}
                     </div>
 
-                    <div>
-                      <Label className="text-sm font-semibold text-slate-700">
-                        Tasa de Interés (%) *
-                      </Label>
-                      <Input
-                        type="number"
-                        placeholder="24"
-                        value={interestRate}
-                        onChange={(e) => setInterestRate(e.target.value)}
-                        className="mt-1.5 text-lg font-semibold"
-                        min="0"
-                        max="100"
-                        step="0.5"
-                      />
-                      <p className="text-xs text-slate-400 mt-1">Ejemplo: 24 = 24% del monto</p>
+                    <div className="bg-emerald-50 rounded-lg border border-emerald-100 px-3 py-2.5 flex items-center justify-between">
+                      <span className="text-xs text-slate-500 font-medium">Tasa de Interés</span>
+                      <span className="text-sm font-bold text-emerald-600">{interestRate || '20'}% <span className="font-normal text-slate-400">· {loanDays === '36' ? '32.10%' : '20%'} fijo</span></span>
                     </div>
 
                     <div>
-                      <Label className="text-sm font-semibold text-slate-700">
-                        Número de Cuotas *
+                      <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        Plazo
                       </Label>
-                      <Select value={loanDays} onValueChange={setLoanDays}>
-                        <SelectTrigger className="mt-1.5">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[7, 14, 15, 21, 24, 28, 30, 45, 60, 90].map((d) => (
-                            <SelectItem key={d} value={d.toString()}>{d} cuotas</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="grid grid-cols-2 gap-1.5 mt-1">
+                        {['24', '36'].map(d => (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() => handleLoanDaysChange(d)}
+                            className={`py-2 rounded-lg text-xs font-medium transition-all duration-200 border ${loanDays === d
+                              ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm'
+                              : 'border-slate-200 bg-white text-slate-500 hover:border-emerald-300 hover:text-emerald-600'
+                              }`}
+                          >
+                            {d} días
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     <div>
-                      <Label className="text-sm font-semibold text-slate-700">
-                        Frecuencia de Pago
+                      <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        Frecuencia
                       </Label>
-                      <RadioGroup value={paymentFrequency} onValueChange={setPaymentFrequency} className="mt-2">
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="daily" id="daily" />
-                          <Label htmlFor="daily" className="text-sm cursor-pointer">Diario</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="weekly" id="weekly" />
-                          <Label htmlFor="weekly" className="text-sm cursor-pointer">Semanal</Label>
-                        </div>
-                      </RadioGroup>
+                      <div className="grid grid-cols-2 gap-1.5 mt-1">
+                        {[
+                          { value: 'daily', label: 'Diario' },
+                          { value: 'weekly', label: 'Semanal' },
+                        ].map(f => (
+                          <button
+                            key={f.value}
+                            type="button"
+                            onClick={() => setPaymentFrequency(f.value)}
+                            className={`py-2 rounded-lg text-xs font-medium transition-all duration-200 border ${paymentFrequency === f.value
+                              ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm'
+                              : 'border-slate-200 bg-white text-slate-500 hover:border-emerald-300 hover:text-emerald-600'
+                              }`}
+                          >
+                            {f.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Rest Days */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold text-slate-700">
+                      Día de Descanso (sin cobro)
+                    </Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {DAYS.map((day, idx) => {
+                        const active = restDays.includes(idx);
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setRestDays(active ? [] : [idx])}
+                            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border-2 ${active
+                              ? 'border-red-400 bg-red-50 text-red-600 shadow-md shadow-red-500/10'
+                              : 'border-slate-200 bg-white text-slate-600 hover:border-red-300 hover:bg-red-50/50'
+                              }`}
+                          >
+                            {day}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      {paymentFrequency === 'daily'
+                        ? 'Los cobros saltarán este día de la semana'
+                        : 'El cobro semanal se programará evitando este día'}
+                    </p>
                   </div>
 
                   <div>
@@ -1203,7 +1367,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                             <p className="text-xs text-slate-500">
                               Cuota {paymentFrequency === 'daily' ? 'Diaria' : 'Semanal'}
                             </p>
-                            <p className="text-lg font-bold text-emerald-600">{formatCurrency(calcDailyPayment)}</p>
+                            <p className="text-lg font-bold text-emerald-600">{formatCurrency(paymentFrequency === 'weekly' ? calcWeeklyPayment : calcPaymentAmount)}</p>
                           </div>
                         </div>
                         <Separator />
@@ -1215,6 +1379,43 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                           <span className="text-slate-600">Número de cuotas:</span>
                           <span className="font-bold text-slate-700">{calcNumCuotas}</span>
                         </div>
+                        {restDays.length > 0 && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-slate-600">Días de descanso:</span>
+                            <span className="font-bold text-red-500">{restDays.sort().map(d => DAYS[d]).join(', ')}</span>
+                          </div>
+                        )}
+                        {startDate && calcSchedule.length > 0 && (
+                          <div className="bg-white rounded-lg border border-emerald-100 max-h-40 overflow-y-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="bg-emerald-50 text-emerald-700">
+                                  <th className="px-2 py-1.5 text-left font-semibold">#</th>
+                                  <th className="px-2 py-1.5 text-left font-semibold">Tipo</th>
+                                  <th className="px-2 py-1.5 text-left font-semibold">Fecha</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold">Monto</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {calcSchedule.slice(0, 15).map((row) => (
+                                  <tr key={row.num} className="border-t border-emerald-50">
+                                    <td className="px-2 py-1 text-slate-500">{row.num}</td>
+                                    <td className="px-2 py-1"><span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${row.type === 'Semana' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{row.type}</span></td>
+                                    <td className="px-2 py-1 text-slate-700">{row.date}</td>
+                                    <td className="px-2 py-1 text-right font-medium text-emerald-600">{formatCurrency(row.amount)}</td>
+                                  </tr>
+                                ))}
+                                {calcSchedule.length > 15 && (
+                                  <tr className="border-t border-emerald-50">
+                                    <td colSpan={4} className="px-2 py-1.5 text-center text-slate-400 italic">
+                                      ... y {calcSchedule.length - 15} pagos más
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
                         {parseFloat(loanAmount) > capital && (
                           <Alert className="bg-red-50 border-red-200">
                             <AlertTriangle className="h-4 w-4 text-red-600" />
@@ -1255,7 +1456,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                         </div>
                         <div>
                           <span className="text-slate-500">Cuota {paymentFrequency === 'daily' ? 'Diaria' : 'Semanal'}:</span>
-                          <p className="font-semibold text-emerald-600">{formatCurrency(calcDailyPayment)}</p>
+                          <p className="font-semibold text-emerald-600">{formatCurrency(paymentFrequency === 'weekly' ? calcWeeklyPayment : calcPaymentAmount)}</p>
                         </div>
                         <div>
                           <span className="text-slate-500">Cuotas:</span>
@@ -1639,7 +1840,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 )}
 
                 {/* Actions */}
-                {(detailLoan.status === 'active' || detailLoan.status === 'mora') && (
+                {isAdmin && (detailLoan.status === 'active' || detailLoan.status === 'mora') && (
                   <>
                     <Separator />
                     <div className="flex items-center gap-2">
@@ -1653,6 +1854,24 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                       >
                         <XCircle className="h-4 w-4 mr-2" />
                         Cancelar Préstamo
+                      </Button>
+                    </div>
+                  </>
+                )}
+                {isAdmin && (detailLoan.status === 'cancelled' || detailLoan.status === 'completed') && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="destructive"
+                        className="flex-1"
+                        onClick={() => {
+                          setDeleteLoanId(detailLoan.id);
+                          setDetailOpen(false);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Eliminar Préstamo
                       </Button>
                     </div>
                   </>
@@ -1684,6 +1903,32 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
             <Button variant="destructive" onClick={handleCancelLoan} disabled={cancelling}>
               {cancelling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
               Sí, cancelar préstamo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================ */}
+      {/* DELETE CONFIRMATION DIALOG */}
+      {/* ============================================================ */}
+      <Dialog open={!!deleteLoanId} onOpenChange={(open) => { if (!open) setDeleteLoanId(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <AlertTriangle className="h-5 w-5" />
+              Eliminar Préstamo
+            </DialogTitle>
+            <DialogDescription>
+              ¿Está seguro que desea eliminar este préstamo permanentemente? Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex items-center gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setDeleteLoanId(null)} disabled={deleting}>
+              No, volver
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteLoan} disabled={deleting}>
+              {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Sí, eliminar préstamo
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -28,12 +28,10 @@ export async function GET(request: NextRequest) {
             }),
             new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), 5000)),
           ]);
-          // Only return Supabase data if it actually has records or if pagination shows total > 0
-          // This prevents showing empty data when Supabase hasn't been synced yet
-          if (data && (data.loans.length > 0 || (data.pagination?.total || 0) > 0)) {
+          // Only return Supabase data if query succeeded (even if empty resultset)
+          if (data && data !== null) {
             return NextResponse.json(data);
           }
-          // If Supabase is empty, fall through to Prisma fallback
         } catch (error) {
           console.error('Supabase getLoans failed, falling back to Prisma:', error);
         }
@@ -126,7 +124,10 @@ export async function POST(request: NextRequest) {
       amount,
       interestRate,
       days,
+      numCuotas: numCuotasInput,
+      dailyPayment: dailyPaymentInput,
       paymentFrequency,
+      restDays,
       startDate,
       notes,
       guarantors,
@@ -161,7 +162,10 @@ export async function POST(request: NextRequest) {
               amount,
               interestRate,
               days,
+              numCuotas: numCuotasInput,
+              dailyPayment: dailyPaymentInput,
               paymentFrequency,
+              restDays,
               startDate,
               notes,
               createdBy: collectorId,
@@ -221,8 +225,8 @@ export async function POST(request: NextRequest) {
     // Calculate loan amounts (GOTA A GOTA logic)
     const interestAmount = amount * (interestRate / 100);
     const totalAmount = amount + interestAmount;
-    const numCuotas = days;
-    const dailyPayment = Math.round((totalAmount / numCuotas) * 100) / 100;
+    const numCuotas = numCuotasInput || days;
+    const dailyPayment = dailyPaymentInput || Math.round((totalAmount / days) * 100) / 100;
     const loanStartDate = startDate ? new Date(startDate) : new Date();
     const loanEndDate = new Date(loanStartDate.getTime() + days * 86400000);
 
@@ -258,6 +262,7 @@ export async function POST(request: NextRequest) {
         status: 'active',
         creditApproved: true,
         notes: notes || null,
+        restDays: restDays ? (Array.isArray(restDays) ? restDays.join(',') : String(restDays)) : '',
         createdBy: collectorId || null,
         // Generate payment schedule
         schedule: {
@@ -549,5 +554,80 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     console.error('Error updating loan:', error);
     return NextResponse.json({ error: 'Error al actualizar préstamo' }, { status: 500 });
+  }
+}
+
+// DELETE /api/loans - Delete a loan
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
+    }
+
+    // On Vercel: use Supabase as primary DB
+    if (isVercel) {
+      const supabase = await getSupabase();
+      if (!supabase) {
+        return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
+      }
+
+      // Check existing via Supabase
+      const { data: loan, error: findError } = await supabase.from('loans').select('id, client_id, status, amount').eq('id', id).maybeSingle();
+      if (!loan || findError) {
+        return NextResponse.json({ error: 'Préstamo no encontrado' }, { status: 404 });
+      }
+
+      // Only allow deleting cancelled or completed loans
+      if (loan.status !== 'cancelled' && loan.status !== 'completed') {
+        return NextResponse.json({ error: 'Solo se pueden eliminar préstamos cancelados o completados' }, { status: 400 });
+      }
+
+      // Delete via Supabase
+      const { error: deleteError } = await supabase.from('loans').delete().eq('id', id);
+      if (deleteError) {
+        console.error('[Loans] Supabase delete error:', deleteError.message);
+        return NextResponse.json({ error: 'Error al eliminar préstamo' }, { status: 500 });
+      }
+
+      return NextResponse.json({ message: 'Préstamo eliminado' });
+    }
+
+    // Local mode: Prisma-first with Supabase
+    const loan = await db.loan.findUnique({ where: { id }, include: { client: { select: { name: true } } } });
+    if (!loan) {
+      return NextResponse.json({ error: 'Préstamo no encontrado' }, { status: 404 });
+    }
+
+    if (loan.status !== 'cancelled' && loan.status !== 'completed') {
+      return NextResponse.json({ error: 'Solo se pueden eliminar préstamos cancelados o completados' }, { status: 400 });
+    }
+
+    await db.loan.delete({ where: { id } });
+
+    // Also delete from Supabase in background
+    const supabase = await getSupabase();
+    if (supabase) {
+      supabase.from('loans').delete().eq('id', id).then(({ error }) => {
+        if (error) console.error('[Loans] Delete from Supabase error:', error.message);
+      });
+    }
+
+    // Audit log
+    await db.auditLog.create({
+      data: {
+        action: 'DELETE', entityType: 'loan', entityId: id,
+        entityName: `Préstamo ${loan.client.name}`,
+        severity: 'warning',
+        notes: `Préstamo eliminado: ${loan.client.name} - S/${loan.amount}`,
+      },
+    }).catch(() => {});
+
+    return NextResponse.json({ message: 'Préstamo eliminado' });
+  } catch (error) {
+    console.error('Error deleting loan:', error);
+    return NextResponse.json({ error: 'Error al eliminar préstamo' }, { status: 500 });
   }
 }

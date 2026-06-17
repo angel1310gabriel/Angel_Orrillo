@@ -17,6 +17,7 @@ import{Skeleton}from'@/components/ui/skeleton';
 import{Alert,AlertDescription}from'@/components/ui/alert';
 import{AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogFooter,AlertDialogTitle,AlertDialogDescription,AlertDialogAction,AlertDialogCancel}from'@/components/ui/alert-dialog';
 import{useToast}from'@/hooks/use-toast';
+import{useAuth}from'@/hooks/use-auth';
 
 interface CWS{id:string;name:string;documentType:string;documentNumber:string;phone:string;address:string|null;zoneId:string|null;zone:{id:string;name:string}|null;creditScore:number|null;photoUrl:string|null;createdAt:string;guarantors:{id:string;name:string;phone:string|null}[];loans:{id:string;status:string;amount:number;totalAmount:number;amountPaid:number}[];stats:{totalLoans:number;activeLoans:number;totalLoaned:number;totalPaid:number;hasMora:boolean}}
 interface Zone{id:string;name:string}
@@ -39,6 +40,8 @@ const avt=(c:CWS)=>c.stats.hasMora?['bg-red-100','text-red-600']:c.stats.activeL
 
 export default function ClientsTab({refreshTrigger}:{refreshTrigger?:number}){
 const{toast}=useToast();
+const{user}=useAuth();
+const isAdmin=user?.role==='admin';
 const[clients,setClients]=useState<CWS[]>([]);
 const[zones,setZones]=useState<Zone[]>([]);
 const[loading,setLoading]=useState(true);
@@ -140,7 +143,7 @@ return(
 <div className="flex items-center gap-1 shrink-0" onClick={e=>e.stopPropagation()}>
 <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-emerald-600" onClick={()=>{setDetC(c);setDetO(true)}}><Eye className="h-4 w-4"/></Button>
 <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-amber-600" onClick={()=>openEdit(c)}><Pencil className="h-4 w-4"/></Button>
-<Button variant="ghost" size="icon" className={`h-8 w-8 ${c.stats.activeLoans>0?'text-slate-300':'text-slate-400 hover:text-red-600'}`} disabled={c.stats.activeLoans>0} onClick={()=>!c.stats.activeLoans&&setDelC(c)}><Trash2 className="h-4 w-4"/></Button>
+{isAdmin&&<Button variant="ghost" size="icon" className={`h-8 w-8 ${c.stats.activeLoans>0?'text-slate-300':'text-slate-400 hover:text-red-600'}`} disabled={c.stats.activeLoans>0} onClick={()=>!c.stats.activeLoans&&setDelC(c)}><Trash2 className="h-4 w-4"/></Button>}
 </div>
 </div>
 </CardContent>
@@ -160,7 +163,7 @@ return(
 <div className="space-y-2">
 <Label className="text-sm font-semibold text-slate-700 flex items-center gap-2"><Fingerprint className="h-4 w-4 text-emerald-600"/>Tipo de documento <span className="text-red-500">*</span></Label>
 <div className="grid grid-cols-3 gap-3">{DTs.map(dt=>{const sel=fDT===dt.v;const Ic=dt.ic;return(
-<button key={dt.v} type="button" onClick={()=>onDTC(dt.v)} className={`relative flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 ${sel?'border-emerald-500 bg-emerald-50 shadow-md ring-1 ring-emerald-500/30':'border-slate-200 bg-white hover:border-emerald-300'}`}>
+<button key={dt.v} type="button" onClick={()=>onDTC(dt.v)} disabled={editing&&!isAdmin} className={`relative flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 ${sel?'border-emerald-500 bg-emerald-50 shadow-md ring-1 ring-emerald-500/30':'border-slate-200 bg-white hover:border-emerald-300'} ${editing&&!isAdmin?'opacity-60 cursor-not-allowed':''}`}>
 {sel&&<div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center"><CheckCircle2 className="h-3 w-3 text-white"/></div>}
 <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${sel?'bg-emerald-500':'bg-slate-100'}`}><Ic className={`h-5 w-5 ${sel?'text-white':'text-slate-500'}`}/></div>
 <span className={`text-sm font-bold ${sel?'text-emerald-700':'text-slate-700'}`}>{DTL[dt.v]}</span>
@@ -172,10 +175,10 @@ return(
 <Label htmlFor="dn" className="text-sm font-semibold text-slate-700">Número de {curD.lb} <span className="text-red-500">*</span></Label>
 <div className="flex items-center gap-2">
 <div className="relative flex-1">
-<Input id="dn" placeholder={curD.dg===8?'12345678':'123456789'} value={fDN} onChange={e=>onDNC(e.target.value)} maxLength={curD.dg} className={`bg-white pr-20 h-11 font-mono tracking-wider ${vB(docV)}`}/>
+<Input id="dn" placeholder={curD.dg===8?'12345678':'123456789'} value={fDN} onChange={e=>onDNC(e.target.value)} maxLength={curD.dg} className={`bg-white pr-20 h-11 font-mono tracking-wider ${vB(docV)}`} disabled={editing&&!isAdmin}/>
 <div className={`absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 ${docV?.[0]?'text-emerald-600':'text-slate-400'}`}><span className="text-xs font-mono">{fDN.length}/{curD.dg}</span>{docV&&(docV[0]?<CheckCircle2 className="h-4 w-4 text-emerald-500"/>:<XCircle className="h-4 w-4 text-red-400"/>)}</div>
 </div>
-<Button type="button" variant="outline" className={`h-11 shrink-0 px-4 font-semibold ${dOk?'border-emerald-300 text-emerald-700 bg-emerald-50/50':'border-slate-200 text-slate-400'}`} onClick={verDoc} disabled={!dOk||vDocing}>{vDocing?<Loader2 className="h-4 w-4 mr-1.5 animate-spin"/>:vRes?<CheckCheck className="h-4 w-4 mr-1.5 text-emerald-600"/>:<ScanLine className="h-4 w-4 mr-1.5"/>}{vDocing?'Verif...':vRes?'Verificado':'Verificar'}</Button>
+<Button type="button" variant="outline" className={`h-11 shrink-0 px-4 font-semibold ${dOk?'border-emerald-300 text-emerald-700 bg-emerald-50/50':'border-slate-200 text-slate-400'}`} onClick={verDoc} disabled={!dOk||vDocing||(editing&&!isAdmin)}>{vDocing?<Loader2 className="h-4 w-4 mr-1.5 animate-spin"/>:vRes?<CheckCheck className="h-4 w-4 mr-1.5 text-emerald-600"/>:<ScanLine className="h-4 w-4 mr-1.5"/>}{vDocing?'Verif...':vRes?'Verificado':'Verificar'}</Button>
 </div>
 {docV&&<p className={`text-xs ${docV[0]?'text-emerald-600':'text-red-500'}`}>{docV[1]}</p>}
 {vRes&&<div className="mt-2 rounded-lg border border-slate-200 overflow-hidden text-sm">

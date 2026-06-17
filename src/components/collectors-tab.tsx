@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 
 interface StaffMember {
   id: string; name: string | null; email: string; phone: string | null;
@@ -69,6 +70,8 @@ function VInput({ value, valid, ...p }: { value: string; valid: boolean } & Reac
 
 export default function CollectorsTab({ refreshTrigger }: Props) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -249,7 +252,8 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
                 {sel.role === 'collector' && (<><div className="space-y-2"><h4 className="text-sm font-semibold text-slate-700">Estadísticas</h4><div className="grid grid-cols-2 gap-3"><div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100"><p className="text-2xl font-bold text-emerald-700">{sel._count.loans}</p><p className="text-xs text-emerald-600">Préstamos</p></div><div className="p-3 rounded-xl bg-teal-50 border border-teal-100"><p className="text-2xl font-bold text-teal-700">{sel._count.payments}</p><p className="text-xs text-teal-600">Pagos</p></div></div></div><Separator /></>)}
                 <p className="text-sm text-slate-500">Registrado el {new Date(sel.createdAt).toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
                 <Separator />
-                <div className="space-y-3"><h4 className="text-sm font-semibold text-slate-700">Acciones</h4><div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100"><div><p className="text-sm font-medium text-slate-800">{sel.isActive ? 'Desactivar' : 'Activar'} Personal</p><p className="text-xs text-slate-500">{sel.isActive ? 'No podrá acceder al sistema' : 'Podrá acceder nuevamente'}</p></div><Switch checked={sel.isActive} onCheckedChange={() => onToggle(sel)} disabled={toggling === sel.id} className="data-[state=checked]:bg-emerald-500" /></div><Button variant="outline" className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-300" disabled={deleting === sel.id} onClick={() => onDel(sel)}>{deleting === sel.id ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Eliminando...</> : <><Trash2 className="h-4 w-4 mr-2" /> Eliminar Personal</>}</Button></div>
+                <div className="space-y-3"><h4 className="text-sm font-semibold text-slate-700">Acciones</h4>{isAdmin && <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100"><div><p className="text-sm font-medium text-slate-800">{sel.isActive ? 'Desactivar' : 'Activar'} Personal</p><p className="text-xs text-slate-500">{sel.isActive ? 'No podrá acceder al sistema' : 'Podrá acceder nuevamente'}</p></div><Switch checked={sel.isActive} onCheckedChange={() => onToggle(sel)} disabled={toggling === sel.id} className="data-[state=checked]:bg-emerald-500" /></div>}
+{isAdmin && <Button variant="outline" className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-300" disabled={deleting === sel.id} onClick={() => onDel(sel)}>{deleting === sel.id ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Eliminando...</> : <><Trash2 className="h-4 w-4 mr-2" /> Eliminar Personal</>}</Button>}</div>
               </div>
             </>
           ); })()}

@@ -14,7 +14,6 @@ import {
   Banknote,
   Smartphone,
   Wifi,
-  Phone,
   ArrowRightLeft,
   User,
   Phone as PhoneIcon,
@@ -25,7 +24,9 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  Filter,
+  Upload,
+  Send,
+  Trash2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -59,6 +60,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 
 // ============================================================
 // Types
@@ -171,7 +173,6 @@ const PAYMENT_METHODS = [
   { value: 'cash', label: 'Efectivo', icon: Banknote, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100' },
   { value: 'yape', label: 'Yape', icon: Smartphone, color: 'text-purple-600', bg: 'bg-purple-50 border-purple-200 hover:bg-purple-100' },
   { value: 'plin', label: 'Plin', icon: Wifi, color: 'text-sky-600', bg: 'bg-sky-50 border-sky-200 hover:bg-sky-100' },
-  { value: 'lukita', label: 'Lukita', icon: Phone, color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200 hover:bg-amber-100' },
   { value: 'transfer', label: 'Transferencia', icon: ArrowRightLeft, color: 'text-teal-600', bg: 'bg-teal-50 border-teal-200 hover:bg-teal-100' },
 ] as const;
 
@@ -180,7 +181,6 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   yape: 'Yape',
   plin: 'Plin',
   transfer: 'Transferencia',
-  lukita: 'Lukita',
 };
 
 const getMethodIcon = (method: string) => {
@@ -199,6 +199,8 @@ const getMethodColor = (method: string) => {
 
 export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   // Date state
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -225,6 +227,12 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
   const [paymentObservation, setPaymentObservation] = useState('');
   const [loanSearch, setLoanSearch] = useState('');
 
+  // Payment method sub-forms
+  const [cashReceived, setCashReceived] = useState('');
+  const [proofFileBase64, setProofFileBase64] = useState('');
+  const [proofPreview, setProofPreview] = useState('');
+  const [qrDataUrl, setQrDataUrl] = useState('');
+
   // Loan completed celebration
   const [completedLoanName, setCompletedLoanName] = useState<string | null>(null);
   const [celebrationOpen, setCelebrationOpen] = useState(false);
@@ -232,6 +240,10 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
   // Payment history pagination
   const [historyPage, setHistoryPage] = useState(1);
   const [historyTotalPages, setHistoryTotalPages] = useState(1);
+
+  // Delete payment
+  const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null);
+  const [deletingPayment, setDeletingPayment] = useState(false);
 
   // ============================================================
   // Data Fetching
@@ -328,6 +340,27 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
     }
   }, [refreshTrigger, fetchLoans, fetchTodayPayments]);
 
+  // Generate QR for Yape/Plin
+  useEffect(() => {
+    if ((paymentMethod === 'yape' || paymentMethod === 'plin') && selectedLoan && paymentAmount) {
+      const generateQR = async () => {
+        try {
+          const QRCode = (await import('qrcode')).default;
+          const data = await QRCode.toDataURL(
+            `${paymentMethod === 'yape' ? 'Yape' : 'Plin'} - KC Cobranzas - S/${paymentAmount} - Ref: ${selectedLoan.id.slice(0, 8)}`,
+            { width: 220, margin: 2, color: { dark: '#000', light: '#fff' } }
+          );
+          setQrDataUrl(data);
+        } catch {
+          setQrDataUrl('');
+        }
+      };
+      generateQR();
+    } else {
+      setQrDataUrl('');
+    }
+  }, [paymentMethod, paymentAmount, selectedLoan]);
+
   // ============================================================
   // Computed Values
   // ============================================================
@@ -355,6 +388,37 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
   const selectedLoan = activeLoans.find((l) => l.id === selectedLoanId);
 
+  const vueltoAmount = cashReceived && paymentAmount ? Math.max(0, parseFloat(cashReceived) - parseFloat(paymentAmount)) : 0;
+
+  const BANK_ACCOUNTS = [
+    { bank: 'BCP', account: '191-12345678-0-00', holder: 'KC Cobranzas' },
+    { bank: 'BBVA', account: '0011-0123-4500123456', holder: 'KC Cobranzas' },
+    { bank: 'Interbank', account: '898-1234567890', holder: 'KC Cobranzas' },
+  ];
+
+  const handleProofFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setProofPreview(result);
+      setProofFileBase64(result.split(',')[1]);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSendWhatsApp = (message: string) => {
+    if (!selectedLoan?.client.phone) {
+      toast({ title: 'Sin teléfono', description: 'El cliente no tiene número registrado', variant: 'destructive' });
+      return;
+    }
+    const phone = selectedLoan.client.phone.replace(/[^0-9]/g, '');
+    const fullPhone = phone.startsWith('51') ? phone : `51${phone}`;
+    const url = `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+  };
+
   // ============================================================
   // Payment Registration
   // ============================================================
@@ -366,6 +430,10 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
     setPaymentCollectorId('');
     setPaymentObservation('');
     setLoanSearch('');
+    setCashReceived('');
+    setProofFileBase64('');
+    setProofPreview('');
+    setQrDataUrl('');
     setRegisterOpen(true);
   };
 
@@ -375,6 +443,10 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
     if (loan) {
       setPaymentAmount(loan.dailyPayment.toString());
     }
+    setCashReceived('');
+    setProofFileBase64('');
+    setProofPreview('');
+    setQrDataUrl('');
   };
 
   const handleRegisterPayment = async () => {
@@ -396,6 +468,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
         amount,
         paymentMethod,
         observation: paymentObservation || null,
+        proofPhoto: proofFileBase64 || null,
       };
       if (paymentCollectorId) body.collectorId = paymentCollectorId;
 
@@ -433,6 +506,27 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
     }
   };
 
+  const handleDeletePayment = async () => {
+    if (!deletePaymentId) return;
+    setDeletingPayment(true);
+    try {
+      const res = await fetch(`/api/payments?id=${deletePaymentId}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast({ title: 'Pago eliminado', description: 'El pago ha sido eliminado' });
+        setDeletePaymentId(null);
+        fetchLoans();
+        fetchTodayPayments();
+      } else {
+        const data = await res.json();
+        toast({ title: 'Error', description: data.error || 'No se pudo eliminar', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' });
+    } finally {
+      setDeletingPayment(false);
+    }
+  };
+
   const resetForm = () => {
     setSelectedLoanId('');
     setPaymentAmount('');
@@ -440,6 +534,9 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
     setPaymentCollectorId('');
     setPaymentObservation('');
     setLoanSearch('');
+    setCashReceived('');
+    setProofFileBase64('');
+    setProofPreview('');
   };
 
   // ============================================================
@@ -461,7 +558,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-emerald-100 text-xs font-medium">Cobrado {isToday ? 'Hoy' : ''}</p>
-                <p className="text-2xl font-bold mt-1">{formatCurrency(totalCollected)}</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold mt-1">{formatCurrency(totalCollected)}</p>
               </div>
               <DollarSign className="h-8 w-8 text-emerald-200" />
             </div>
@@ -828,6 +925,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                       <TableHead>Método</TableHead>
                       <TableHead>Cobrador</TableHead>
                       <TableHead>Obs.</TableHead>
+                      {isAdmin && <TableHead className="w-12"></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -866,6 +964,18 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                           <TableCell className="text-xs text-slate-500 max-w-32 truncate">
                             {payment.observation || '—'}
                           </TableCell>
+                          {isAdmin && (
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                onClick={() => setDeletePaymentId(payment.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </TableCell>
+                          )}
                         </TableRow>
                       );
                     })}
@@ -887,9 +997,21 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                         <p className="font-semibold text-sm text-slate-900">
                           {payment.loan?.client?.name || '—'}
                         </p>
-                        <p className="font-bold text-emerald-600">
-                          {formatCurrency(payment.amount)}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-emerald-600">
+                            {formatCurrency(payment.amount)}
+                          </p>
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                              onClick={() => setDeletePaymentId(payment.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center justify-between text-xs text-slate-500">
                         <div className="flex items-center gap-2">
@@ -1179,6 +1301,176 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                     </RadioGroup>
                   </div>
 
+                  {/* Payment Method Sub-forms */}
+                  {paymentMethod === 'cash' && (
+                    <div className="space-y-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                      <Label className="text-sm font-semibold text-amber-800">
+                        Monto Recibido en Efectivo
+                      </Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">
+                          S/
+                        </span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={cashReceived}
+                          onChange={(e) => setCashReceived(e.target.value)}
+                          className="pl-9 bg-white border-amber-200"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      {vueltoAmount > 0 && (
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-white border border-amber-200">
+                          <span className="text-sm font-medium text-amber-700">Vuelto</span>
+                          <span className="text-lg font-bold text-emerald-600">
+                            {formatCurrency(vueltoAmount)}
+                          </span>
+                        </div>
+                      )}
+                      {parseFloat(cashReceived || '0') > 0 && parseFloat(cashReceived) < parseFloat(paymentAmount) && (
+                        <p className="text-xs text-amber-600">
+                          El monto recibido es menor al cobro
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {(paymentMethod === 'yape' || paymentMethod === 'plin') && (
+                    <div className="space-y-4 p-4 rounded-xl bg-purple-50 border border-purple-200">
+                      {qrDataUrl && (
+                        <div className="flex flex-col items-center gap-2">
+                          <img
+                            src={qrDataUrl}
+                            alt="QR de pago"
+                            className="w-48 h-48 rounded-xl bg-white p-2 shadow-sm"
+                          />
+                          <p className="text-xs text-purple-600 font-medium">
+                            {paymentMethod === 'yape' ? 'Yape' : 'Plin'} - S/{parseFloat(paymentAmount || '0').toFixed(2)}
+                          </p>
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        {selectedLoan?.client.phone && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 border-purple-200 text-purple-600 hover:bg-purple-100 text-xs"
+                            onClick={() => handleSendWhatsApp(
+                              `*${paymentMethod === 'yape' ? 'YAPE' : 'PLIN'} - KC Cobranzas*\n\nMonto: S/${parseFloat(paymentAmount || '0').toFixed(2)}\nCliente: ${selectedLoan?.client.name}\nRef: ${selectedLoan?.id.slice(0, 8)}\n\nAdjunto el comprobante del pago.`
+                            )}
+                          >
+                            <Send className="h-3.5 w-3.5 mr-1" />
+                            Enviar por WhatsApp
+                          </Button>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="text-xs font-semibold text-purple-800">
+                          Subir Comprobante
+                        </Label>
+                        <div className="mt-1.5 flex items-center gap-3">
+                          <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-purple-200 bg-white cursor-pointer hover:bg-purple-50 text-xs text-purple-700">
+                            <Upload className="h-3.5 w-3.5" />
+                            {proofPreview ? 'Cambiar archivo' : 'Seleccionar imagen'}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleProofFile}
+                              className="hidden"
+                            />
+                          </label>
+                          {proofFileBase64 && (
+                            <button
+                              className="text-xs text-red-500 hover:text-red-700"
+                              onClick={() => { setProofFileBase64(''); setProofPreview(''); }}
+                            >
+                              Eliminar
+                            </button>
+                          )}
+                        </div>
+                        {proofPreview && (
+                          <div className="mt-2">
+                            <img
+                              src={proofPreview}
+                              alt="Comprobante"
+                              className="w-full max-h-40 object-contain rounded-lg border border-purple-200 bg-white"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {paymentMethod === 'transfer' && (
+                    <div className="space-y-4 p-4 rounded-xl bg-teal-50 border border-teal-200">
+                      <Label className="text-sm font-semibold text-teal-800">
+                        Transferencia Bancaria
+                      </Label>
+                      <div className="space-y-2">
+                        {BANK_ACCOUNTS.map((acc, i) => (
+                          <div
+                            key={i}
+                            className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-teal-200"
+                          >
+                            <div>
+                              <p className="text-sm font-semibold text-slate-800">{acc.bank}</p>
+                              <p className="text-xs text-slate-500 font-mono">{acc.account}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {selectedLoan?.client.phone && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full border-teal-200 text-teal-600 hover:bg-teal-100 text-xs"
+                          onClick={() => handleSendWhatsApp(
+                            `*Transferencia - KC Cobranzas*\n\nMonto: S/${parseFloat(paymentAmount || '0').toFixed(2)}\nCliente: ${selectedLoan?.client.name}\n\nDatos bancarios:\n${BANK_ACCOUNTS.map(a => `• ${a.bank}: ${a.account}`).join('\n')}\n\nAdjunto el comprobante de la transferencia.`
+                          )}
+                        >
+                          <Send className="h-3.5 w-3.5 mr-1" />
+                          Enviar datos por WhatsApp
+                        </Button>
+                      )}
+                      <div>
+                        <Label className="text-xs font-semibold text-teal-800">
+                          Subir Comprobante
+                        </Label>
+                        <div className="mt-1.5 flex items-center gap-3">
+                          <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-teal-200 bg-white cursor-pointer hover:bg-teal-50 text-xs text-teal-700">
+                            <Upload className="h-3.5 w-3.5" />
+                            {proofPreview ? 'Cambiar archivo' : 'Seleccionar imagen'}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleProofFile}
+                              className="hidden"
+                            />
+                          </label>
+                          {proofFileBase64 && (
+                            <button
+                              className="text-xs text-red-500 hover:text-red-700"
+                              onClick={() => { setProofFileBase64(''); setProofPreview(''); }}
+                            >
+                              Eliminar
+                            </button>
+                          )}
+                        </div>
+                        {proofPreview && (
+                          <div className="mt-2">
+                            <img
+                              src={proofPreview}
+                              alt="Comprobante"
+                              className="w-full max-h-40 object-contain rounded-lg border border-teal-200 bg-white"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Collector */}
                   <div>
                     <Label className="text-sm font-semibold text-slate-700">
@@ -1290,6 +1582,32 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
               Continuar
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================ */}
+      {/* DELETE PAYMENT CONFIRMATION */}
+      {/* ============================================================ */}
+      <Dialog open={!!deletePaymentId} onOpenChange={(open) => { if (!open) setDeletePaymentId(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <AlertTriangle className="h-5 w-5" />
+              Eliminar Pago
+            </DialogTitle>
+            <DialogDescription>
+              ¿Está seguro que desea eliminar este pago permanentemente? El monto será descontado del progreso del préstamo.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex items-center gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setDeletePaymentId(null)} disabled={deletingPayment}>
+              No, volver
+            </Button>
+            <Button variant="destructive" onClick={handleDeletePayment} disabled={deletingPayment}>
+              {deletingPayment ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Sí, eliminar pago
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
