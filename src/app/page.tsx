@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import { useTheme } from 'next-themes';
 import LoansTab from '@/components/loans-tab';
 import CapitalTab from '@/components/capital-tab';
 import ClientsTab from '@/components/clients-tab';
@@ -10,9 +11,11 @@ import ConfigTab from '@/components/config-tab';
 import CollectorsTab from '@/components/collectors-tab';
 import LoginScreen from '@/components/login-screen';
 import { ErrorBoundary } from '@/components/error-boundary';
+import DataToolsDialog from '@/components/data-tools';
 import { useSupabaseRealtime } from '@/hooks/use-supabase-realtime';
 import { useAuth, ROLE_PERMISSIONS } from '@/hooks/use-auth';
 import ChangePassword from '@/components/change-password';
+import { InactivityTracker } from '@/components/inactivity-tracker';
 import {
   ShieldCheck,
   Clock,
@@ -28,11 +31,13 @@ import {
   Wifi,
   Menu,
   X,
-  ChevronLeft,
-  ChevronRight,
   LogOut,
   User,
   KeyRound,
+  Download,
+  Upload,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -84,14 +89,18 @@ const ROLE_BADGE: Record<string, { label: string; color: string }> = {
 
 export default function KCobranzasDashboard() {
   const { user, isAuthenticated, logout, checkSession, refreshRole } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [activeTab, setActiveTab] = useState('loans');
+  const [showDataTools, setShowDataTools] = useState(false);
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('tab') || 'dashboard';
+    }
+    return 'dashboard';
+  });
   const [refreshKey, setRefreshKey] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
-  const navScrollRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
   const hasCheckedSession = useRef(false);
 
   // Wait for hydration of persisted zustand store
@@ -107,6 +116,17 @@ export default function KCobranzasDashboard() {
     }
   }, [checkSession, refreshRole]);
 
+  // Sync activeTab to URL
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('tab') !== activeTab) {
+        url.searchParams.set('tab', activeTab);
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+  }, [activeTab]);
+
   // Supabase Realtime
   const handleRealtimeChange = () => {
     setRefreshKey((prev) => prev + 1);
@@ -117,43 +137,6 @@ export default function KCobranzasDashboard() {
     handleRealtimeChange,
     { debounceMs: 1500, enabled: isAuthenticated }
   );
-
-  // Check scroll position
-  const checkScroll = () => {
-    const el = navScrollRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 5);
-    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 5);
-  };
-
-  useEffect(() => {
-    checkScroll();
-    const el = navScrollRef.current;
-    if (el) {
-      el.addEventListener('scroll', checkScroll);
-      window.addEventListener('resize', checkScroll);
-    }
-    return () => {
-      el?.removeEventListener('scroll', checkScroll);
-      window.removeEventListener('resize', checkScroll);
-    };
-  }, []);
-
-  useEffect(() => {
-    const el = navScrollRef.current;
-    if (!el) return;
-    const activeBtn = el.querySelector(`[data-tab="${activeTab}"]`);
-    if (activeBtn) {
-      activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    }
-    setTimeout(checkScroll, 100);
-  }, [activeTab]);
-
-  const scrollNav = (direction: 'left' | 'right') => {
-    const el = navScrollRef.current;
-    if (!el) return;
-    el.scrollBy({ left: direction === 'left' ? -150 : 150, behavior: 'smooth' });
-  };
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -175,7 +158,6 @@ export default function KCobranzasDashboard() {
     { value: 'audit', icon: ShieldCheck, label: 'Auditoría' },
     { value: 'capital', icon: Wallet, label: 'Capital' },
     { value: 'late-fee', icon: Clock, label: 'Mora Auto' },
-    { value: 'config', icon: Database, label: 'Config' },
   ];
 
   // Filter navigation items based on user role
@@ -217,14 +199,15 @@ export default function KCobranzasDashboard() {
   const roleBadge = ROLE_BADGE[user.role] || ROLE_BADGE.collector;
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
+    <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950">
+      <InactivityTracker />
       {/* SIDEBAR - Desktop */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 bg-white border-r border-slate-200 shadow-sm fixed inset-y-0 left-0 z-30">
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shadow-sm fixed inset-y-0 left-0 z-30">
         {/* Logo */}
-        <div className="flex items-center gap-3 px-5 h-16 border-b border-slate-100">
+        <div className="flex items-center gap-3 px-5 h-16 border-b border-slate-100 dark:border-slate-800">
           <img src="/logo.png" alt="KC Cobranzas" className="w-9 h-9 rounded-xl object-cover shadow-lg shadow-emerald-500/20" />
           <div>
-            <h1 className="text-base font-bold text-slate-900 tracking-tight">KC Cobranzas</h1>
+            <h1 className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">KC Cobranzas</h1>
             <p className="text-[10px] text-slate-400 -mt-0.5">Panel de Administración</p>
           </div>
         </div>
@@ -241,7 +224,7 @@ export default function KCobranzasDashboard() {
                 onClick={() => setActiveTab(item.value)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 mb-0.5 ${isActive
                   ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
                   }`}
               >
                 <Icon className={`h-4.5 w-4.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
@@ -252,18 +235,28 @@ export default function KCobranzasDashboard() {
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="px-3 py-3 border-t border-slate-100 space-y-2">
+        <div className="px-3 py-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
           <div className="flex items-center gap-3 px-2 py-2">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold shadow-sm">
               {user.name?.charAt(0)?.toUpperCase() || 'U'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-slate-900 truncate">{user.name}</p>
+              <p className="text-xs font-medium text-slate-900 dark:text-slate-100 truncate">{user.name}</p>
               <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${roleBadge.color}`}>
                 {roleBadge.label}
               </Badge>
             </div>
             <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="h-8 w-8 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50"
+                title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+              >
+                <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -284,7 +277,7 @@ export default function KCobranzasDashboard() {
               </Button>
             </div>
           </div>
-          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] w-full justify-center">
+          <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-[10px] w-full justify-center">
             <Activity className="h-3 w-3 mr-1" />
             Sistema en línea
           </Badge>
@@ -294,19 +287,20 @@ export default function KCobranzasDashboard() {
       {/* Change Password Dialog */}
       {showChangePassword && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 border border-slate-100">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm mx-4 border border-slate-100 dark:border-slate-800">
             <ChangePassword onClose={() => setShowChangePassword(false)} />
           </div>
         </div>
       )}
+      <DataToolsDialog open={showDataTools} onClose={() => setShowDataTools(false)} />
 
       {/* MOBILE HEADER */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white/80 backdrop-blur-lg border-b border-slate-200 shadow-sm">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="flex items-center justify-between h-14 px-4">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="KC Cobranzas" className="w-8 h-8 rounded-lg object-cover" />
             <div>
-              <h1 className="text-sm font-bold text-slate-900">KC Cobranzas</h1>
+              <h1 className="text-sm font-bold text-slate-900 dark:text-slate-100">KC Cobranzas</h1>
               <p className="text-[10px] text-slate-400 -mt-0.5">{getActiveLabel()}</p>
             </div>
           </div>
@@ -317,86 +311,39 @@ export default function KCobranzasDashboard() {
             </Badge>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+              className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               aria-label="Menú de navegación"
             >
-              {mobileMenuOpen ? <X className="h-5 w-5 text-slate-600" /> : <Menu className="h-5 w-5 text-slate-600" />}
+              {mobileMenuOpen ? <X className="h-5 w-5 text-slate-600 dark:text-slate-400" /> : <Menu className="h-5 w-5 text-slate-600 dark:text-slate-400" />}
             </button>
           </div>
         </div>
 
-        {/* Mobile horizontal nav */}
-        {!mobileMenuOpen && (
-          <div className="relative">
-            {canScrollLeft && (
-              <button
-                onClick={() => scrollNav('left')}
-                className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white/90 to-transparent z-10 flex items-center justify-center"
-                aria-label="Desplazar izquierda"
-              >
-                <ChevronLeft className="h-4 w-4 text-slate-400" />
-              </button>
-            )}
-            <div
-              ref={navScrollRef}
-              className="flex overflow-x-auto gap-1 px-3 pb-2 scrollbar-none"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-            >
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.value;
-                return (
-                  <button
-                    key={item.value}
-                    data-tab={item.value}
-                    onClick={() => handleTabChange(item.value)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 ${isActive
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm'
-                      : 'bg-slate-100 text-slate-600'
-                      }`}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
-            {canScrollRight && (
-              <button
-                onClick={() => scrollNav('right')}
-                className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white/90 to-transparent z-10 flex items-center justify-center"
-                aria-label="Desplazar derecha"
-              >
-                <ChevronRight className="h-4 w-4 text-slate-400" />
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       {/* MOBILE DRAWER */}
       {mobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-          <div className="absolute right-0 top-0 bottom-0 w-72 bg-white shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between px-5 h-16 border-b border-slate-100">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={() => setMobileMenuOpen(false)} />
+          <div className="absolute right-0 top-0 bottom-0 w-72 bg-white dark:bg-slate-900 shadow-2xl flex flex-col animate-[slideInRight_200ms_ease-out]">
+            <div className="flex items-center justify-between px-5 h-16 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-3">
                 <img src="/logo.png" alt="KC Cobranzas" className="w-8 h-8 rounded-lg object-cover" />
-                <h2 className="text-sm font-bold text-slate-900">Menú</h2>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">Menú</h2>
               </div>
-              <button onClick={() => setMobileMenuOpen(false)} className="p-2 rounded-lg hover:bg-slate-100">
-                <X className="h-5 w-5 text-slate-500" />
+              <button onClick={() => setMobileMenuOpen(false)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
+                <X className="h-5 w-5 text-slate-500 dark:text-slate-400" />
               </button>
             </div>
 
-            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/50">
+            <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-sm font-bold shadow-sm">
                   {user.name?.charAt(0)?.toUpperCase() || 'U'}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate">{user.name}</p>
-                  <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{user.name}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user.email}</p>
                   <Badge variant="outline" className={`text-[9px] px-1.5 py-0 mt-0.5 ${roleBadge.color}`}>
                     {roleBadge.label}
                   </Badge>
@@ -414,7 +361,7 @@ export default function KCobranzasDashboard() {
                     onClick={() => handleTabChange(item.value)}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 mb-1 ${isActive
                       ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
                       }`}
                   >
                     <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
@@ -423,7 +370,15 @@ export default function KCobranzasDashboard() {
                 );
               })}
             </nav>
-            <div className="px-5 py-3 border-t border-slate-100 space-y-2">
+            <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+              <Button
+                variant="outline"
+                onClick={() => { setMobileMenuOpen(false); setShowDataTools(true); }}
+                className="w-full justify-center text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Exportar / Importar
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => { setMobileMenuOpen(false); setShowChangePassword(true); }}
@@ -434,13 +389,21 @@ export default function KCobranzasDashboard() {
               </Button>
               <Button
                 variant="outline"
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="w-full justify-center text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+              >
+                {theme === 'dark' ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
+                {theme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}
+              </Button>
+              <Button
+                variant="outline"
                 onClick={handleLogout}
                 className="w-full justify-center text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
               >
                 <LogOut className="h-4 w-4 mr-2" />
                 Cerrar Sesión
               </Button>
-              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] w-full justify-center">
+              <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-[10px] w-full justify-center">
                 <Activity className="h-3 w-3 mr-1" />
                 Sistema en línea
               </Badge>
@@ -452,30 +415,50 @@ export default function KCobranzasDashboard() {
       {/* MAIN CONTENT */}
       <main className="flex-1 lg:ml-64 min-h-screen flex flex-col">
         {/* Desktop top bar */}
-        <header className="hidden lg:flex items-center justify-between h-14 px-6 bg-white border-b border-slate-100">
+        <header className="hidden lg:flex items-center justify-between h-14 px-6 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">{getActiveLabel()}</h2>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{getActiveLabel()}</h2>
           </div>
           <div className="flex items-center gap-3">
             <Badge variant="outline" className={`text-xs ${roleBadge.color}`}>
               <User className="h-3 w-3 mr-1" />
               {user.name} — {roleBadge.label}
             </Badge>
-            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
+            <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-xs">
               <Activity className="h-3 w-3 mr-1" />
               En línea
             </Badge>
             {process.env.NEXT_PUBLIC_SUPABASE_URL && (
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+              <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 text-xs">
                 <Wifi className="h-3 w-3 mr-1" />
                 Realtime
               </Badge>
             )}
             <Button
               variant="ghost"
+              size="icon"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="h-8 w-8 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50"
+              title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+            >
+              <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDataTools(true)}
+              className="text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+              title="Exportar / Importar"
+            >
+              <Download className="h-4 w-4 mr-1" />
+              Datos
+            </Button>
+            <Button
+              variant="ghost"
               size="sm"
               onClick={handleLogout}
-              className="text-slate-400 hover:text-red-500 hover:bg-red-50"
+              className="text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
             >
               <LogOut className="h-4 w-4 mr-1" />
               Salir
@@ -484,7 +467,7 @@ export default function KCobranzasDashboard() {
         </header>
 
         {/* Content */}
-        <div className="flex-1 px-4 sm:px-6 lg:px-8 py-6 pt-20 lg:pt-6">
+        <div className="flex-1 px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pt-16 lg:pt-6">
           {activeTab === 'dashboard' && <ErrorBoundary><DashboardTab key={`dashboard-${refreshKey}`} /></ErrorBoundary>}
           {activeTab === 'loans' && <LoansTab key={`loans-${refreshKey}`} />}
           {activeTab === 'clients' && <ClientsTab key={`clients-${refreshKey}`} />}
@@ -497,7 +480,7 @@ export default function KCobranzasDashboard() {
         </div>
 
         {/* Footer */}
-        <footer className="bg-white border-t border-slate-100 py-3 mt-auto">
+        <footer className="bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 py-3 mt-auto">
           <div className="px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
             <p className="text-[10px] text-slate-400">© 2025 KC Cobranzas - Sistema de Gestión de Cobranzas</p>
             <div className="flex items-center gap-4">
