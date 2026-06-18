@@ -198,7 +198,7 @@ export default function DashboardTab() {
                 Análisis de riesgo basado en score crediticio, historial de pagos y tendencias
               </CardDescription>
             </div>
-            <Button size="sm" variant="outline" className="border-slate-600 text-white hover:bg-slate-700" onClick={() => fetchData()}>
+            <Button size="sm" variant="outline" className="border-slate-500 text-white bg-slate-700/50 hover:bg-slate-600" onClick={() => fetchData()}>
               <RefreshCw className="h-4 w-4 mr-1" />
               Actualizar
             </Button>
