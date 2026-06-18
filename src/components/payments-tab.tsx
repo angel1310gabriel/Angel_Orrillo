@@ -1066,8 +1066,8 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
           setRegisterOpen(open);
         }}
       >
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0">
-          <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100">
+        <DialogContent className="max-w-lg max-h-[90dvh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
             <DialogTitle className="flex items-center gap-2 text-xl">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
                 <DollarSign className="h-4 w-4 text-white" />
@@ -1079,7 +1079,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 px-6">
+          <div className="overflow-y-auto flex-1 px-6 min-h-0">
             <div className="py-4 space-y-5">
               {/* Loan Selection */}
               {!selectedLoanId ? (
@@ -1506,11 +1506,11 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                 </>
               )}
             </div>
-          </ScrollArea>
+          </div>
 
           {/* Footer */}
           {selectedLoanId && (
-            <DialogFooter className="px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+            <DialogFooter className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
               <div className="flex items-center justify-between w-full gap-4">
                 <div>
                   <p className="text-xs text-slate-500">Total a cobrar</p>
