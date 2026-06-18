@@ -1330,9 +1330,14 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                     </p>
                   </div>
 
-                  <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                    <p className="text-xs text-slate-500">Fecha de inicio del préstamo</p>
-                    <p className="text-sm font-semibold text-slate-700">{startDate ? formatDate(startDate) : '—'}</p>
+                  <div>
+                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Fecha de Inicio</Label>
+                    <Input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="mt-1.5"
+                    />
                   </div>
 
                   {/* Live Calculation Preview */}
@@ -1380,7 +1385,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                             <span className="font-bold text-red-500">{restDays.sort().map(d => DAYS[d]).join(', ')}</span>
                           </div>
                         )}
-                        {calcSchedule.length > 0 && (
+                        {startDate && calcSchedule.length > 0 && (
                           <div className="bg-white rounded-lg border border-emerald-100 max-h-40 overflow-y-auto">
                             <table className="w-full text-xs">
                               <thead>
