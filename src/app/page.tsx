@@ -374,7 +374,7 @@ export default function KCobranzasDashboard() {
 
       {/* MOBILE DRAWER */}
       {mobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-50">
+        <div className="lg:hidden fixed inset-0 z-[10000]">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={() => setMobileMenuOpen(false)} />
           <div className="absolute right-0 top-0 bottom-0 w-72 bg-white dark:bg-slate-900 shadow-2xl flex flex-col animate-[slideInRight_200ms_ease-out]">
             <div className="flex items-center justify-between px-5 h-16 border-b border-slate-100 dark:border-slate-800">
