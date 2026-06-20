@@ -46,7 +46,17 @@ export default function MapTab() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [theme, setThemeState] = useState<'light' | 'dark'>('light');
+  const [userPosition, setUserPosition] = useState<[number, number] | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserPosition([pos.coords.latitude, pos.coords.longitude]),
+        () => {}
+      );
+    }
+  }, []);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -107,7 +117,7 @@ export default function MapTab() {
 
   const defaultCenter = useMemo((): LatLngExpression => locations.length > 0
     ? [locations[0].latitude, locations[0].longitude] as LatLngExpression
-    : [-12.0464, -77.0428] as LatLngExpression, [locations]); // Lima center
+    : userPosition || ([-12.0464, -77.0428] as LatLngExpression), [locations, userPosition]);
 
   return (
     <div className="space-y-4">

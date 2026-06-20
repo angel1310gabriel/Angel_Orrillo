@@ -84,7 +84,14 @@ try{const p=new URLSearchParams({page:page.toString(),limit:'20'});if(search.tri
 finally{setLoading(false)}
 },[page,search,zoneF,toast]);
 
-const fetchZ=useCallback(async()=>{try{const r=await fetch('/api/zones');if(r.ok)setZones((await r.json()).zones)}catch{}},[]);
+const fetchZ=useCallback(async()=>{
+  try{
+    const url=isAdmin?'/api/zones':`/api/zones?collectorId=${user?.id}`;
+    const r=await fetch(url);if(r.ok)setZones((await r.json()).zones)
+    if(!isAdmin&&user){const cr=await fetch(`/api/collectors`);if(cr.ok){const cd=await cr.json(),cs=cd?.collectors||[];const me=cs.find((c:any)=>c.id===user.id);if(me?.zoneIds?.length)setZoneF(me.zoneIds[0])}}
+  }catch{}
+},[isAdmin,user]);
+
 useEffect(()=>{fetchC()},[fetchC]);
 useEffect(()=>{fetchZ()},[fetchZ]);
 useEffect(()=>{if(refreshTrigger)fetchC()},[refreshTrigger,fetchC]);
@@ -279,7 +286,7 @@ return(
 </div>
 </div>
 {c.guarantors.length>0&&<><Separator/><div className="space-y-2"><h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2"><Shield className="h-4 w-4 text-emerald-500"/>Avalistas ({c.guarantors.length})</h3>{c.guarantors.map(g=><div key={g.id} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg"><div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center"><User className="h-4 w-4 text-amber-600 dark:text-amber-300"/></div><div><p className="text-sm font-medium">{g.name}</p>{g.phone&&<p className="text-xs text-slate-500 dark:text-slate-400">{g.phone}</p>}</div></div>)}</div></>}
-{c.loans.length>0&&<><Separator/><div className="space-y-2"><h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2"><CreditCard className="h-4 w-4 text-emerald-500"/>Préstamos ({c.loans.length})</h3>{c.loans.map(l=>{const[cn,lb]=lB(l.status),pct=l.totalAmount>0?Math.round((l.amountPaid/l.totalAmount)*100):0;return<div key={l.id} className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg space-y-2"><div className="flex items-center justify-between"><Badge variant="outline" className={`text-xs ${cn}`}>{lb}</Badge><span className="text-sm font-bold">{fC(l.amount)}</span></div><div className="flex justify-between text-xs text-slate-500 dark:text-slate-400"><span>Pagado: {fC(l.amountPaid)}</span><span>{pct}%</span></div><Progress value={pct} className="h-1.5"/>{l.payments&&l.payments.length>0&&<div className="mt-1 pt-2 border-t border-slate-200 dark:border-slate-700 space-y-1">{l.payments.map(p=><div key={p.id} className="flex items-center justify-between text-xs"><span className="text-slate-500">{fDT2(p.paymentDate)}</span><span className="font-semibold text-emerald-600 dark:text-emerald-400">{fC(p.amount)}</span><Badge variant="outline" className="text-[10px] bg-white dark:bg-slate-900">{PAYMENT_METHOD_LABELS[p.paymentMethod]||p.paymentMethod}</Badge></div>)}</div>}</div>})}</div></>}
+{c.loans.length>0&&<><Separator/><div className="space-y-2"><h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2"><CreditCard className="h-4 w-4 text-emerald-500"/>Préstamos ({c.loans.length})</h3>{c.loans.map(l=>{const[cn,lb]=lB(l.status),pct=l.totalAmount>0?Math.round((l.amountPaid/l.totalAmount)*100):0;const isActive=l.status==='active'||l.status==='mora';return<div key={l.id} className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg space-y-2"><div className="flex items-center justify-between"><Badge variant="outline" className={`text-xs ${cn}`}>{lb}</Badge><span className="text-sm font-bold">{fC(l.amount)}</span></div><div className="flex justify-between text-xs text-slate-500 dark:text-slate-400"><span>Pagado: {fC(l.amountPaid)}</span><span>{pct}%</span></div><Progress value={pct} className="h-1.5"/>{isActive&&<Button className="w-full mt-1 h-7 text-xs bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white" onClick={()=>{setDetO(false);window.location.href='?tab=payments'}}>Cobrar</Button>}{l.payments&&l.payments.length>0&&<div className="mt-1 pt-2 border-t border-slate-200 dark:border-slate-700 space-y-1">{l.payments.map(p=><div key={p.id} className="flex items-center justify-between text-xs"><span className="text-slate-500">{fDT2(p.paymentDate)}</span><span className="font-semibold text-emerald-600 dark:text-emerald-400">{fC(p.amount)}</span><Badge variant="outline" className="text-[10px] bg-white dark:bg-slate-900">{PAYMENT_METHOD_LABELS[p.paymentMethod]||p.paymentMethod}</Badge></div>)}</div>}</div>})}</div></>}
 <div className="flex gap-3 pt-2">
 <Button className={`flex-1 ${GB}`} onClick={()=>{setDetO(false);openEdit(c)}}><Pencil className="h-4 w-4 mr-2"/>Editar</Button>
 <Button variant="outline" className="flex-1 border-slate-200" onClick={()=>setDetO(false)}>Cerrar</Button>

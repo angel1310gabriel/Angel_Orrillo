@@ -42,6 +42,8 @@ export default function ChatTab() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [contacts, setContacts] = useState<(ChatContact & { lastMessage?: { message: string; createdAt: string; isRead: boolean; senderId: string }; unread?: number })[]>([]);
+  const [allStaff, setAllStaff] = useState<ChatContact[]>([]);
+  const [showStaffList, setShowStaffList] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [selectedContact, setSelectedContact] = useState<ChatContact | null>(null);
   const [newMessage, setNewMessage] = useState('');
@@ -62,11 +64,17 @@ export default function ChatTab() {
   const fetchContacts = useCallback(async () => {
     if (!user) return;
     try {
-      const res = await fetch('/api/chat-messages?userId=' + user.id);
-      const json = await res.json();
+      const [contactsRes, staffRes] = await Promise.all([
+        fetch('/api/chat-messages?userId=' + user.id),
+        fetch('/api/collectors?limit=200'),
+      ]);
+      const json = await contactsRes.json();
       if (json.contacts) {
         setContacts(json.contacts);
       }
+      const staffJson = await staffRes.json();
+      const staffList = staffJson?.collectors || [];
+      setAllStaff(staffList.filter((s: ChatContact) => s.id !== user.id));
     } catch (err) {
       console.error('[Chat] Error fetching contacts:', err);
     } finally {
@@ -202,11 +210,42 @@ export default function ChatTab() {
     <div className="flex h-[calc(100vh-12rem)] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
       {/* Contacts Panel */}
       <div className={`w-full md:w-80 lg:w-96 border-r border-slate-200 dark:border-slate-800 flex flex-col ${selectedContact ? 'hidden md:flex' : 'flex'}`}>
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-800 space-y-2">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <MessageCircle className="h-4 w-4 text-emerald-500" />
             Mensajes
           </h3>
+          <Button variant="outline" size="sm" className="w-full border-emerald-200 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30" onClick={() => setShowStaffList(!showStaffList)}>
+            <User className="h-3.5 w-3.5 mr-1.5" />
+            {showStaffList ? 'Cerrar contactos' : 'Nuevo chat'}
+          </Button>
+          {showStaffList && (
+            <ScrollArea className="max-h-48 border border-slate-200 dark:border-slate-700 rounded-lg">
+              {allStaff.length === 0 ? (
+                <p className="text-xs text-slate-400 p-3">No hay personal disponible</p>
+              ) : (
+                allStaff.map((staff) => (
+                  <button
+                    key={staff.id}
+                    onClick={() => { setSelectedContact(staff); setShowStaffList(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors border-b border-slate-50 dark:border-slate-800/50 last:border-0"
+                  >
+                    <Avatar className="h-6 w-6 flex-shrink-0">
+                      <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-[10px] font-medium">
+                        {(staff.name || 'U').charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{staff.name}</p>
+                      <Badge variant="outline" className={`text-[9px] px-1 py-0 ${ROLE_COLORS[staff.role] || ROLE_COLORS.collector}`}>
+                        {ROLE_LABELS[staff.role] || staff.role}
+                      </Badge>
+                    </div>
+                  </button>
+                ))
+              )}
+            </ScrollArea>
+          )}
         </div>
         <ScrollArea className="flex-1">
           {contacts.length === 0 ? (

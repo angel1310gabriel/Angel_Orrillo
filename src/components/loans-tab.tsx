@@ -304,6 +304,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
         limit: '20',
       });
       if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (zoneId) params.set('zoneId', zoneId);
 
       const res = await fetch(`/api/loans?${params}`);
       if (res.ok) {
@@ -392,6 +393,23 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
   useEffect(() => {
     if (refreshTrigger) fetchLoans();
   }, [refreshTrigger, fetchLoans]);
+
+  // Auto-filter by collector's zone for non-admin users
+  useEffect(() => {
+    if (isAdmin || !user) return;
+    const autoFilterZones = async () => {
+      try {
+        const r = await fetch(`/api/collectors`);
+        if (r.ok) {
+          const d = await r.json();
+          const cs = d?.collectors || [];
+          const me = cs.find((c: any) => c.id === user.id);
+          if (me?.zoneIds?.length && me.zoneIds[0] !== zoneId) setZoneId(me.zoneIds[0]);
+        }
+      } catch {}
+    };
+    autoFilterZones();
+  }, [isAdmin, user]);
 
   // Auto-fetch clients when search changes (debounced)
   useEffect(() => {
@@ -1851,21 +1869,32 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 )}
 
                 {/* Actions */}
-                {isAdmin && (detailLoan.status === 'active' || detailLoan.status === 'mora') && (
+                {(detailLoan.status === 'active' || detailLoan.status === 'mora') && (
                   <>
                     <Separator />
                     <div className="flex items-center gap-2">
                       <Button
-                        variant="destructive"
-                        className="flex-1"
+                        className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
                         onClick={() => {
-                          setCancelLoanId(detailLoan.id);
                           setDetailOpen(false);
+                          window.location.href = '?tab=payments';
                         }}
                       >
-                        <XCircle className="h-4 w-4 mr-2" />
-                        Cancelar Préstamo
+                        <DollarSign className="h-4 w-4 mr-2" />
+                        Cobrar
                       </Button>
+                      {isAdmin && (
+                        <Button
+                          variant="destructive"
+                          onClick={() => {
+                            setCancelLoanId(detailLoan.id);
+                            setDetailOpen(false);
+                          }}
+                        >
+                          <XCircle className="h-4 w-4 mr-2" />
+                          Cancelar
+                        </Button>
+                      )}
                     </div>
                   </>
                 )}

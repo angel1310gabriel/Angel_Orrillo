@@ -126,16 +126,18 @@ function CollectorView({ user, toast }: { user: { id: string; name: string }; to
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [loansRes, settlementsRes, paymentsRes] = await Promise.all([
+      const [loansRes, settlementsRes, paymentsRes, allLoansRes] = await Promise.all([
         fetch(`/api/loans?status=active&collectorId=${user.id}&limit=500`),
         fetch(`/api/daily-settlements?collectorId=${user.id}`),
         fetch(`/api/payments?collectorId=${user.id}&date=${today}&limit=500`),
+        fetch(`/api/loans?status=mora&collectorId=${user.id}&limit=500`),
       ]);
       const loansData = await loansRes.json();
       const settlementsData = await settlementsRes.json();
       const paymentsData = await paymentsRes.json();
+      const moraLoansData = await allLoansRes.json();
 
-      const loans = Array.isArray(loansData) ? loansData : loansData?.loans || [];
+      const loans = [...(Array.isArray(loansData) ? loansData : loansData?.loans || []), ...(Array.isArray(moraLoansData) ? moraLoansData : moraLoansData?.loans || [])];
       setActiveLoans(loans);
 
       const s = Array.isArray(settlementsData) ? settlementsData : [];
