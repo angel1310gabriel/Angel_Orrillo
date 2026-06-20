@@ -36,6 +36,7 @@ model Profile {
   sentNotifications   Notification[]      @relation("SentNotifications")
   receivedNotifications Notification[]    @relation("ReceivedNotifications")
   collectorZones      CollectorZone[]
+  collectorLocations  CollectorLocation[]
   supervisorAssignments SupervisorAssignment[]
   collectorAssignments  SupervisorAssignment[]  @relation("CollectorAssignments")
   auditLogs           AuditLog[]
@@ -119,6 +120,7 @@ model Loan {
   creditApproved    Boolean  @default(true)
   signature         String?
   notes             String?
+  restDays          String   @default("")
   chargedOff        Boolean  @default(false)
   chargedOffAt      DateTime?
   chargedOffBy      String?
@@ -142,7 +144,7 @@ model Payment {
   clientId        String?
   amount          Float
   interest        Float?
-  paymentMethod   String   @default("cash") // cash, yape, plin, lukita, transfer
+  paymentMethod   String   @default("cash") // cash, yape, plin, transfer
   status          String   @default("completed") // completed, cancelled
   observation     String?
   proofPhoto      String?
@@ -274,6 +276,18 @@ model Notification {
   referenceId    String?
   isRead         Boolean  @default(false)
   createdAt      DateTime @default(now())
+}
+
+model CollectorLocation {
+  id          String   @id @default(cuid())
+  collectorId String
+  collector   Profile  @relation(fields: [collectorId], references: [id])
+  latitude    Float
+  longitude   Float
+  accuracy    Float?
+  speed       Float?
+  timestamp   DateTime @default(now())
+  createdAt   DateTime @default(now())
 }
 
 model Setting {

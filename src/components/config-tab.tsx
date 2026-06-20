@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -322,11 +322,11 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
   };
 
   const getStatusBadge = () => {
-    if (loading) return <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200">Verificando...</Badge>;
-    if (!status?.isConfigured) return <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200">No configurado</Badge>;
-    if (status.connectionStatus === 'connected') return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Conectado</Badge>;
-    if (status.connectionStatus === 'error') return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Error</Badge>;
-    return <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200">Desconocido</Badge>;
+    if (loading) return <Badge variant="outline" className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border-slate-200">Verificando...</Badge>;
+    if (!status?.isConfigured) return <Badge variant="outline" className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200">No configurado</Badge>;
+    if (status.connectionStatus === 'connected') return <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200">Conectado</Badge>;
+    if (status.connectionStatus === 'error') return <Badge variant="outline" className="bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-200">Error</Badge>;
+    return <Badge variant="outline" className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200">Desconocido</Badge>;
   };
 
   // ============================================================
@@ -368,7 +368,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
           <div className="flex items-center gap-3 mb-6">
             {getStatusIcon()}
             <div className="flex-1">
-              <p className="font-semibold text-slate-900">
+              <p className="font-semibold text-slate-900 dark:text-slate-100">
                 {loading ? 'Verificando estado...' :
                  !status?.isConfigured ? 'Sin configurar' :
                  status.connectionStatus === 'connected' ? 'Conectado exitosamente' :
@@ -376,17 +376,17 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
                  'Estado desconocido'}
               </p>
               {status?.isConfigured && status.connectionStatus === 'connected' && (
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
                   URL: <span className="font-mono text-xs">{status.url}</span>
                   {status.configSource && (
-                    <Badge variant="outline" className="ml-2 text-xs bg-teal-50 text-teal-700 border-teal-200">
+                    <Badge variant="outline" className="ml-2 text-xs bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border-teal-200">
                       {status.configSource === 'env' ? 'Variables de entorno' : 'Base de datos'}
                     </Badge>
                   )}
                 </p>
               )}
               {status?.isConfigured && status.connectionStatus === 'error' && status.errorMessage && (
-                <p className="text-sm text-red-600">{status.errorMessage}</p>
+                <p className="text-sm text-red-600 dark:text-red-300">{status.errorMessage}</p>
               )}
             </div>
           </div>
@@ -395,58 +395,58 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
           {status?.isConfigured && status.connectionStatus === 'connected' && (
             <div className="space-y-4 mb-6">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
+                <div className="bg-emerald-50 dark:bg-emerald-950/50 rounded-xl p-4 border border-emerald-100">
                   <div className="flex items-center gap-2 mb-1">
-                    <Database className="h-4 w-4 text-emerald-600" />
-                    <span className="text-sm font-medium text-emerald-700">Tablas detectadas</span>
+                    <Database className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
+                    <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Tablas detectadas</span>
                   </div>
-                  <p className="text-2xl font-bold text-emerald-800">{status.tables.length}</p>
+                  <p className="text-2xl font-bold text-emerald-800 dark:text-emerald-200">{status.tables.length}</p>
                 </div>
-                <div className="bg-teal-50 rounded-xl p-4 border border-teal-100">
+                <div className="bg-teal-50 dark:bg-teal-950/50 rounded-xl p-4 border border-teal-100">
                   <div className="flex items-center gap-2 mb-1">
-                    <Shield className="h-4 w-4 text-teal-600" />
-                    <span className="text-sm font-medium text-teal-700">Fuente de config</span>
+                    <Shield className="h-4 w-4 text-teal-600 dark:text-teal-300" />
+                    <span className="text-sm font-medium text-teal-700 dark:text-teal-300">Fuente de config</span>
                   </div>
-                  <p className="text-lg font-bold text-teal-800">
+                  <p className="text-lg font-bold text-teal-800 dark:text-teal-200">
                     {status.configSource === 'env' ? 'Env Vars' : 'Base de datos'}
                   </p>
                 </div>
-                <div className={`${status.accessMode === 'read_write' ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'} rounded-xl p-4 border`}>
+                <div className={`${status.accessMode === 'read_write' ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-100' : 'bg-amber-50 dark:bg-amber-950/50 border-amber-100'} rounded-xl p-4 border`}>
                   <div className="flex items-center gap-2 mb-1">
                     {status.accessMode === 'read_write' ? (
-                      <Zap className="h-4 w-4 text-emerald-600" />
+                      <Zap className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
                     ) : (
-                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                      <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-300" />
                     )}
                     <span className="text-sm font-medium">Modo de acceso</span>
                   </div>
-                  <p className={`text-lg font-bold ${status.accessMode === 'read_write' ? 'text-emerald-800' : 'text-amber-800'}`}>
+                  <p className={`text-lg font-bold ${status.accessMode === 'read_write' ? 'text-emerald-800 dark:text-emerald-200' : 'text-amber-800 dark:text-amber-200'}`}>
                     {status.accessMode === 'read_write' ? 'Lectura/Escritura' : 'Solo lectura'}
                   </p>
                   {status.accessMode === 'read_only' && (
-                    <p className="text-xs text-amber-600 mt-1">Necesitas Service Role Key</p>
+                    <p className="text-xs text-amber-600 dark:text-amber-300 mt-1">Necesitas Service Role Key</p>
                   )}
                 </div>
               </div>
 
               {/* Service Role Key Warning */}
               {status.accessMode === 'read_only' && (
-                <Alert className="bg-amber-50 border-amber-200">
-                  <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  <AlertDescription className="text-amber-800 text-sm">
+                <Alert className="bg-amber-50 dark:bg-amber-950/50 border-amber-200">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+                  <AlertDescription className="text-amber-800 dark:text-amber-200 text-sm">
                     <span className="font-semibold">Se necesita Service Role Key para escribir datos.</span>{' '}
                     Sin esta clave, las operaciones de escritura (crear zonas, clientes, préstamos, etc.) estarán bloqueadas por las políticas de seguridad (RLS) de Supabase.
-                    Agrégala en el campo "Service Role Key" abajo o como <code className="bg-amber-100 px-1 rounded text-xs">SUPABASE_SERVICE_ROLE_KEY</code> en tu archivo .env
+                    Agrégala en el campo "Service Role Key" abajo o como <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded text-xs">SUPABASE_SERVICE_ROLE_KEY</code> en tu archivo .env
                   </AlertDescription>
                 </Alert>
               )}
 
               {/* Sync Zones Button */}
               <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100">
-                <Database className="h-5 w-5 text-emerald-600 shrink-0" />
+                <Database className="h-5 w-5 text-emerald-600 dark:text-emerald-300 shrink-0" />
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-emerald-800">Sincronizar datos desde Supabase</p>
-                  <p className="text-xs text-emerald-600">Jala zonas, clientes, préstamos y pagos desde tu base de datos Supabase</p>
+                  <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">Sincronizar datos desde Supabase</p>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-300">Jala zonas, clientes, préstamos y pagos desde tu base de datos Supabase</p>
                 </div>
                 <Button
                   className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-md"
@@ -463,8 +463,8 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
               </div>
 
               {syncResult && (
-                <div className={`p-3 rounded-lg border ${syncResult.success ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
-                  <p className={`text-sm font-medium ${syncResult.success ? 'text-emerald-800' : 'text-red-800'}`}>
+                <div className={`p-3 rounded-lg border ${syncResult.success ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200' : 'bg-red-50 dark:bg-red-950/50 border-red-200'}`}>
+                  <p className={`text-sm font-medium ${syncResult.success ? 'text-emerald-800 dark:text-emerald-200' : 'text-red-800 dark:text-red-200'}`}>
                     {syncResult.success ? '✓' : '✗'} {syncResult.message}
                   </p>
                 </div>
@@ -475,10 +475,10 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
           {/* Tables found */}
           {status?.isConfigured && status.connectionStatus === 'connected' && status.tables.length > 0 && (
             <div className="mb-6">
-              <h4 className="text-sm font-semibold text-slate-700 mb-2">Tablas disponibles</h4>
+              <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Tablas disponibles</h4>
               <div className="flex flex-wrap gap-2">
                 {status.tables.map((table) => (
-                  <Badge key={table} variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 font-mono text-xs">
+                  <Badge key={table} variant="outline" className="bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border-slate-200 font-mono text-xs">
                     {table}
                   </Badge>
                 ))}
@@ -492,7 +492,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
       <Card className="border-0 shadow-lg">
         <CardHeader className="pb-4">
           <CardTitle className="text-base flex items-center gap-2">
-            <Globe className="h-5 w-5 text-teal-600" />
+            <Globe className="h-5 w-5 text-teal-600 dark:text-teal-300" />
             Arquitectura del Sistema
           </CardTitle>
           <CardDescription>
@@ -506,8 +506,8 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-sky-400 to-sky-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
                 <Smartphone className="h-9 w-9 text-white" />
               </div>
-              <span className="text-sm font-semibold text-slate-700">App Flutter</span>
-              <span className="text-xs text-slate-500">Cobradores</span>
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">App Flutter</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">Cobradores</span>
             </div>
 
             {/* Arrow Right */}
@@ -527,8 +527,8 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
                   </div>
                 )}
               </div>
-              <span className="text-sm font-semibold text-slate-700">Supabase</span>
-              <span className="text-xs text-slate-500">Base de datos</span>
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Supabase</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">Base de datos</span>
             </div>
 
             {/* Arrow Right */}
@@ -543,13 +543,13 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-teal-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
                 <Globe className="h-9 w-9 text-white" />
               </div>
-              <span className="text-sm font-semibold text-slate-700">Panel Web</span>
-              <span className="text-xs text-slate-500">Administración</span>
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Panel Web</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">Administración</span>
             </div>
           </div>
 
           {/* Data flow legend */}
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500 dark:text-slate-400">
             <span className="flex items-center gap-1.5">
               <div className="w-3 h-0.5 bg-sky-500" />
               Lectura/Escritura
@@ -570,7 +570,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
       <Card className="border-0 shadow-lg">
         <CardHeader className="pb-4">
           <CardTitle className="text-base flex items-center gap-2">
-            <Plug className="h-5 w-5 text-emerald-600" />
+            <Plug className="h-5 w-5 text-emerald-600 dark:text-emerald-300" />
             Configuración de Conexión
           </CardTitle>
           <CardDescription>
@@ -580,7 +580,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
         <CardContent className="space-y-5">
           {/* Supabase URL */}
           <div className="space-y-2">
-            <Label htmlFor="supabase-url" className="text-sm font-semibold text-slate-700">
+            <Label htmlFor="supabase-url" className="text-sm font-semibold text-slate-700 dark:text-slate-300">
               URL del Proyecto <span className="text-red-500">*</span>
             </Label>
             <div className="relative">
@@ -590,7 +590,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
                 placeholder="https://your-project.supabase.co"
                 value={supabaseUrl}
                 onChange={(e) => setSupabaseUrl(e.target.value)}
-                className="pl-9 bg-white border-slate-200"
+                className="pl-9 bg-white dark:bg-slate-900 border-slate-200"
               />
             </div>
             <p className="text-xs text-slate-400">
@@ -600,7 +600,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
 
           {/* Anon Key */}
           <div className="space-y-2">
-            <Label htmlFor="anon-key" className="text-sm font-semibold text-slate-700">
+            <Label htmlFor="anon-key" className="text-sm font-semibold text-slate-700 dark:text-slate-300">
               Anon Key <span className="text-red-500">*</span>
             </Label>
             <div className="relative">
@@ -611,7 +611,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
                 placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                 value={anonKey}
                 onChange={(e) => setAnonKey(e.target.value)}
-                className="pl-9 pr-20 bg-white border-slate-200"
+                className="pl-9 pr-20 bg-white dark:bg-slate-900 border-slate-200"
               />
               <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
                 <Button
@@ -642,7 +642,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
 
           {/* Service Role Key */}
           <div className="space-y-2">
-            <Label htmlFor="service-key" className="text-sm font-semibold text-slate-700">
+            <Label htmlFor="service-key" className="text-sm font-semibold text-slate-700 dark:text-slate-300">
               Service Role Key <span className="text-slate-400 font-normal">(recomendado)</span>
             </Label>
             <div className="relative">
@@ -653,7 +653,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
                 placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                 value={serviceRoleKey}
                 onChange={(e) => setServiceRoleKey(e.target.value)}
-                className="pl-9 pr-20 bg-white border-slate-200"
+                className="pl-9 pr-20 bg-white dark:bg-slate-900 border-slate-200"
               />
               <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
                 <Button
@@ -677,9 +677,9 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
                 </Button>
               </div>
             </div>
-            <Alert className="bg-amber-50 border-amber-200 mt-2">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-amber-800 text-xs">
+            <Alert className="bg-amber-50 dark:bg-amber-950/50 border-amber-200 mt-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+              <AlertDescription className="text-amber-800 dark:text-amber-200 text-xs">
                 Permite acceso completo sin restricciones de RLS. Solo usar en el servidor. Se encuentra en Project Settings → API → service_role key.
               </AlertDescription>
             </Alert>
@@ -691,7 +691,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <Button
               variant="outline"
-              className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+              className="border-emerald-200 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
               onClick={handleTestConnection}
               disabled={testing || !supabaseUrl || !anonKey}
             >
@@ -729,7 +729,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
             {status?.isConfigured && (
               <Button
                 variant="outline"
-                className="border-red-200 text-red-600 hover:bg-red-50 ml-auto"
+                className="border-red-200 text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/50 ml-auto"
                 onClick={() => setShowDisconnectDialog(true)}
               >
                 <XCircle className="h-4 w-4 mr-2" />
@@ -746,9 +746,9 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
           <CardHeader className="pb-4">
             <CardTitle className="text-base flex items-center gap-2">
               {testResult.success ? (
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-300" />
               ) : (
-                <XCircle className="h-5 w-5 text-red-600" />
+                <XCircle className="h-5 w-5 text-red-600 dark:text-red-300" />
               )}
               Resultado de la Prueba de Conexión
             </CardTitle>
@@ -760,27 +760,27 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
                 variant="outline"
                 className={
                   testResult.success
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : 'bg-red-50 text-red-700 border-red-200'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200'
+                    : 'bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-200'
                 }
               >
                 {testResult.success ? 'Exitoso' : 'Fallido'}
               </Badge>
-              <span className="text-sm text-slate-600">{testResult.message}</span>
+              <span className="text-sm text-slate-600 dark:text-slate-400">{testResult.message}</span>
             </div>
 
             {/* Latency */}
             {latency !== null && (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500">Latencia:</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">Latencia:</span>
                 <Badge
                   variant="outline"
                   className={
                     latency < 500
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200'
                       : latency < 1500
-                      ? 'bg-amber-50 text-amber-700 border-amber-200'
-                      : 'bg-red-50 text-red-700 border-red-200'
+                      ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200'
+                      : 'bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-200'
                   }
                 >
                   {latency < 500 ? 'Rápido' : latency < 1500 ? 'Normal' : 'Lento'} — {latency}ms
@@ -791,12 +791,12 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
             {/* Tables Found */}
             {testResult.success && testResult.tables.length > 0 && (
               <div>
-                <h4 className="text-sm font-semibold text-slate-700 mb-2">
+                <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                   Tablas encontradas ({testResult.tables.length})
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {testResult.tables.map((table) => (
-                    <Badge key={table} variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 font-mono text-xs">
+                    <Badge key={table} variant="outline" className="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 font-mono text-xs">
                       <Database className="h-3 w-3 mr-1" />
                       {table}
                     </Badge>
@@ -807,9 +807,9 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
 
             {/* Error Details */}
             {!testResult.success && (
-              <Alert className="bg-red-50 border-red-200">
-                <XCircle className="h-4 w-4 text-red-600" />
-                <AlertDescription className="text-red-700">
+              <Alert className="bg-red-50 dark:bg-red-950/50 border-red-200">
+                <XCircle className="h-4 w-4 text-red-600 dark:text-red-300" />
+                <AlertDescription className="text-red-700 dark:text-red-300">
                   {testResult.message}
                 </AlertDescription>
               </Alert>
@@ -823,7 +823,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
         <Card className="border-0 shadow-lg">
           <CardHeader className="pb-4">
             <CardTitle className="text-base flex items-center gap-2">
-              <ExternalLink className="h-5 w-5 text-teal-600" />
+              <ExternalLink className="h-5 w-5 text-teal-600 dark:text-teal-300" />
               Guía de Configuración
             </CardTitle>
             <CardDescription>
@@ -860,7 +860,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
               ].map((item) => (
                 <div
                   key={item.step}
-                  className="flex items-start gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100"
+                  className="flex items-start gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100"
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
                     {item.step}
@@ -868,9 +868,9 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       {item.icon}
-                      <span className="font-semibold text-slate-800 text-sm">{item.title}</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm">{item.title}</span>
                     </div>
-                    <p className="text-xs text-slate-500">{item.description}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{item.description}</p>
                   </div>
                 </div>
               ))}
@@ -885,7 +885,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
-                <AlertTriangle className="h-4 w-4 text-red-600" />
+                <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-300" />
               </div>
               Desconectar Supabase
             </DialogTitle>
@@ -895,9 +895,9 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="py-2">
-            <Alert className="bg-amber-50 border-amber-200">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-amber-800 text-sm">
+            <Alert className="bg-amber-50 dark:bg-amber-950/50 border-amber-200">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+              <AlertDescription className="text-amber-800 dark:text-amber-200 text-sm">
                 Los datos existentes en la base de datos local no se eliminarán, pero la sincronización con Supabase dejará de funcionar.
               </AlertDescription>
             </Alert>

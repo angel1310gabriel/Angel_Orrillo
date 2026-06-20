@@ -37,7 +37,7 @@ export const db = isVercel
         // For actual model access, try to create a real client
         const realClient = globalForPrisma.prisma ?? createPrismaClient()
         if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = realClient
-        return (realClient as Record<string, unknown>)[prop]
+        return (realClient as unknown as Record<string, unknown>)[prop]
       }
     })
   : (globalForPrisma.prisma ?? createPrismaClient())

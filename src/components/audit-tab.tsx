@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -51,9 +51,9 @@ const getActionIcon = (action: string) => {
     case 'CREATE': return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
     case 'UPDATE': return <Activity className="h-4 w-4 text-amber-500" />;
     case 'DELETE': return <XCircle className="h-4 w-4 text-red-500" />;
-    case 'CANCEL': return <XCircle className="h-4 w-4 text-red-600" />;
+    case 'CANCEL': return <XCircle className="h-4 w-4 text-red-600 dark:text-red-300" />;
     case 'WAIVE': return <ShieldCheck className="h-4 w-4 text-sky-500" />;
-    case 'APPROVE': return <CheckCircle2 className="h-4 w-4 text-emerald-600" />;
+    case 'APPROVE': return <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />;
     case 'REJECT': return <XCircle className="h-4 w-4 text-orange-500" />;
     default: return <Info className="h-4 w-4 text-gray-500" />;
   }
@@ -61,22 +61,22 @@ const getActionIcon = (action: string) => {
 
 const getActionBadge = (action: string) => {
   const colors: Record<string, string> = {
-    CREATE: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    UPDATE: 'bg-amber-100 text-amber-800 border-amber-200',
-    DELETE: 'bg-red-100 text-red-800 border-red-200',
-    CANCEL: 'bg-red-100 text-red-900 border-red-300',
-    WAIVE: 'bg-sky-100 text-sky-800 border-sky-200',
-    APPROVE: 'bg-emerald-100 text-emerald-900 border-emerald-300',
-    REJECT: 'bg-orange-100 text-orange-800 border-orange-200',
+    CREATE: 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 border-emerald-200',
+    UPDATE: 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-200',
+    DELETE: 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 border-red-200',
+    CANCEL: 'bg-red-100 dark:bg-red-900/50 text-red-900 dark:text-red-100 border-red-300',
+    WAIVE: 'bg-sky-100 dark:bg-sky-900/50 text-sky-800 dark:text-sky-200 border-sky-200',
+    APPROVE: 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-900 dark:text-emerald-100 border-emerald-300',
+    REJECT: 'bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200 border-orange-200',
   };
-  return colors[action] || 'bg-gray-100 text-gray-800 border-gray-200';
+  return colors[action] || 'bg-gray-100 dark:bg-slate-800 text-gray-800 dark:text-slate-200 border-gray-200';
 };
 
 const getSeverityBadge = (severity: string) => {
   const colors: Record<string, string> = {
-    info: 'bg-slate-100 text-slate-700 border-slate-200',
-    warning: 'bg-amber-100 text-amber-800 border-amber-200',
-    critical: 'bg-red-100 text-red-800 border-red-200',
+    info: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200',
+    warning: 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-200',
+    critical: 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 border-red-200',
   };
   const icons: Record<string, React.ReactNode> = {
     info: <Info className="h-3 w-3" />,
@@ -292,7 +292,7 @@ export default function AuditTab() {
           {loading ? (
             <div className="flex items-center justify-center py-10">
               <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
-              <span className="ml-2 text-slate-500">Cargando...</span>
+              <span className="ml-2 text-slate-500 dark:text-slate-400">Cargando...</span>
             </div>
           ) : (
             <>
@@ -314,7 +314,7 @@ export default function AuditTab() {
                     {auditLogs.map((log) => {
                       const sevBadge = getSeverityBadge(log.severity);
                       return (
-                        <TableRow key={log.id} className="hover:bg-slate-50/80">
+                        <TableRow key={log.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/80">
                           <TableCell>{getActionIcon(log.action)}</TableCell>
                           <TableCell>
                             <Badge variant="outline" className={getActionBadge(log.action)}>
@@ -322,7 +322,7 @@ export default function AuditTab() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <span className="text-xs font-mono text-slate-500">{log.entityType}</span>
+                            <span className="text-xs font-mono text-slate-500 dark:text-slate-400">{log.entityType}</span>
                           </TableCell>
                           <TableCell className="font-medium max-w-40 truncate">{log.entityName || '—'}</TableCell>
                           <TableCell>
@@ -338,10 +338,10 @@ export default function AuditTab() {
                             </div>
                           </TableCell>
                           <TableCell className="max-w-48">
-                            <span className="text-xs text-slate-600 line-clamp-2">{log.notes || '—'}</span>
+                            <span className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">{log.notes || '—'}</span>
                           </TableCell>
                           <TableCell className="whitespace-nowrap">
-                            <span className="text-xs text-slate-500">{formatDateTime(log.createdAt)}</span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">{formatDateTime(log.createdAt)}</span>
                           </TableCell>
                         </TableRow>
                       );
@@ -352,7 +352,7 @@ export default function AuditTab() {
 
               {/* Pagination */}
               <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-100">
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
                   Página {auditPage} de {auditTotalPages} ({auditTotal} registros)
                 </p>
                 <div className="flex items-center gap-2">

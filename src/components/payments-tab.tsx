@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -61,10 +61,20 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
+import PaymentReceipt, { ReceiptPayment } from '@/components/payment-receipt';
 
 // ============================================================
 // Types
 // ============================================================
+
+interface ScheduleEntry {
+  id: string;
+  loanId: string;
+  installmentNumber: number;
+  amount: number;
+  dueDate: string;
+  status: string;
+}
 
 interface LoanForCollection {
   id: string;
@@ -81,6 +91,7 @@ interface LoanForCollection {
   endDate: string | null;
   remaining: number;
   progressPercent: number;
+  schedule?: ScheduleEntry[];
   client: {
     id: string;
     name: string;
@@ -170,10 +181,10 @@ const getDocumentLabel = (docType: string) => {
 };
 
 const PAYMENT_METHODS = [
-  { value: 'cash', label: 'Efectivo', icon: Banknote, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100' },
-  { value: 'yape', label: 'Yape', icon: Smartphone, color: 'text-purple-600', bg: 'bg-purple-50 border-purple-200 hover:bg-purple-100' },
-  { value: 'plin', label: 'Plin', icon: Wifi, color: 'text-sky-600', bg: 'bg-sky-50 border-sky-200 hover:bg-sky-100' },
-  { value: 'transfer', label: 'Transferencia', icon: ArrowRightLeft, color: 'text-teal-600', bg: 'bg-teal-50 border-teal-200 hover:bg-teal-100' },
+  { value: 'cash', label: 'Efectivo', icon: Banknote, color: 'text-emerald-600 dark:text-emerald-300', bg: 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-900/70' },
+  { value: 'yape', label: 'Yape', icon: Smartphone, color: 'text-purple-600 dark:text-purple-300', bg: 'bg-purple-50 border-purple-200 hover:bg-purple-100' },
+  { value: 'plin', label: 'Plin', icon: Wifi, color: 'text-sky-600 dark:text-sky-300', bg: 'bg-sky-50 border-sky-200 hover:bg-sky-100' },
+  { value: 'transfer', label: 'Transferencia', icon: ArrowRightLeft, color: 'text-teal-600 dark:text-teal-300', bg: 'bg-teal-50 border-teal-200 hover:bg-teal-100' },
 ] as const;
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -190,7 +201,7 @@ const getMethodIcon = (method: string) => {
 
 const getMethodColor = (method: string) => {
   const found = PAYMENT_METHODS.find((m) => m.value === method);
-  return found ? found.color : 'text-slate-600';
+  return found ? found.color : 'text-slate-600 dark:text-slate-400';
 };
 
 // ============================================================
@@ -222,6 +233,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
   const [registering, setRegistering] = useState(false);
   const [selectedLoanId, setSelectedLoanId] = useState('');
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [selectedInstallment, setSelectedInstallment] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paymentCollectorId, setPaymentCollectorId] = useState('');
   const [paymentObservation, setPaymentObservation] = useState('');
@@ -244,6 +256,11 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
   // Delete payment
   const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null);
   const [deletingPayment, setDeletingPayment] = useState(false);
+
+  // Payment receipt
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [receiptPayment, setReceiptPayment] = useState<ReceiptPayment | null>(null);
+  const [pendingCelebration, setPendingCelebration] = useState(false);
 
   // ============================================================
   // Data Fetching
@@ -425,6 +442,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
   const handleOpenRegister = (loanId?: string) => {
     setSelectedLoanId(loanId || '');
+    setSelectedInstallment('');
     setPaymentAmount('');
     setPaymentMethod('cash');
     setPaymentCollectorId('');
@@ -439,10 +457,8 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
   const handleSelectLoan = (loanId: string) => {
     setSelectedLoanId(loanId);
-    const loan = activeLoans.find((l) => l.id === loanId);
-    if (loan) {
-      setPaymentAmount(loan.dailyPayment.toString());
-    }
+    setSelectedInstallment('');
+    setPaymentAmount('');
     setCashReceived('');
     setProofFileBase64('');
     setProofPreview('');
@@ -450,8 +466,8 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
   };
 
   const handleRegisterPayment = async () => {
-    if (!selectedLoanId || !paymentAmount) {
-      toast({ title: 'Campos requeridos', description: 'Seleccione un préstamo e ingrese el monto', variant: 'destructive' });
+    if (!selectedLoanId || !selectedInstallment || !paymentAmount) {
+      toast({ title: 'Campos requeridos', description: 'Seleccione un préstamo y una cuota a cancelar', variant: 'destructive' });
       return;
     }
 
@@ -480,10 +496,23 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
       if (res.ok) {
         const data = await res.json();
+        const paymentData = data.payment || data;
+
+        setReceiptPayment({
+          id: paymentData.id,
+          amount: paymentData.amount || amount,
+          method: paymentData.paymentMethod || paymentMethod,
+          date: paymentData.paymentDate || paymentData.createdAt || new Date().toISOString(),
+          clientName: paymentData.loan?.client?.name || selectedLoan?.client.name || '',
+          clientDoc: paymentData.loan?.client?.documentNumber || selectedLoan?.client.documentNumber || '',
+          loanAmount: paymentData.loan?.amount || selectedLoan?.amount || 0,
+          collectorName: paymentData.collector?.name || user?.name || '—',
+        });
+        setReceiptOpen(true);
 
         if (data.loanCompleted) {
           setCompletedLoanName(data.loan?.client?.name || 'Cliente');
-          setCelebrationOpen(true);
+          setPendingCelebration(true);
         } else {
           toast({
             title: 'Cobro registrado',
@@ -530,6 +559,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
   const resetForm = () => {
     setSelectedLoanId('');
     setPaymentAmount('');
+    setSelectedInstallment('');
     setPaymentMethod('cash');
     setPaymentCollectorId('');
     setPaymentObservation('');
@@ -611,9 +641,9 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className="border-slate-200 gap-2 bg-white"
+                className="border-slate-200 gap-2 bg-white dark:bg-slate-900"
               >
-                <Calendar className="h-4 w-4 text-emerald-600" />
+                <Calendar className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
                 <span>{dateLabel}</span>
               </Button>
             </PopoverTrigger>
@@ -636,7 +666,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
             <Button
               variant="outline"
               size="sm"
-              className="border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+              className="border-emerald-200 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
               onClick={() => setSelectedDate(new Date())}
             >
               Ir a Hoy
@@ -648,7 +678,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
           <Button
             variant="outline"
             size="icon"
-            className="border-slate-200 bg-white"
+            className="border-slate-200 bg-white dark:bg-slate-900"
             onClick={() => {
               fetchLoans();
               fetchTodayPayments();
@@ -671,13 +701,13 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
       {/* Collection Progress Bar */}
       {isToday && activeLoans.length > 0 && (
-        <Card className="border-0 shadow-md bg-white">
+        <Card className="border-0 shadow-md bg-white dark:bg-slate-900">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-slate-700">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
                 Progreso de Cobranza {dateLabel}
               </span>
-              <span className="text-sm font-semibold text-emerald-600">
+              <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-300">
                 {formatCurrency(totalCollected)} / {formatCurrency(totalExpected)}
               </span>
             </div>
@@ -685,7 +715,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
               value={totalExpected > 0 ? (totalCollected / totalExpected) * 100 : 0}
               className="h-3 [&>div]:bg-gradient-to-r [&>div]:from-emerald-400 [&>div]:to-teal-500"
             />
-            <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
+            <div className="flex items-center justify-between mt-2 text-xs text-slate-500 dark:text-slate-400">
               <span className="flex items-center gap-1">
                 <CheckCircle2 className="h-3 w-3 text-emerald-500" />
                 {paidCount} cobrados
@@ -707,15 +737,15 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
       {/* ============================================================ */}
       {/* DAILY COLLECTION CHECKLIST */}
       {/* ============================================================ */}
-      <Card className="border-0 shadow-md bg-white">
+      <Card className="border-0 shadow-md bg-white dark:bg-slate-900">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-emerald-600" />
+              <CardTitle className="text-lg flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-300" />
                 Cobranza del Día — {dateLabel}
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-slate-500 dark:text-slate-400">
                 {activeLoans.length} préstamos ({paidCount} pagados, {pendingCount} pendientes)
               </CardDescription>
             </div>
@@ -724,8 +754,8 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                 variant="outline"
                 className={`text-xs ${
                   pendingCount === 0 && activeLoans.length > 0
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                    ? 'bg-emerald-50 text-emerald-700 dark:text-emerald-300 border-emerald-200'
+                    : 'bg-amber-50 text-amber-700 dark:text-amber-300 border-amber-200'
                 }`}
               >
                 {pendingCount === 0 && activeLoans.length > 0
@@ -751,11 +781,11 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
             </div>
           ) : activeLoans.length === 0 ? (
             <div className="text-center py-12">
-              <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="h-8 w-8 text-slate-400" />
+              <div                 className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 className="h-8 w-8 text-slate-400 dark:text-slate-500" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-700 mb-2">Sin cobranzas pendientes</h3>
-              <p className="text-slate-500">No hay préstamos activos para cobrar</p>
+              <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">Sin cobranzas pendientes</h3>
+              <p className="text-slate-500 dark:text-slate-400">No hay préstamos activos para cobrar</p>
             </div>
           ) : (
             <ScrollArea className="max-h-[500px]">
@@ -779,49 +809,49 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                         key={loan.id}
                         className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
                           isPaid
-                            ? 'bg-emerald-50/50 border-emerald-200'
+                            ? 'bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-200'
                             : isMora
-                            ? 'bg-red-50/50 border-red-200'
-                            : 'bg-amber-50/50 border-amber-200 hover:border-amber-300'
+                            ? 'bg-red-50/50 dark:bg-red-950/30 border-red-200'
+                            : 'bg-amber-50/50 dark:bg-amber-950/30 border-amber-200 hover:border-amber-300'
                         }`}
                       >
                         {/* Status Icon */}
                         <div
                           className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
                             isPaid
-                              ? 'bg-emerald-100'
+                              ? 'bg-emerald-100 dark:bg-emerald-900/50'
                               : isMora
-                              ? 'bg-red-100'
-                              : 'bg-amber-100'
+                              ? 'bg-red-100 dark:bg-red-900/50'
+                              : 'bg-amber-100 dark:bg-amber-900/50'
                           }`}
                         >
                           {isPaid ? (
-                            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                            <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-300" />
                           ) : isMora ? (
-                            <AlertTriangle className="h-5 w-5 text-red-600" />
+                            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-300" />
                           ) : (
-                            <Clock className="h-5 w-5 text-amber-600" />
+                            <Clock className="h-5 w-5 text-amber-600 dark:text-amber-300" />
                           )}
                         </div>
 
                         {/* Client Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <h4 className="font-semibold text-sm text-slate-900 truncate">
+                            <h4 className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">
                               {loan.client.name}
                             </h4>
                             {isMora && (
-                              <Badge variant="outline" className="bg-red-100 text-red-700 border-red-200 text-xs shrink-0">
+                              <Badge variant="outline" className="bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 border-red-200 text-xs shrink-0">
                                 Mora
                               </Badge>
                             )}
                             {isPaid && (
-                              <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-200 text-xs shrink-0">
+                              <Badge variant="outline" className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 text-xs shrink-0">
                                 Pagado
                               </Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                          <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                             <span className="flex items-center gap-1">
                               <PhoneIcon className="h-3 w-3" />
                               {loan.client.phone}
@@ -837,16 +867,16 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
                         {/* Amount */}
                         <div className="text-right shrink-0">
-                          <p className="font-bold text-sm text-slate-900">
+                          <p className="font-bold text-sm text-slate-900 dark:text-slate-100">
                             {formatCurrency(loan.dailyPayment)}
                           </p>
                           {isPaid && totalPaidForLoan !== loan.dailyPayment && (
-                            <p className="text-xs text-emerald-600">
+                            <p className="text-xs text-emerald-600 dark:text-emerald-300">
                               Cobrado: {formatCurrency(totalPaidForLoan)}
                             </p>
                           )}
                           {!isPaid && loan.remaining > 0 && (
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-slate-400 dark:text-slate-500">
                               Restante: {formatCurrency(loan.remaining)}
                             </p>
                           )}
@@ -881,15 +911,15 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
       {/* ============================================================ */}
       {/* PAYMENT HISTORY TABLE */}
       {/* ============================================================ */}
-      <Card className="border-0 shadow-md bg-white">
+      <Card className="border-0 shadow-md bg-white dark:bg-slate-900">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-teal-600" />
+              <CardTitle className="text-lg flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                <CreditCard className="h-5 w-5 text-teal-600 dark:text-teal-300" />
                 Historial de Cobros — {dateLabel}
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-slate-500 dark:text-slate-400">
                 {todayPayments.length} pago{todayPayments.length !== 1 ? 's' : ''} registrado{todayPayments.length !== 1 ? 's' : ''}
               </CardDescription>
             </div>
@@ -910,7 +940,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
           ) : todayPayments.length === 0 ? (
             <div className="text-center py-8">
               <CreditCard className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-500 text-sm">No hay cobros registrados para {dateLabel}</p>
+              <p className="text-slate-500 dark:text-slate-400 text-sm">No hay cobros registrados para {dateLabel}</p>
             </div>
           ) : (
             <>
@@ -934,20 +964,20 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                       const methodColor = getMethodColor(payment.paymentMethod);
                       return (
                         <TableRow key={payment.id}>
-                          <TableCell className="text-sm text-slate-600">
+                          <TableCell className="text-sm text-slate-600 dark:text-slate-400">
                             {formatDateTime(payment.paymentDate)}
                           </TableCell>
                           <TableCell>
                             <div>
-                              <p className="font-medium text-sm text-slate-900">
+                              <p className="font-medium text-sm text-slate-900 dark:text-slate-100">
                                 {payment.loan?.client?.name || '—'}
                               </p>
-                              <p className="text-xs text-slate-500">
+                              <p className="text-xs text-slate-500 dark:text-slate-400">
                                 {payment.loan?.client?.documentNumber || ''}
                               </p>
                             </div>
                           </TableCell>
-                          <TableCell className="font-bold text-emerald-600">
+                          <TableCell className="font-bold text-emerald-600 dark:text-emerald-300">
                             {formatCurrency(payment.amount)}
                           </TableCell>
                           <TableCell>
@@ -958,10 +988,10 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                               </span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-sm text-slate-600">
+                          <TableCell className="text-sm text-slate-600 dark:text-slate-400">
                             {payment.collector?.name || '—'}
                           </TableCell>
-                          <TableCell className="text-xs text-slate-500 max-w-32 truncate">
+                          <TableCell className="text-xs text-slate-500 dark:text-slate-400 max-w-32 truncate">
                             {payment.observation || '—'}
                           </TableCell>
                           {isAdmin && (
@@ -969,7 +999,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                className="h-7 w-7 text-slate-400 hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/50"
                                 onClick={() => setDeletePaymentId(payment.id)}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -991,21 +1021,21 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                   return (
                     <div
                       key={payment.id}
-                      className="p-3 rounded-xl border border-slate-100 bg-slate-50/50"
+                      className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50"
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <p className="font-semibold text-sm text-slate-900">
+                        <p className="font-semibold text-sm text-slate-900 dark:text-slate-100">
                           {payment.loan?.client?.name || '—'}
                         </p>
                         <div className="flex items-center gap-2">
-                          <p className="font-bold text-emerald-600">
+                          <p className="font-bold text-emerald-600 dark:text-emerald-300">
                             {formatCurrency(payment.amount)}
                           </p>
                           {isAdmin && (
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                              className="h-7 w-7 text-slate-400 hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/50"
                               onClick={() => setDeletePaymentId(payment.id)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -1013,7 +1043,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-slate-500">
+                      <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                         <div className="flex items-center gap-2">
                           <MethodIcon className={`h-3.5 w-3.5 ${methodColor}`} />
                           <span>{PAYMENT_METHOD_LABELS[payment.paymentMethod] || payment.paymentMethod}</span>
@@ -1038,7 +1068,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <span className="text-sm text-slate-600">
+                  <span className="text-sm text-slate-600 dark:text-slate-400">
                     Página {historyPage} de {historyTotalPages}
                   </span>
                   <Button
@@ -1084,7 +1114,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
               {/* Loan Selection */}
               {!selectedLoanId ? (
                 <div className="space-y-3">
-                  <Label className="text-sm font-semibold text-slate-700">
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                     Seleccionar Préstamo
                   </Label>
                   <div className="relative">
@@ -1099,7 +1129,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                   <ScrollArea className="max-h-64">
                     <div className="space-y-1.5 pr-2">
                       {filteredLoans.length === 0 ? (
-                        <p className="text-sm text-slate-500 text-center py-4">
+                        <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
                           No se encontraron préstamos
                         </p>
                       ) : (
@@ -1111,10 +1141,10 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                               key={loan.id}
                               className={`w-full text-left p-3 rounded-lg border transition-all ${
                                 isPaid
-                                  ? 'border-emerald-200 bg-emerald-50/50 opacity-60'
+                                  ? 'border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/30 opacity-60'
                                   : isMora
-                                  ? 'border-red-200 bg-red-50/50 hover:border-red-300 hover:bg-red-50'
-                                  : 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50'
+                                  ? 'border-red-200 bg-red-50/50 dark:bg-red-950/30 hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-950/50'
+                                  : 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30'
                               }`}
                               onClick={() => !isPaid && handleSelectLoan(loan.id)}
                               disabled={isPaid}
@@ -1122,29 +1152,29 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                               <div className="flex items-center justify-between">
                                 <div>
                                   <div className="flex items-center gap-2">
-                                    <p className="font-medium text-sm text-slate-900">
+                                    <p className="font-medium text-sm text-slate-900 dark:text-slate-100">
                                       {loan.client.name}
                                     </p>
                                     {isPaid && (
-                                      <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-200 text-xs">
+                                      <Badge variant="outline" className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 text-xs">
                                         Pagado
                                       </Badge>
                                     )}
                                     {isMora && !isPaid && (
-                                      <Badge variant="outline" className="bg-red-100 text-red-700 border-red-200 text-xs">
+                                      <Badge variant="outline" className="bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 border-red-200 text-xs">
                                         Mora
                                       </Badge>
                                     )}
                                   </div>
-                                  <p className="text-xs text-slate-500 mt-0.5">
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                     {getDocumentLabel(loan.client.documentType)}: {loan.client.documentNumber} | Tel: {loan.client.phone}
                                   </p>
                                 </div>
                                 <div className="text-right">
-                                  <p className="font-bold text-sm text-emerald-600">
+                                  <p className="font-bold text-sm text-emerald-600 dark:text-emerald-300">
                                     {formatCurrency(loan.dailyPayment)}
                                   </p>
-                                  <p className="text-xs text-slate-400">
+                                  <p className="text-xs text-slate-400 dark:text-slate-500">
                                     Restante: {formatCurrency(loan.remaining)}
                                   </p>
                                 </div>
@@ -1159,20 +1189,20 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
               ) : (
                 <>
                   {/* Selected Loan Summary */}
-                  <Alert className="bg-emerald-50 border-emerald-200">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                    <AlertDescription className="text-emerald-800">
+                  <Alert className="bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
+                    <AlertDescription className="text-emerald-800 dark:text-emerald-200">
                       <div className="flex items-center justify-between">
                         <div>
                           <span className="font-semibold">{selectedLoan?.client.name}</span>
-                          <span className="text-emerald-600 text-xs ml-2">
+                          <span className="text-emerald-600 dark:text-emerald-300 text-xs ml-2">
                             {getDocumentLabel(selectedLoan?.client.documentType || 'dni')}: {selectedLoan?.client.documentNumber}
                           </span>
                         </div>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-6 w-6 p-0 text-emerald-600 hover:bg-emerald-100"
+                          className="h-6 w-6 p-0 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
                           onClick={() => {
                             setSelectedLoanId('');
                             setPaymentAmount('');
@@ -1185,22 +1215,22 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                   </Alert>
 
                   {/* Loan Details */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="p-3 rounded-lg bg-slate-50 text-center">
-                      <p className="text-xs text-slate-500">Monto</p>
-                      <p className="font-bold text-sm text-slate-900">
+                    <div className="grid grid-cols-3 gap-3">
+                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-center">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Monto</p>
+                      <p className="font-bold text-sm text-slate-900 dark:text-slate-100">
                         {formatCurrency(selectedLoan?.amount || 0)}
                       </p>
                     </div>
-                    <div className="p-3 rounded-lg bg-slate-50 text-center">
-                      <p className="text-xs text-slate-500">Cuota Diaria</p>
-                      <p className="font-bold text-sm text-emerald-600">
+                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-center">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Cuota Diaria</p>
+                      <p className="font-bold text-sm text-emerald-600 dark:text-emerald-300">
                         {formatCurrency(selectedLoan?.dailyPayment || 0)}
                       </p>
                     </div>
-                    <div className="p-3 rounded-lg bg-slate-50 text-center">
-                      <p className="text-xs text-slate-500">Restante</p>
-                      <p className="font-bold text-sm text-amber-600">
+                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-center">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Restante</p>
+                      <p className="font-bold text-sm text-amber-600 dark:text-amber-300">
                         {formatCurrency(selectedLoan?.remaining || 0)}
                       </p>
                     </div>
@@ -1209,8 +1239,8 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                   {/* Progress */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-slate-500">Progreso del préstamo</span>
-                      <span className="text-xs font-semibold text-emerald-600">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Progreso del préstamo</span>
+                      <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-300">
                         {selectedLoan?.progressPercent.toFixed(1)}%
                       </span>
                     </div>
@@ -1230,50 +1260,75 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
                   <Separator />
 
-                  {/* Payment Amount */}
+                  {/* Installment Selection */}
                   <div>
-                    <Label className="text-sm font-semibold text-slate-700">
-                      Monto del Cobro
+                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                      Seleccionar Cuota a Cancelar
                     </Label>
-                    <div className="relative mt-1.5">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">
-                        S/
-                      </span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={paymentAmount}
-                        onChange={(e) => setPaymentAmount(e.target.value)}
-                        className="pl-9 text-lg font-bold"
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs border-emerald-200 text-emerald-600 hover:bg-emerald-50"
-                        onClick={() => setPaymentAmount(selectedLoan?.dailyPayment?.toString() || '')}
-                      >
-                        Cuota: {formatCurrency(selectedLoan?.dailyPayment || 0)}
-                      </Button>
-                      {selectedLoan?.remaining && selectedLoan.remaining > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs border-amber-200 text-amber-600 hover:bg-amber-50"
-                          onClick={() => setPaymentAmount(selectedLoan.remaining.toString())}
-                        >
-                          Saldo: {formatCurrency(selectedLoan.remaining)}
-                        </Button>
-                      )}
-                    </div>
+                    {(() => {
+                      const pending = (selectedLoan?.schedule || []).filter(s => s.status === 'pending');
+                      if (pending.length === 0) {
+                        return (
+                          <div className="text-sm text-slate-500 dark:text-slate-400 text-center py-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                            No hay cuotas pendientes
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                          {pending.map(s => {
+                            const isSelected = selectedInstallment === s.id;
+                            return (
+                              <button
+                                key={s.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedInstallment(s.id);
+                                  setPaymentAmount(s.amount.toString());
+                                }}
+                                className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all text-left ${
+                                  isSelected
+                                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 ring-2 ring-emerald-500/20'
+                                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-emerald-300 hover:bg-emerald-50/50'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                    isSelected
+                                      ? 'bg-emerald-500 text-white'
+                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                  }`}>
+                                    {s.installmentNumber}
+                                  </div>
+                                  <div>
+                                    <p className={`text-sm font-semibold ${isSelected ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-700 dark:text-slate-300'}`}>
+                                      Cuota #{s.installmentNumber}
+                                    </p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                      {new Date(s.dueDate).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })}
+                                    </p>
+                                  </div>
+                                </div>
+                                <p className={`text-base font-bold ${isSelected ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-900 dark:text-slate-100'}`}>
+                                  {formatCurrency(s.amount)}
+                                </p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                    {selectedInstallment && paymentAmount && (
+                      <div className="mt-3 flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                        <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Total a cobrar</span>
+                        <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{formatCurrency(parseFloat(paymentAmount) || 0)}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Payment Method */}
                   <div>
-                    <Label className="text-sm font-semibold text-slate-700 mb-3 block">
+                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 block">
                       Método de Pago
                     </Label>
                     <RadioGroup
@@ -1303,12 +1358,12 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
                   {/* Payment Method Sub-forms */}
                   {paymentMethod === 'cash' && (
-                    <div className="space-y-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
-                      <Label className="text-sm font-semibold text-amber-800">
+                    <div className="space-y-3 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200">
+                      <Label className="text-sm font-semibold text-amber-800 dark:text-amber-200">
                         Monto Recibido en Efectivo
                       </Label>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 text-sm font-medium">
                           S/
                         </span>
                         <Input
@@ -1317,20 +1372,20 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                           min="0"
                           value={cashReceived}
                           onChange={(e) => setCashReceived(e.target.value)}
-                          className="pl-9 bg-white border-amber-200"
+                          className="pl-9 bg-white dark:bg-slate-900 border-amber-200"
                           placeholder="0.00"
                         />
                       </div>
                       {vueltoAmount > 0 && (
-                        <div className="flex items-center justify-between p-3 rounded-lg bg-white border border-amber-200">
-                          <span className="text-sm font-medium text-amber-700">Vuelto</span>
-                          <span className="text-lg font-bold text-emerald-600">
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-slate-900 border border-amber-200">
+                          <span className="text-sm font-medium text-amber-700 dark:text-amber-300">Vuelto</span>
+                          <span className="text-lg font-bold text-emerald-600 dark:text-emerald-300">
                             {formatCurrency(vueltoAmount)}
                           </span>
                         </div>
                       )}
                       {parseFloat(cashReceived || '0') > 0 && parseFloat(cashReceived) < parseFloat(paymentAmount) && (
-                        <p className="text-xs text-amber-600">
+                        <p className="text-xs text-amber-600 dark:text-amber-300">
                           El monto recibido es menor al cobro
                         </p>
                       )}
@@ -1338,15 +1393,15 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                   )}
 
                   {(paymentMethod === 'yape' || paymentMethod === 'plin') && (
-                    <div className="space-y-4 p-4 rounded-xl bg-purple-50 border border-purple-200">
+                    <div className="space-y-4 p-4 rounded-xl bg-purple-50 dark:bg-purple-950/50 border border-purple-200">
                       {qrDataUrl && (
                         <div className="flex flex-col items-center gap-2">
                           <img
                             src={qrDataUrl}
                             alt="QR de pago"
-                            className="w-48 h-48 rounded-xl bg-white p-2 shadow-sm"
+                            className="w-48 h-48 rounded-xl bg-white dark:bg-slate-900 p-2 shadow-sm"
                           />
-                          <p className="text-xs text-purple-600 font-medium">
+                          <p className="text-xs text-purple-600 dark:text-purple-300 font-medium">
                             {paymentMethod === 'yape' ? 'Yape' : 'Plin'} - S/{parseFloat(paymentAmount || '0').toFixed(2)}
                           </p>
                         </div>
@@ -1356,7 +1411,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="flex-1 border-purple-200 text-purple-600 hover:bg-purple-100 text-xs"
+                            className="flex-1 border-purple-200 text-purple-600 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-xs"
                             onClick={() => handleSendWhatsApp(
                               `*${paymentMethod === 'yape' ? 'YAPE' : 'PLIN'} - KC Cobranzas*\n\nMonto: S/${parseFloat(paymentAmount || '0').toFixed(2)}\nCliente: ${selectedLoan?.client.name}\nRef: ${selectedLoan?.id.slice(0, 8)}\n\nAdjunto el comprobante del pago.`
                             )}
@@ -1367,11 +1422,11 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                         )}
                       </div>
                       <div>
-                        <Label className="text-xs font-semibold text-purple-800">
+                        <Label className="text-xs font-semibold text-purple-800 dark:text-purple-200">
                           Subir Comprobante
                         </Label>
                         <div className="mt-1.5 flex items-center gap-3">
-                          <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-purple-200 bg-white cursor-pointer hover:bg-purple-50 text-xs text-purple-700">
+                          <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-purple-200 bg-white dark:bg-slate-900 cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-950/50 text-xs text-purple-700 dark:text-purple-300">
                             <Upload className="h-3.5 w-3.5" />
                             {proofPreview ? 'Cambiar archivo' : 'Seleccionar imagen'}
                             <input
@@ -1383,7 +1438,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                           </label>
                           {proofFileBase64 && (
                             <button
-                              className="text-xs text-red-500 hover:text-red-700"
+                              className="text-xs text-red-500 hover:text-red-700 dark:text-red-300"
                               onClick={() => { setProofFileBase64(''); setProofPreview(''); }}
                             >
                               Eliminar
@@ -1395,7 +1450,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                             <img
                               src={proofPreview}
                               alt="Comprobante"
-                              className="w-full max-h-40 object-contain rounded-lg border border-purple-200 bg-white"
+                              className="w-full max-h-40 object-contain rounded-lg border border-purple-200 bg-white dark:bg-slate-900"
                             />
                           </div>
                         )}
@@ -1404,19 +1459,19 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                   )}
 
                   {paymentMethod === 'transfer' && (
-                    <div className="space-y-4 p-4 rounded-xl bg-teal-50 border border-teal-200">
-                      <Label className="text-sm font-semibold text-teal-800">
+                    <div className="space-y-4 p-4 rounded-xl bg-teal-50 dark:bg-teal-950/50 border border-teal-200">
+                      <Label className="text-sm font-semibold text-teal-800 dark:text-teal-200">
                         Transferencia Bancaria
                       </Label>
                       <div className="space-y-2">
                         {BANK_ACCOUNTS.map((acc, i) => (
                           <div
                             key={i}
-                            className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-teal-200"
+                            className="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-teal-200"
                           >
                             <div>
-                              <p className="text-sm font-semibold text-slate-800">{acc.bank}</p>
-                              <p className="text-xs text-slate-500 font-mono">{acc.account}</p>
+                              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{acc.bank}</p>
+                              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">{acc.account}</p>
                             </div>
                           </div>
                         ))}
@@ -1425,7 +1480,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="w-full border-teal-200 text-teal-600 hover:bg-teal-100 text-xs"
+                          className="w-full border-teal-200 text-teal-600 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/50 text-xs"
                           onClick={() => handleSendWhatsApp(
                             `*Transferencia - KC Cobranzas*\n\nMonto: S/${parseFloat(paymentAmount || '0').toFixed(2)}\nCliente: ${selectedLoan?.client.name}\n\nDatos bancarios:\n${BANK_ACCOUNTS.map(a => `• ${a.bank}: ${a.account}`).join('\n')}\n\nAdjunto el comprobante de la transferencia.`
                           )}
@@ -1435,11 +1490,11 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                         </Button>
                       )}
                       <div>
-                        <Label className="text-xs font-semibold text-teal-800">
+                        <Label className="text-xs font-semibold text-teal-800 dark:text-teal-200">
                           Subir Comprobante
                         </Label>
                         <div className="mt-1.5 flex items-center gap-3">
-                          <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-teal-200 bg-white cursor-pointer hover:bg-teal-50 text-xs text-teal-700">
+                          <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-teal-200 bg-white dark:bg-slate-900 cursor-pointer hover:bg-teal-50 dark:hover:bg-teal-950/50 text-xs text-teal-700 dark:text-teal-300">
                             <Upload className="h-3.5 w-3.5" />
                             {proofPreview ? 'Cambiar archivo' : 'Seleccionar imagen'}
                             <input
@@ -1451,7 +1506,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                           </label>
                           {proofFileBase64 && (
                             <button
-                              className="text-xs text-red-500 hover:text-red-700"
+                              className="text-xs text-red-500 hover:text-red-700 dark:text-red-300"
                               onClick={() => { setProofFileBase64(''); setProofPreview(''); }}
                             >
                               Eliminar
@@ -1463,7 +1518,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                             <img
                               src={proofPreview}
                               alt="Comprobante"
-                              className="w-full max-h-40 object-contain rounded-lg border border-teal-200 bg-white"
+                              className="w-full max-h-40 object-contain rounded-lg border border-teal-200 bg-white dark:bg-slate-900"
                             />
                           </div>
                         )}
@@ -1473,11 +1528,11 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
                   {/* Collector */}
                   <div>
-                    <Label className="text-sm font-semibold text-slate-700">
+                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                       Cobrador
                     </Label>
                     <Select value={paymentCollectorId} onValueChange={setPaymentCollectorId}>
-                      <SelectTrigger className="mt-1.5 bg-white border-slate-200">
+                      <SelectTrigger className="mt-1.5 bg-white dark:bg-slate-900 border-slate-200">
                         <SelectValue placeholder="Seleccionar cobrador (opcional)" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1492,14 +1547,14 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
                   {/* Observation */}
                   <div>
-                    <Label className="text-sm font-semibold text-slate-700">
+                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                       Observación
                     </Label>
                     <Textarea
                       value={paymentObservation}
                       onChange={(e) => setPaymentObservation(e.target.value)}
                       placeholder="Observación opcional..."
-                      className="mt-1.5 bg-white border-slate-200 resize-none"
+                      className="mt-1.5 bg-white dark:bg-slate-900 border-slate-200 resize-none"
                       rows={2}
                     />
                   </div>
@@ -1513,8 +1568,8 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
             <DialogFooter className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
               <div className="flex items-center justify-between w-full gap-4">
                 <div>
-                  <p className="text-xs text-slate-500">Total a cobrar</p>
-                  <p className="text-lg font-bold text-emerald-600">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Total a cobrar</p>
+                  <p className="text-lg font-bold text-emerald-600 dark:text-emerald-300">
                     {formatCurrency(parseFloat(paymentAmount) || 0)}
                   </p>
                 </div>
@@ -1532,7 +1587,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                   <Button
                     className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0 shadow-lg shadow-emerald-500/20 min-w-32"
                     onClick={handleRegisterPayment}
-                    disabled={registering || !paymentAmount || parseFloat(paymentAmount) <= 0}
+                    disabled={registering || !selectedInstallment || !paymentAmount || parseFloat(paymentAmount) <= 0}
                   >
                     {registering ? (
                       <>
@@ -1563,15 +1618,15 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
               <PartyPopper className="h-10 w-10 text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-emerald-600">
+              <h2 className="text-2xl font-bold text-emerald-600 dark:text-emerald-300">
                 PRÉSTAMO COMPLETADO
               </h2>
-              <p className="text-slate-500 mt-2">
-                El préstamo de <span className="font-semibold text-slate-700">{completedLoanName}</span> ha sido completamente pagado.
+              <p className="text-slate-500 dark:text-slate-400 mt-2">
+                El préstamo de <span className="font-semibold text-slate-700 dark:text-slate-300">{completedLoanName}</span> ha sido completamente pagado.
               </p>
             </div>
-            <div className="w-full p-4 rounded-xl bg-emerald-50 border border-emerald-200">
-              <p className="text-sm text-emerald-700">
+            <div className="w-full p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200">
+              <p className="text-sm text-emerald-700 dark:text-emerald-300">
                 El capital + interés han sido retornados al fondo de capital.
               </p>
             </div>
@@ -1591,7 +1646,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
       <Dialog open={!!deletePaymentId} onOpenChange={(open) => { if (!open) setDeletePaymentId(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-700">
+            <DialogTitle className="flex items-center gap-2 text-red-700 dark:text-red-300">
               <AlertTriangle className="h-5 w-5" />
               Eliminar Pago
             </DialogTitle>
@@ -1610,6 +1665,21 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ============================================================ */}
+      {/* PAYMENT RECEIPT */}
+      {/* ============================================================ */}
+      <PaymentReceipt
+        open={receiptOpen}
+        onOpenChange={(open) => {
+          setReceiptOpen(open);
+          if (!open && pendingCelebration) {
+            setCelebrationOpen(true);
+            setPendingCelebration(false);
+          }
+        }}
+        payment={receiptPayment}
+      />
     </div>
   );
 }

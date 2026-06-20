@@ -62,6 +62,23 @@ export async function GET() {
           // Sync to local in background
           syncProfilesToLocal(data).catch(() => { });
 
+          // Fetch zones for each collector
+          const collectorIds = data.map((p: Record<string, unknown>) => p.id as string);
+          const { data: collectorZones } = await supabase
+            .from('collector_zones')
+            .select('collector_id, zone_id')
+            .in('collector_id', collectorIds);
+
+          const zoneMap: Record<string, string[]> = {};
+          if (collectorZones) {
+            for (const cz of collectorZones as Array<{ collector_id: string; zone_id: string }>) {
+              if (!zoneMap[cz.collector_id]) zoneMap[cz.collector_id] = [];
+              if (!zoneMap[cz.collector_id].includes(cz.zone_id)) {
+                zoneMap[cz.collector_id].push(cz.zone_id);
+              }
+            }
+          }
+
           const collectors = data.map((p: Record<string, unknown>) => ({
             id: p.id,
             name: p.name,
@@ -74,6 +91,7 @@ export async function GET() {
             documentNumber: p.dni || null,
             photoUrl: null,
             createdAt: p.created_at || new Date().toISOString(),
+            zoneIds: zoneMap[p.id as string] || [],
             _count: { loans: 0, payments: 0 },
           }));
 
@@ -104,12 +122,18 @@ export async function GET() {
         documentNumber: true,
         photoUrl: true,
         createdAt: true,
+        collectorZones: { include: { zone: { select: { id: true, name: true } } } },
         _count: { select: { loans: true, payments: true } },
       },
       orderBy: { name: 'asc' },
     });
 
-    return NextResponse.json({ collectors, dataSource: 'local' });
+    const collectorsWithZoneIds = collectors.map((c) => ({
+      ...c,
+      zoneIds: c.collectorZones.map((cz) => cz.zone.id),
+    }));
+
+    return NextResponse.json({ collectors: collectorsWithZoneIds, dataSource: 'local' });
   } catch (error) {
     console.error('Error fetching staff:', error);
     return NextResponse.json({ error: 'Error al obtener personal' }, { status: 500 });
@@ -290,7 +314,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, name, phone, address, role, isActive } = body;
+    const { id, name, phone, address, role, isActive, zoneIds } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
@@ -331,6 +355,21 @@ export async function PUT(request: NextRequest) {
       if (updateError) {
         console.error('[Collectors] Supabase update error:', updateError.message);
         return NextResponse.json({ error: 'Error al actualizar personal' }, { status: 500 });
+      }
+
+      // Handle zone assignment if provided
+      if (zoneIds !== undefined && Array.isArray(zoneIds)) {
+        await supabase.from('collector_zones').delete().eq('collector_id', id);
+        if (zoneIds.length > 0) {
+          const zoneRows = zoneIds.map((zoneId: string) => ({
+            collector_id: id,
+            zone_id: zoneId,
+          }));
+          const { error: zoneError } = await supabase.from('collector_zones').insert(zoneRows);
+          if (zoneError) {
+            console.error('[Collectors] Supabase zone update error:', zoneError.message);
+          }
+        }
       }
 
       return NextResponse.json({
@@ -380,6 +419,20 @@ export async function PUT(request: NextRequest) {
       },
     });
 
+    // Handle zone assignment if provided
+    const zoneChanged = zoneIds !== undefined && Array.isArray(zoneIds);
+    if (zoneChanged) {
+      await db.collectorZone.deleteMany({ where: { collectorId: id } });
+      if (zoneIds.length > 0) {
+        await db.collectorZone.createMany({
+          data: zoneIds.map((zoneId: string) => ({
+            collectorId: id,
+            zoneId,
+          })),
+        });
+      }
+    }
+
     // Also push update to Supabase in background
     const supabase = await getSupabase();
     if (supabase) {
@@ -395,6 +448,24 @@ export async function PUT(request: NextRequest) {
         .then(({ error }) => {
           if (error) console.error('[Collectors] Update profile in Supabase error:', error.message);
         });
+
+      if (zoneChanged) {
+        supabase
+          .from('collector_zones')
+          .delete()
+          .eq('collector_id', id)
+          .then(() => {
+            if (zoneIds.length > 0) {
+              const zoneRows = zoneIds.map((zoneId: string) => ({
+                collector_id: id,
+                zone_id: zoneId,
+              }));
+              supabase.from('collector_zones').insert(zoneRows).then(({ error: ze }) => {
+                if (ze) console.error('[Collectors] Push zones to Supabase error:', ze.message);
+              });
+            }
+          });
+      }
     }
 
     // Audit log (local only)

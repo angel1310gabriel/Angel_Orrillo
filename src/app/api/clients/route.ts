@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
         let query = supabase.from('clients').select('*', { count: 'exact' });
 
         if (search) {
-          query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,document_number.ilike.%${search}%,phone.ilike.%${search}%`);
+          query = query.or(`name.ilike.%${search}%,dni.ilike.%${search}%,phone.ilike.%${search}%`);
         }
         if (zoneId) {
           query = query.eq('zone_id', zoneId);
@@ -80,11 +80,11 @@ export async function GET(request: NextRequest) {
 
           const clients = result.data.map((c: Record<string, unknown>) => ({
             id: c.id,
-            name: `${c.first_name || ''} ${c.last_name || ''}`.trim(),
-            firstName: c.first_name,
-            lastName: c.last_name,
+            name: c.name || '',
+            firstName: (c.name as string) || '',
+            lastName: '',
             documentType: c.document_type || 'dni',
-            documentNumber: c.document_number,
+            documentNumber: c.dni,
             phone: c.phone,
             email: c.email || null,
             address: c.address,
@@ -135,7 +135,10 @@ export async function GET(request: NextRequest) {
         include: {
           zone: { select: { id: true, name: true } },
           loans: {
-            select: { id: true, status: true, amount: true, totalAmount: true, amountPaid: true },
+            select: {
+              id: true, status: true, amount: true, totalAmount: true, amountPaid: true,
+              payments: { select: { id: true, amount: true, paymentMethod: true, paymentDate: true, status: true }, orderBy: { paymentDate: 'desc' }, take: 10 },
+            },
           },
           guarantors: { select: { id: true, name: true, phone: true } },
         },
@@ -207,26 +210,20 @@ export async function POST(request: NextRequest) {
       }
 
       // Check for duplicate document number via Supabase
-      const { data: existingClient } = await supabase.from('clients').select('id').eq('document_number', documentNumber).maybeSingle();
+      const { data: existingClient } = await supabase.from('clients').select('id').eq('dni', documentNumber).maybeSingle();
       if (existingClient) {
         return NextResponse.json({ error: 'Ya existe un cliente con ese número de documento' }, { status: 409 });
       }
 
       // Create via Supabase
-      const nameParts = name.split(' ');
-      const firstName = nameParts[0] || name;
-      const lastName = nameParts.slice(1).join(' ') || '';
-
       const { data: newClient, error: createError } = await supabase.from('clients').insert({
-        first_name: firstName,
-        last_name: lastName,
+        name,
+        dni: documentNumber,
         document_type: docType,
-        document_number: documentNumber,
         phone,
         address: address || null,
         zone_id: zoneId || null,
         credit_score: creditScore ?? 50,
-        is_active: true,
         latitude: latitude || null,
         longitude: longitude || null,
       }).select().single();
@@ -238,11 +235,11 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         id: newClient.id,
-        name: `${newClient.first_name || ''} ${newClient.last_name || ''}`.trim(),
-        firstName: newClient.first_name,
-        lastName: newClient.last_name,
+        name: newClient.name || '',
+        firstName: newClient.name || '',
+        lastName: '',
         documentType: newClient.document_type || 'dni',
-        documentNumber: newClient.document_number,
+        documentNumber: newClient.dni,
         phone: newClient.phone,
         email: newClient.email || null,
         address: newClient.address,
@@ -289,23 +286,17 @@ export async function POST(request: NextRequest) {
     // Also push to Supabase in background
     const supabase = await getSupabase();
     if (supabase) {
-      const nameParts = name.split(' ');
-      const firstName = nameParts[0] || name;
-      const lastName = nameParts.slice(1).join(' ') || '';
-
       supabase
         .from('clients')
         .insert({
           id: client.id,
-          first_name: firstName,
-          last_name: lastName,
+          name,
+          dni: documentNumber,
           document_type: docType,
-          document_number: documentNumber,
           phone,
           address: address || null,
           zone_id: zoneId || null,
           credit_score: creditScore ?? 50,
-          is_active: true,
           latitude: latitude || null,
           longitude: longitude || null,
         })
@@ -359,13 +350,9 @@ export async function PUT(request: NextRequest) {
 
       // Update via Supabase
       const updateData: Record<string, unknown> = {};
-      if (name !== undefined) {
-        const nameParts = name.split(' ');
-        updateData.first_name = nameParts[0] || '';
-        updateData.last_name = nameParts.slice(1).join(' ') || '';
-      }
+      if (name !== undefined) updateData.name = name;
       if (documentType !== undefined) updateData.document_type = documentType;
-      if (documentNumber !== undefined) updateData.document_number = documentNumber;
+      if (documentNumber !== undefined) updateData.dni = documentNumber;
       if (phone !== undefined) updateData.phone = phone;
       if (address !== undefined) updateData.address = address;
       if (zoneId !== undefined) updateData.zone_id = zoneId;
@@ -380,11 +367,11 @@ export async function PUT(request: NextRequest) {
 
       return NextResponse.json({
         id: updatedClient.id,
-        name: `${updatedClient.first_name || ''} ${updatedClient.last_name || ''}`.trim(),
-        firstName: updatedClient.first_name,
-        lastName: updatedClient.last_name,
+        name: updatedClient.name || '',
+        firstName: updatedClient.name || '',
+        lastName: '',
         documentType: updatedClient.document_type || 'dni',
-        documentNumber: updatedClient.document_number,
+        documentNumber: updatedClient.dni,
         phone: updatedClient.phone,
         email: updatedClient.email || null,
         address: updatedClient.address,
@@ -423,14 +410,12 @@ export async function PUT(request: NextRequest) {
     // Also push update to Supabase in background
     const supabase = await getSupabase();
     if (supabase) {
-      const nameParts = (client.name || '').split(' ');
       supabase
         .from('clients')
         .update({
-          first_name: nameParts[0] || '',
-          last_name: nameParts.slice(1).join(' ') || '',
+          name: client.name,
+          dni: client.documentNumber,
           document_type: client.documentType,
-          document_number: client.documentNumber,
           phone: client.phone,
           address: client.address,
           zone_id: client.zoneId,
@@ -560,8 +545,8 @@ async function syncClientsToLocal(clients: Record<string, unknown>[]) {
       await db.client.upsert({
         where: { id: c.id as string },
         update: {
-          name: `${c.first_name || ''} ${c.last_name || ''}`.trim(),
-          documentNumber: (c.document_number as string) || '',
+          name: (c.name as string) || '',
+          documentNumber: (c.dni as string) || '',
           phone: (c.phone as string) || '',
           address: (c.address as string) || null,
           zoneId: (c.zone_id as string) || null,
@@ -570,9 +555,9 @@ async function syncClientsToLocal(clients: Record<string, unknown>[]) {
         },
         create: {
           id: c.id as string,
-          name: `${c.first_name || ''} ${c.last_name || ''}`.trim(),
+          name: (c.name as string) || '',
           documentType: (c.document_type as string) || 'dni',
-          documentNumber: (c.document_number as string) || '',
+          documentNumber: (c.dni as string) || '',
           phone: (c.phone as string) || '',
           address: (c.address as string) || null,
           zoneId: (c.zone_id as string) || null,

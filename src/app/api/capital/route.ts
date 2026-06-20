@@ -233,7 +233,7 @@ async function getSupabase() {
 // Helper: Push capital movement to Supabase
 // ============================================================
 async function pushCapitalToSupabase(movement: {
-  id: string; type: string; amount: number; description: string;
+  id: string; type: string; amount: number; description: string | null;
 }) {
   const supabase = await getSupabase();
   if (!supabase) return;

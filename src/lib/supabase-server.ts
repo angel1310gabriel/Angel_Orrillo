@@ -1468,7 +1468,10 @@ export async function createLoan(data: {
   amount: number;
   interestRate: number;
   days: number;
+  numCuotas?: number;
+  dailyPayment?: number;
   paymentFrequency?: string;
+  restDays?: string;
   startDate?: string;
   notes?: string;
   createdBy?: string;
@@ -1508,8 +1511,8 @@ export async function createLoan(data: {
   // Calculate loan amounts (GOTA A GOTA logic)
   const interestAmount = data.amount * (data.interestRate / 100);
   const totalAmount = data.amount + interestAmount;
-  const numCuotas = data.days;
-  const dailyPayment = Math.round((totalAmount / numCuotas) * 100) / 100;
+  const numCuotas = data.numCuotas || data.days;
+  const dailyPayment = data.dailyPayment || Math.round((totalAmount / data.days) * 100) / 100;
   const loanStartDate = data.startDate ? new Date(data.startDate) : new Date();
   const loanEndDate = new Date(loanStartDate.getTime() + data.days * 86400000);
 
@@ -1552,7 +1555,9 @@ export async function createLoan(data: {
     credit_approved: true,
     notes: data.notes || null,
     created_by: data.createdBy || data.collectorId || null,
-  };
+  } as Record<string, unknown>;
+
+  if (data.restDays) loanInsert.rest_days = data.restDays;
 
   const { data: newLoan, error: loanErr } = await sb
     .from('loans')

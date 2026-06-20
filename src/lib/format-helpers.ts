@@ -42,5 +42,4 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   yape: 'Yape',
   plin: 'Plin',
   transfer: 'Transferencia',
-  lukita: 'Lukita',
 };

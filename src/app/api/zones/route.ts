@@ -35,14 +35,21 @@ async function getSupabase() {
 }
 
 // GET /api/zones - List all zones (Supabase first, local fallback)
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const collectorId = searchParams.get('collectorId');
+
     // Try Supabase first
     const supabase = await getSupabase();
     if (supabase) {
       try {
+        let query = supabase.from('zones').select('*').order('name');
+        if (collectorId) {
+          query = supabase.from('zones').select('*, collector_zones!inner(collector_id)').eq('collector_zones.collector_id', collectorId).order('name');
+        }
         const { data, error } = await Promise.race([
-          supabase.from('zones').select('*').order('name'),
+          query,
           new Promise<{ data: null; error: Error }>((_, reject) =>
             setTimeout(() => reject(new Error('timeout')), 5000)
           ),
@@ -73,7 +80,12 @@ export async function GET() {
     }
 
     // Fallback to local
+    const where = collectorId ? {
+      collectorZones: { some: { collectorId } },
+    } : {};
+
     const zones = await db.zone.findMany({
+      where,
       include: {
         clients: { select: { id: true } },
         loans: { select: { id: true, status: true, amount: true } },

@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Search clients by document number
-      let clientQuery = supabase.from('clients').select('id, first_name, last_name, phone, document_type, document_number, credit_score, zone_id, loans(status)').eq('document_number', documentNumber);
+      let clientQuery = supabase.from('clients').select('id, name, phone, document_type, dni, credit_score, zone_id, loans(status)').eq('dni', documentNumber);
       if (documentType !== 'all') {
         clientQuery = clientQuery.eq('document_type', documentType);
       }
@@ -75,10 +75,10 @@ export async function GET(request: NextRequest) {
 
       results.clients = (clients || []).map((c: Record<string, unknown>) => ({
         id: c.id as string,
-        name: `${c.first_name || ''} ${c.last_name || ''}`.trim(),
+        name: (c.name as string) || '',
         phone: (c.phone as string) || '',
         documentType: (c.document_type as string) || 'dni',
-        documentNumber: c.document_number as string,
+        documentNumber: c.dni as string,
         zone: (c.zone_id as string) || null,
         creditScore: (c.credit_score as number) ?? null,
         hasActiveLoans: Array.isArray(c.loans) ? c.loans.some((l: Record<string, unknown>) => l.status === 'active' || l.status === 'mora') : false,

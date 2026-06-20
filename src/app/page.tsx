@@ -9,11 +9,14 @@ import ClientsTab from '@/components/clients-tab';
 import PaymentsTab from '@/components/payments-tab';
 import ConfigTab from '@/components/config-tab';
 import CollectorsTab from '@/components/collectors-tab';
+import DailySettlementTab from '@/components/daily-settlement-tab';
+import ChatTab from '@/components/chat-tab';
 import LoginScreen from '@/components/login-screen';
 import { ErrorBoundary } from '@/components/error-boundary';
 import DataToolsDialog from '@/components/data-tools';
 import { useSupabaseRealtime } from '@/hooks/use-supabase-realtime';
 import { useAuth, ROLE_PERMISSIONS } from '@/hooks/use-auth';
+
 import ChangePassword from '@/components/change-password';
 import { InactivityTracker } from '@/components/inactivity-tracker';
 import {
@@ -28,6 +31,7 @@ import {
   CreditCard,
   Database,
   Navigation,
+  MessageCircle,
   Wifi,
   Menu,
   X,
@@ -38,6 +42,7 @@ import {
   Upload,
   Sun,
   Moon,
+  Map,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -73,6 +78,16 @@ const LateFeeTab = dynamic(() => import('@/components/late-fee-tab'), {
   ),
 });
 
+const MapTab = dynamic(() => import('@/components/map-tab'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center py-20">
+      <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+      <span className="ml-3 text-slate-500">Cargando mapa...</span>
+    </div>
+  ),
+});
+
 // ============================================================
 // Role badge colors
 // ============================================================
@@ -103,6 +118,12 @@ export default function KCobranzasDashboard() {
   const [isHydrated, setIsHydrated] = useState(false);
   const hasCheckedSession = useRef(false);
 
+  // Location tracking state + refs — must be before early returns to satisfy React's rules of hooks
+  const [locationTracking, setLocationTracking] = useState(false);
+  const watchIdRef = useRef<number | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastSentRef = useRef<{latitude: number; longitude: number; accuracy: number | null; speed: number | null} | null>(null);
+
   // Wait for hydration of persisted zustand store
   useEffect(() => {
     if (!hasCheckedSession.current) {
@@ -115,6 +136,33 @@ export default function KCobranzasDashboard() {
       });
     }
   }, [checkSession, refreshRole]);
+
+  // Location tracking effect — must be before early returns
+  useEffect(() => {
+    const isCollector = user?.role === 'collector';
+    const collectorId = user?.id;
+    if (!isCollector || !collectorId || !navigator.geolocation) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        lastSentRef.current = { latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy ?? null, speed: position.coords.speed ?? null };
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+    );
+    watchIdRef.current = watchId;
+    setLocationTracking(true);
+    const interval = setInterval(() => {
+      if (lastSentRef.current) {
+        fetch('/api/locations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ collectorId, ...lastSentRef.current }) }).catch(() => {});
+      }
+    }, 30000);
+    intervalRef.current = interval;
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+      clearInterval(interval);
+      setLocationTracking(false);
+    };
+  }, [user?.role, user?.id]);
 
   // Sync activeTab to URL
   useEffect(() => {
@@ -133,7 +181,7 @@ export default function KCobranzasDashboard() {
   };
 
   useSupabaseRealtime(
-    ['zones', 'profiles', 'clients', 'loans', 'payments', 'capital_movements', 'settings', 'late_fees'],
+    ['zones', 'profiles', 'clients', 'loans', 'payments', 'capital_movements', 'settings', 'late_fees', 'daily_settlements'],
     handleRealtimeChange,
     { debounceMs: 1500, enabled: isAuthenticated }
   );
@@ -157,7 +205,10 @@ export default function KCobranzasDashboard() {
     { value: 'collectors', icon: Navigation, label: 'Personal' },
     { value: 'audit', icon: ShieldCheck, label: 'Auditoría' },
     { value: 'capital', icon: Wallet, label: 'Capital' },
+    { value: 'chat', icon: MessageCircle, label: 'Mensajes' },
     { value: 'late-fee', icon: Clock, label: 'Mora Auto' },
+    { value: 'daily-settlement', icon: Wallet, label: 'Cierre de Caja' },
+    { value: 'map', icon: Map, label: 'Mapa' },
   ];
 
   // Filter navigation items based on user role
@@ -475,7 +526,10 @@ export default function KCobranzasDashboard() {
           {activeTab === 'collectors' && <CollectorsTab key={`collectors-${refreshKey}`} />}
           {activeTab === 'audit' && <ErrorBoundary><AuditTab key={`audit-${refreshKey}`} /></ErrorBoundary>}
           {activeTab === 'capital' && <CapitalTab key={`capital-${refreshKey}`} />}
+          {activeTab === 'chat' && <ChatTab key={`chat-${refreshKey}`} />}
           {activeTab === 'late-fee' && <ErrorBoundary><LateFeeTab key={`latefee-${refreshKey}`} /></ErrorBoundary>}
+          {activeTab === 'daily-settlement' && <DailySettlementTab key={`daily-settlement-${refreshKey}`} />}
+          {activeTab === 'map' && <ErrorBoundary><MapTab key={`map-${refreshKey}`} /></ErrorBoundary>}
           {activeTab === 'config' && <ConfigTab key={`config-${refreshKey}`} />}
         </div>
 

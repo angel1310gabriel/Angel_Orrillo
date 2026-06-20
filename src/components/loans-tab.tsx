@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -180,19 +180,19 @@ const formatDateTime = (dateStr: string) => {
 const getStatusBadge = (status: string) => {
   switch (status) {
     case 'active':
-      return { className: 'bg-emerald-100 text-emerald-800 border-emerald-200', label: 'Activo', icon: <TrendingUp className="h-3 w-3" /> };
+      return { className: 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-800', label: 'Activo', icon: <TrendingUp className="h-3 w-3" /> };
     case 'mora':
-      return { className: 'bg-red-100 text-red-800 border-red-200', label: 'Mora', icon: <AlertTriangle className="h-3 w-3" /> };
+      return { className: 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 border-red-200 dark:border-red-800', label: 'Mora', icon: <AlertTriangle className="h-3 w-3" /> };
     case 'paid':
-      return { className: 'bg-teal-100 text-teal-800 border-teal-200', label: 'Pagado', icon: <CheckCircle2 className="h-3 w-3" /> };
+      return { className: 'bg-teal-100 dark:bg-teal-900/50 text-teal-800 dark:text-teal-200 border-teal-200 dark:border-teal-800', label: 'Pagado', icon: <CheckCircle2 className="h-3 w-3" /> };
     case 'completed':
-      return { className: 'bg-teal-100 text-teal-800 border-teal-200', label: 'Completado', icon: <CheckCircle2 className="h-3 w-3" /> };
+      return { className: 'bg-teal-100 dark:bg-teal-900/50 text-teal-800 dark:text-teal-200 border-teal-200 dark:border-teal-800', label: 'Completado', icon: <CheckCircle2 className="h-3 w-3" /> };
     case 'cancelled':
-      return { className: 'bg-slate-100 text-slate-600 border-slate-200', label: 'Cancelado', icon: <XCircle className="h-3 w-3" /> };
+      return { className: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700', label: 'Cancelado', icon: <XCircle className="h-3 w-3" /> };
     case 'refinanced':
-      return { className: 'bg-amber-100 text-amber-800 border-amber-200', label: 'Refinanciado', icon: <RefreshCw className="h-3 w-3" /> };
+      return { className: 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800', label: 'Refinanciado', icon: <RefreshCw className="h-3 w-3" /> };
     default:
-      return { className: 'bg-slate-100 text-slate-600 border-slate-200', label: status, icon: <Info className="h-3 w-3" /> };
+      return { className: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700', label: status, icon: <Info className="h-3 w-3" /> };
   }
 };
 
@@ -362,7 +362,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
     try {
       const [collectorsRes, zonesRes] = await Promise.all([
         fetch('/api/collectors'),
-        fetch('/api/zones'),
+        fetch(`/api/zones${isAdmin ? '' : `?collectorId=${user?.id}`}`),
       ]);
       if (collectorsRes.ok) {
         const data = await collectorsRes.json();
@@ -370,12 +370,16 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       }
       if (zonesRes.ok) {
         const data = await zonesRes.json();
-        setZones(data?.zones || []);
+        const zoneList = data?.zones || [];
+        setZones(zoneList);
+        if (!isAdmin && zoneList.length === 1) {
+          setZoneId(zoneList[0].id);
+        }
       }
     } catch {
       // silent fail
     }
-  }, []);
+  }, [isAdmin, user?.id]);
 
   useEffect(() => {
     fetchLoans();
@@ -500,6 +504,9 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       return;
     }
     setCreatingClient(true);
+    if (!isAdmin && zoneId) {
+      newClient.zoneId = zoneId;
+    }
     try {
       const res = await fetch('/api/clients', {
         method: 'POST',
@@ -583,7 +590,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
     setInterestRate('20');
     setPaymentFrequency('daily');
     setRestDays([]);
-    setCollectorId('');
+    setCollectorId(isAdmin ? '' : (user?.id || ''));
     setZoneId('');
     setLoanNotes('');
     setStartDate(new Date().toISOString().split('T')[0]);
@@ -719,7 +726,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
               className={
                 statusFilter === filter.key
                   ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0'
-                  : 'border-slate-200 hover:border-emerald-300 hover:text-emerald-600'
+                  : 'border-slate-200 hover:border-emerald-300 hover:text-emerald-600 dark:text-emerald-300'
               }
               onClick={() => { setStatusFilter(filter.key); setPage(1); }}
             >
@@ -735,7 +742,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
               placeholder="Buscar cliente, DNI..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 w-full sm:w-64 bg-white border-slate-200"
+              className="pl-9 w-full sm:w-64 bg-white dark:bg-slate-900 border-slate-200"
             />
           </div>
           <Button
@@ -784,11 +791,11 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       ) : loans.length === 0 ? (
         <Card className="border-0 shadow-md">
           <CardContent className="p-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
-              <FileText className="h-8 w-8 text-slate-400" />
+            <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
+              <FileText className="h-8 w-8 text-slate-400 dark:text-slate-500" />
             </div>
-            <h3 className="text-lg font-semibold text-slate-700 mb-2">No hay préstamos</h3>
-            <p className="text-slate-500 mb-4">
+            <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">No hay préstamos</h3>
+            <p className="text-slate-500 dark:text-slate-400 mb-4">
               {statusFilter !== 'all'
                 ? `No se encontraron préstamos con estado "${statusFilters.find(f => f.key === statusFilter)?.label}"`
                 : 'Aún no se han registrado préstamos'}
@@ -831,20 +838,20 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                         'bg-teal-100'
                       }`}>
                         <User className={`h-5 w-5 ${
-                          loan.status === 'mora' ? 'text-red-600' :
-                          loan.status === 'completed' || loan.status === 'paid' ? 'text-emerald-600' :
-                          'text-teal-600'
+                          loan.status === 'mora' ? 'text-red-600 dark:text-red-300' :
+                          loan.status === 'completed' || loan.status === 'paid' ? 'text-emerald-600 dark:text-emerald-300' :
+                          'text-teal-600 dark:text-teal-300'
                         }`} />
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <h4 className="font-semibold text-slate-900 truncate">{loan.client.name}</h4>
+                          <h4 className="font-semibold text-slate-900 dark:text-slate-100 truncate">{loan.client.name}</h4>
                           <Badge variant="outline" className={`text-xs shrink-0 ${statusBadge.className}`}>
                             {statusBadge.icon}
                             <span className="ml-1">{statusBadge.label}</span>
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                        <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                           <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{loan.client.phone}</span>
                           {loan.zone && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{loan.zone.name}</span>}
                           {loan.collector && <span className="flex items-center gap-1"><Users className="h-3 w-3" />{loan.collector.name}</span>}
@@ -856,28 +863,28 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                     <div className="flex items-center gap-6 sm:gap-8">
                       <div className="hidden md:flex flex-col items-center gap-3">
                         <div className="text-center">
-                          <p className="text-xs text-slate-500">Monto</p>
-                          <p className="font-bold text-slate-900">{formatCurrency(loan.amount)}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Monto</p>
+                          <p className="font-bold text-slate-900 dark:text-slate-100">{formatCurrency(loan.amount)}</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-xs text-slate-500">Total</p>
-                          <p className="font-bold text-slate-700">{formatCurrency(loan.totalAmount)}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Total</p>
+                          <p className="font-bold text-slate-700 dark:text-slate-300">{formatCurrency(loan.totalAmount)}</p>
                         </div>
                       </div>
 
                       <div className="hidden md:flex flex-col items-center">
-                        <p className="text-xs text-slate-500">Cuota {loan.paymentFrequency === 'daily' ? 'Diaria' : 'Semanal'}</p>
-                        <p className="font-bold text-emerald-600">{formatCurrency(loan.dailyPayment)}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Cuota {loan.paymentFrequency === 'daily' ? 'Diaria' : 'Semanal'}</p>
+                        <p className="font-bold text-emerald-600 dark:text-emerald-300">{formatCurrency(loan.dailyPayment)}</p>
                       </div>
 
                       {/* Progress */}
                       <div className="w-32 sm:w-40">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs text-slate-500">Progreso</span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400">Progreso</span>
                           <span className={`text-xs font-semibold ${
-                            loan.status === 'mora' ? 'text-red-600' :
-                            loan.progressPercent >= 75 ? 'text-emerald-600' :
-                            'text-amber-600'
+                            loan.status === 'mora' ? 'text-red-600 dark:text-red-300' :
+                            loan.progressPercent >= 75 ? 'text-emerald-600 dark:text-emerald-300' :
+                            'text-amber-600 dark:text-amber-300'
                           }`}>
                             {loan.progressPercent.toFixed(1)}%
                           </span>
@@ -891,11 +898,11 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
                       {/* Days Remaining */}
                       <div className="hidden lg:flex flex-col items-center">
-                        <p className="text-xs text-slate-500">Días Rest.</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Días Rest.</p>
                         <p className={`font-bold ${
-                          loan.daysRemaining !== null && loan.daysRemaining < 0 ? 'text-red-600' :
-                          loan.daysRemaining !== null && loan.daysRemaining < 5 ? 'text-amber-600' :
-                          'text-slate-700'
+                          loan.daysRemaining !== null && loan.daysRemaining < 0 ? 'text-red-600 dark:text-red-300' :
+                          loan.daysRemaining !== null && loan.daysRemaining < 5 ? 'text-amber-600 dark:text-amber-300' :
+                          'text-slate-700 dark:text-slate-300'
                         }`}>
                           {loan.daysRemaining !== null ? `${loan.daysRemaining}d` : '—'}
                         </p>
@@ -906,7 +913,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"
+                          className="h-8 w-8 text-slate-400 hover:text-emerald-600 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
                           onClick={(e) => {
                             e.stopPropagation();
                             setDetailLoan(loan);
@@ -919,7 +926,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                            className="h-8 w-8 text-slate-400 hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/50"
                             onClick={(e) => {
                               e.stopPropagation();
                               setCancelLoanId(loan.id);
@@ -932,7 +939,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                            className="h-8 w-8 text-slate-400 hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/50"
                             onClick={(e) => {
                               e.stopPropagation();
                               setDeleteLoanId(loan.id);
@@ -946,20 +953,20 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                   </div>
 
                   {/* Mobile-only financial row */}
-                  <div className="flex md:hidden items-center justify-between mt-3 pt-3 border-t border-slate-100">
+                  <div className="flex md:hidden items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-4">
                       <div>
-                        <p className="text-xs text-slate-500">Monto</p>
-                        <p className="font-bold text-sm text-slate-900">{formatCurrency(loan.amount)}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Monto</p>
+                        <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{formatCurrency(loan.amount)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-slate-500">Cuota</p>
-                        <p className="font-bold text-sm text-emerald-600">{formatCurrency(loan.dailyPayment)}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Cuota</p>
+                        <p className="font-bold text-sm text-emerald-600 dark:text-emerald-300">{formatCurrency(loan.dailyPayment)}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-slate-500">Restante</p>
-                      <p className="font-bold text-sm text-slate-700">{formatCurrency(loan.remaining)}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Restante</p>
+                      <p className="font-bold text-sm text-slate-700 dark:text-slate-300">{formatCurrency(loan.remaining)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -978,7 +985,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-slate-600">
+              <span className="text-sm text-slate-600 dark:text-slate-400">
                 Página {page} de {totalPages}
               </span>
               <Button
@@ -997,9 +1004,9 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       {/* ============================================================ */}
       {/* CREATE LOAN DIALOG (Multi-Step) */}
       {/* ============================================================ */}
-      <Dialog open={createOpen} onOpenChange={(open) => { if (!open) resetCreateForm(); setCreateOpen(open); }}>
+      <Dialog open={createOpen} onOpenChange={(open) => { if (!open) resetCreateForm(); else if (!isAdmin && user?.id) { setCollectorId(user.id); } setCreateOpen(open); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col p-0">
-          <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800">
             <DialogTitle className="flex items-center gap-2 text-xl">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
                 <Plus className="h-4 w-4 text-white" />
@@ -1012,17 +1019,17 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
           </DialogHeader>
 
           {/* Step Indicator */}
-          <div className="px-6 py-4 bg-slate-50 border-b border-slate-100">
+          <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3">
               {[1, 2, 3].map((step) => (
                 <React.Fragment key={step}>
-                  <div className={`flex items-center gap-2 ${createStep >= step ? 'text-emerald-600' : 'text-slate-400'}`}>
+                  <div className={`flex items-center gap-2 ${createStep >= step ? 'text-emerald-600 dark:text-emerald-300' : 'text-slate-400'}`}>
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
                       createStep > step
                         ? 'bg-emerald-500 text-white'
                         : createStep === step
-                        ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-500'
-                        : 'bg-slate-200 text-slate-500'
+                        ? 'bg-emerald-100 text-emerald-700 dark:text-emerald-300 border-2 border-emerald-500'
+                        : 'bg-slate-200 text-slate-500 dark:text-slate-400'
                     }`}>
                       {createStep > step ? <CheckCircle2 className="h-4 w-4" /> : step}
                     </div>
@@ -1044,7 +1051,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
               {createStep === 1 && (
                 <>
                   <div>
-                    <Label className="text-sm font-semibold text-slate-700">Buscar Cliente</Label>
+                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Buscar Cliente</Label>
                     <div className="relative mt-1.5">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                       <Input
@@ -1060,7 +1067,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                     <ScrollArea className="max-h-56">
                       <div className="space-y-2">
                         {clients.length === 0 ? (
-                          <p className="text-sm text-slate-500 text-center py-4">No se encontraron clientes</p>
+                          <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No se encontraron clientes</p>
                         ) : (
                           clients.map((client) => {
                             const hasActive = (client.stats?.activeLoans || 0) > 0;
@@ -1070,25 +1077,25 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                                 key={client.id}
                                 className={`w-full text-left p-4 rounded-lg border transition-all ${
                                   isSelected
-                                    ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200'
+                                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 ring-2 ring-emerald-200'
                                     : hasActive
-                                    ? 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed'
-                                    : 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50'
+                                    ? 'border-slate-200 bg-slate-50 dark:bg-slate-800/50 opacity-60 cursor-not-allowed'
+                                    : 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30'
                                 }`}
                                 onClick={() => { if (!hasActive) { setSelectedClientId(client.id); setClientSearch(''); } }}
                                 disabled={hasActive}
                               >
                                 <div className="flex items-center justify-between">
                                   <div>
-                                    <p className="font-medium text-sm text-slate-900">{client.name}</p>
-                                    <p className="text-xs text-slate-500">{getDocumentLabel(client.documentType)}: {client.documentNumber} | Tel: {client.phone}</p>
+                                    <p className="font-medium text-sm text-slate-900 dark:text-slate-100">{client.name}</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">{getDocumentLabel(client.documentType)}: {client.documentNumber} | Tel: {client.phone}</p>
                                   </div>
                                   {hasActive ? (
-                                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs shrink-0 ml-2">
+                                    <Badge variant="outline" className="bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 text-xs shrink-0 ml-2">
                                       Préstamo activo
                                     </Badge>
                                   ) : client.zone ? (
-                                    <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 text-xs shrink-0 ml-2">
+                                    <Badge variant="outline" className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 text-xs shrink-0 ml-2">
                                       {client.zone.name}
                                     </Badge>
                                   ) : null}
@@ -1097,9 +1104,9 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                                   <div className="mt-2 flex items-center gap-1.5">
                                     <span className="text-xs text-slate-400">Score:</span>
                                     <span className={`text-xs font-semibold ${
-                                      client.creditScore < 30 ? 'text-red-600' :
-                                      client.creditScore < 50 ? 'text-amber-600' :
-                                      'text-emerald-600'
+                                      client.creditScore < 30 ? 'text-red-600 dark:text-red-300' :
+                                      client.creditScore < 50 ? 'text-amber-600 dark:text-amber-300' :
+                                      'text-emerald-600 dark:text-emerald-300'
                                     }`}>
                                       {client.creditScore}/100
                                     </span>
@@ -1115,9 +1122,9 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
                   {/* Selected client summary */}
                   {selectedClientId && selectedClient && (
-                    <Alert className="bg-emerald-50 border-emerald-200">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                      <AlertDescription className="text-emerald-800">
+                    <Alert className="bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
+                      <AlertDescription className="text-emerald-800 dark:text-emerald-200">
                         <span className="font-semibold">{selectedClient.name}</span> — {getDocumentLabel(selectedClient.documentType)}: {selectedClient.documentNumber} | Tel: {selectedClient.phone}
                         {selectedClient.creditScore !== null && ` | Score: ${selectedClient.creditScore}/100`}
                       </AlertDescription>
@@ -1131,7 +1138,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                      className="text-emerald-600 dark:text-emerald-300 border-emerald-200 hover:bg-emerald-50"
                       onClick={() => setShowNewClient(!showNewClient)}
                     >
                       <UserPlus className="h-4 w-4 mr-2" />
@@ -1139,18 +1146,9 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                     </Button>
 
                     {showNewClient && (
-                      <Card className="mt-3 border-emerald-200 bg-emerald-50/30">
+                      <Card className="mt-3 border-emerald-200 bg-emerald-50/30 dark:bg-emerald-950/30">
                         <CardContent className="p-4 space-y-3">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                              <Label className="text-xs">Nombre completo *</Label>
-                              <Input
-                                placeholder="Juan Pérez"
-                                value={newClient.name}
-                                onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
-                                className="mt-1"
-                              />
-                            </div>
+                          <div className="space-y-3">
                             <div>
                               <Label className="text-xs">Tipo Doc. *</Label>
                               <Select value={newClient.documentType} onValueChange={(v) => setNewClient({ ...newClient, documentType: v })}>
@@ -1175,6 +1173,15 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                               />
                             </div>
                             <div>
+                              <Label className="text-xs">Nombre completo *</Label>
+                              <Input
+                                placeholder="Juan Pérez"
+                                value={newClient.name}
+                                onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
                               <Label className="text-xs">Teléfono *</Label>
                               <Input
                                 placeholder="999111222"
@@ -1192,7 +1199,8 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                                 className="mt-1"
                               />
                             </div>
-                            <div className="sm:col-span-2">
+                            {isAdmin && (
+                            <div>
                               <Label className="text-xs">Zona</Label>
                               <Select value={newClient.zoneId} onValueChange={(v) => setNewClient({ ...newClient, zoneId: v })}>
                                 <SelectTrigger className="mt-1">
@@ -1205,6 +1213,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                                 </SelectContent>
                               </Select>
                             </div>
+                            )}
                           </div>
                           <Button
                             className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -1226,7 +1235,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-sm font-semibold text-slate-700">
+                      <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                         Monto del Préstamo (S/) *
                       </Label>
                       <div className="relative mt-1.5">
@@ -1249,13 +1258,13 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                       )}
                     </div>
 
-                    <div className="bg-emerald-50 rounded-lg border border-emerald-100 px-3 py-2.5 flex items-center justify-between">
-                      <span className="text-xs text-slate-500 font-medium">Tasa de Interés</span>
-                      <span className="text-sm font-bold text-emerald-600">{interestRate || '20'}% <span className="font-normal text-slate-400">· {loanDays === '36' ? '32.10%' : '20%'} fijo</span></span>
+                    <div className="bg-emerald-50 dark:bg-emerald-950/50 rounded-lg border border-emerald-100 px-3 py-2.5 flex items-center justify-between">
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Tasa de Interés</span>
+                      <span className="text-sm font-bold text-emerald-600 dark:text-emerald-300">{interestRate || '20'}% <span className="font-normal text-slate-400 dark:text-slate-500">· {loanDays === '36' ? '32.10%' : '20%'} fijo</span></span>
                     </div>
 
                     <div>
-                      <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      <Label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         Plazo
                       </Label>
                       <div className="grid grid-cols-2 gap-1.5 mt-1">
@@ -1265,8 +1274,8 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                             type="button"
                             onClick={() => handleLoanDaysChange(d)}
                             className={`py-2 rounded-lg text-xs font-medium transition-all duration-200 border ${loanDays === d
-                              ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm'
-                              : 'border-slate-200 bg-white text-slate-500 hover:border-emerald-300 hover:text-emerald-600'
+                              ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 shadow-sm'
+                              : 'border-slate-200 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:border-emerald-300 hover:text-emerald-600 dark:text-emerald-300'
                               }`}
                           >
                             {d} días
@@ -1276,7 +1285,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                     </div>
 
                     <div>
-                      <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      <Label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         Frecuencia
                       </Label>
                       <div className="grid grid-cols-2 gap-1.5 mt-1">
@@ -1289,8 +1298,8 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                             type="button"
                             onClick={() => setPaymentFrequency(f.value)}
                             className={`py-2 rounded-lg text-xs font-medium transition-all duration-200 border ${paymentFrequency === f.value
-                              ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm'
-                              : 'border-slate-200 bg-white text-slate-500 hover:border-emerald-300 hover:text-emerald-600'
+                              ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 shadow-sm'
+                              : 'border-slate-200 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:border-emerald-300 hover:text-emerald-600 dark:text-emerald-300'
                               }`}
                           >
                             {f.label}
@@ -1302,7 +1311,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
                   {/* Rest Days */}
                   <div className="space-y-2">
-                    <Label className="text-sm font-semibold text-slate-700">
+                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                       Día de Descanso (sin cobro)
                     </Label>
                     <div className="flex flex-wrap gap-1.5">
@@ -1314,8 +1323,8 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                             type="button"
                             onClick={() => setRestDays(active ? [] : [idx])}
                             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border-2 ${active
-                              ? 'border-red-400 bg-red-50 text-red-600 shadow-md shadow-red-500/10'
-                              : 'border-slate-200 bg-white text-slate-600 hover:border-red-300 hover:bg-red-50/50'
+                              ? 'border-red-400 bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-300 shadow-md shadow-red-500/10'
+                              : 'border-slate-200 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-red-300 hover:bg-red-50/50 dark:hover:bg-red-950/30'
                               }`}
                           >
                             {day}
@@ -1323,7 +1332,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                         );
                       })}
                     </div>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-slate-400 dark:text-slate-500">
                       {paymentFrequency === 'daily'
                         ? 'Los cobros saltarán este día de la semana'
                         : 'El cobro semanal se programará evitando este día'}
@@ -1342,54 +1351,54 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
                   {/* Live Calculation Preview */}
                   {parseFloat(loanAmount) > 0 && parseFloat(interestRate) >= 0 && parseInt(loanDays) > 0 && (
-                    <Card className="border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-lg shadow-emerald-500/10">
+                    <Card className="border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/50 dark:to-teal-950/50 shadow-lg shadow-emerald-500/10">
                       <CardHeader className="pb-2">
                         <CardTitle className="flex items-center gap-2 text-base">
-                          <Calculator className="h-5 w-5 text-emerald-600" />
+                          <Calculator className="h-5 w-5 text-emerald-600 dark:text-emerald-300" />
                           Vista Previa del Préstamo
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-white rounded-lg p-3 border border-emerald-100">
-                            <p className="text-xs text-slate-500">Monto Prestado</p>
-                            <p className="text-lg font-bold text-slate-900">{formatCurrency(parseFloat(loanAmount) || 0)}</p>
+                          <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-emerald-100">
+                            <p className="text-xs text-slate-500 dark:text-slate-400">Monto Prestado</p>
+                            <p className="text-lg font-bold text-slate-900 dark:text-slate-100">{formatCurrency(parseFloat(loanAmount) || 0)}</p>
                           </div>
-                          <div className="bg-white rounded-lg p-3 border border-emerald-100">
-                            <p className="text-xs text-slate-500">Interés ({interestRate}%)</p>
-                            <p className="text-lg font-bold text-amber-600">{formatCurrency(calcInterest)}</p>
+                          <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-emerald-100">
+                            <p className="text-xs text-slate-500 dark:text-slate-400">Interés ({interestRate}%)</p>
+                            <p className="text-lg font-bold text-amber-600 dark:text-amber-300">{formatCurrency(calcInterest)}</p>
                           </div>
-                          <div className="bg-white rounded-lg p-3 border border-emerald-100">
-                            <p className="text-xs text-slate-500">Total a Pagar</p>
-                            <p className="text-lg font-bold text-emerald-700">{formatCurrency(calcTotalAmount)}</p>
+                          <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-emerald-100">
+                            <p className="text-xs text-slate-500 dark:text-slate-400">Total a Pagar</p>
+                            <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{formatCurrency(calcTotalAmount)}</p>
                           </div>
-                          <div className="bg-white rounded-lg p-3 border border-emerald-100">
-                            <p className="text-xs text-slate-500">
+                          <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-emerald-100">
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
                               Cuota {paymentFrequency === 'daily' ? 'Diaria' : 'Semanal'}
                             </p>
-                            <p className="text-lg font-bold text-emerald-600">{formatCurrency(paymentFrequency === 'weekly' ? calcWeeklyPayment : calcPaymentAmount)}</p>
+                            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-300">{formatCurrency(paymentFrequency === 'weekly' ? calcWeeklyPayment : calcPaymentAmount)}</p>
                           </div>
                         </div>
                         <Separator />
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-600">Ganancia esperada:</span>
-                          <span className="font-bold text-emerald-600">{formatCurrency(calcInterest)}</span>
+                          <span className="text-slate-600 dark:text-slate-400">Ganancia esperada:</span>
+                          <span className="font-bold text-emerald-600 dark:text-emerald-300">{formatCurrency(calcInterest)}</span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-600">Número de cuotas:</span>
-                          <span className="font-bold text-slate-700">{calcNumCuotas}</span>
+                          <span className="text-slate-600 dark:text-slate-400">Número de cuotas:</span>
+                          <span className="font-bold text-slate-700 dark:text-slate-300">{calcNumCuotas}</span>
                         </div>
                         {restDays.length > 0 && (
                           <div className="flex items-center justify-between text-sm">
-                            <span className="text-slate-600">Días de descanso:</span>
+                            <span className="text-slate-600 dark:text-slate-400">Días de descanso:</span>
                             <span className="font-bold text-red-500">{restDays.sort().map(d => DAYS[d]).join(', ')}</span>
                           </div>
                         )}
                         {startDate && calcSchedule.length > 0 && (
-                          <div className="bg-white rounded-lg border border-emerald-100 max-h-40 overflow-y-auto">
+                          <div className="bg-white dark:bg-slate-900 rounded-lg border border-emerald-100 max-h-40 overflow-y-auto">
                             <table className="w-full text-xs">
                               <thead>
-                                <tr className="bg-emerald-50 text-emerald-700">
+                                <tr className="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300">
                                   <th className="px-2 py-1.5 text-left font-semibold">#</th>
                                   <th className="px-2 py-1.5 text-left font-semibold">Tipo</th>
                                   <th className="px-2 py-1.5 text-left font-semibold">Fecha</th>
@@ -1399,10 +1408,10 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                               <tbody>
                                 {calcSchedule.slice(0, 15).map((row) => (
                                   <tr key={row.num} className="border-t border-emerald-50">
-                                    <td className="px-2 py-1 text-slate-500">{row.num}</td>
-                                    <td className="px-2 py-1"><span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${row.type === 'Semana' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{row.type}</span></td>
-                                    <td className="px-2 py-1 text-slate-700">{row.date}</td>
-                                    <td className="px-2 py-1 text-right font-medium text-emerald-600">{formatCurrency(row.amount)}</td>
+                                    <td className="px-2 py-1 text-slate-500 dark:text-slate-400">{row.num}</td>
+                                    <td className="px-2 py-1"><span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${row.type === 'Semana' ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>{row.type}</span></td>
+                                    <td className="px-2 py-1 text-slate-700 dark:text-slate-300">{row.date}</td>
+                                    <td className="px-2 py-1 text-right font-medium text-emerald-600 dark:text-emerald-300">{formatCurrency(row.amount)}</td>
                                   </tr>
                                 ))}
                                 {calcSchedule.length > 15 && (
@@ -1417,9 +1426,9 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                           </div>
                         )}
                         {parseFloat(loanAmount) > capital && (
-                          <Alert className="bg-red-50 border-red-200">
-                            <AlertTriangle className="h-4 w-4 text-red-600" />
-                            <AlertDescription className="text-red-700">
+                          <Alert className="bg-red-50 dark:bg-red-950/50 border-red-200">
+                            <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-300" />
+                            <AlertDescription className="text-red-700 dark:text-red-300">
                               Capital insuficiente. Disponible: <strong>{formatCurrency(capital)}</strong>, Necesario: <strong>{formatCurrency(parseFloat(loanAmount))}</strong>
                             </AlertDescription>
                           </Alert>
@@ -1434,59 +1443,61 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
               {createStep === 3 && (
                 <>
                   {/* Summary of loan */}
-                  <Card className="border-2 border-emerald-200 bg-emerald-50/50">
+                  <Card className="border-2 border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/30">
                     <CardContent className="p-4">
-                      <h4 className="font-semibold text-sm text-emerald-800 mb-2">Resumen del Préstamo</h4>
+                      <h4 className="font-semibold text-sm text-emerald-800 dark:text-emerald-200 mb-2">Resumen del Préstamo</h4>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>
-                          <span className="text-slate-500">Cliente:</span>
-                          <p className="font-semibold text-slate-900">{selectedClient?.name}</p>
+                          <span className="text-slate-500 dark:text-slate-400">Cliente:</span>
+                          <p className="font-semibold text-slate-900 dark:text-slate-100">{selectedClient?.name}</p>
                         </div>
                         <div>
-                          <span className="text-slate-500">{getDocumentLabel(selectedClient?.documentType || 'dni')}:</span>
-                          <p className="font-semibold text-slate-900">{selectedClient?.documentNumber}</p>
+                          <span className="text-slate-500 dark:text-slate-400">{getDocumentLabel(selectedClient?.documentType || 'dni')}:</span>
+                          <p className="font-semibold text-slate-900 dark:text-slate-100">{selectedClient?.documentNumber}</p>
                         </div>
                         <div>
-                          <span className="text-slate-500">Monto:</span>
-                          <p className="font-semibold text-slate-900">{formatCurrency(parseFloat(loanAmount) || 0)}</p>
+                          <span className="text-slate-500 dark:text-slate-400">Monto:</span>
+                          <p className="font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(parseFloat(loanAmount) || 0)}</p>
                         </div>
                         <div>
-                          <span className="text-slate-500">Total a Pagar:</span>
-                          <p className="font-semibold text-emerald-700">{formatCurrency(calcTotalAmount)}</p>
+                          <span className="text-slate-500 dark:text-slate-400">Total a Pagar:</span>
+                          <p className="font-semibold text-emerald-700 dark:text-emerald-300">{formatCurrency(calcTotalAmount)}</p>
                         </div>
                         <div>
-                          <span className="text-slate-500">Cuota {paymentFrequency === 'daily' ? 'Diaria' : 'Semanal'}:</span>
-                          <p className="font-semibold text-emerald-600">{formatCurrency(paymentFrequency === 'weekly' ? calcWeeklyPayment : calcPaymentAmount)}</p>
+                          <span className="text-slate-500 dark:text-slate-400">Cuota {paymentFrequency === 'daily' ? 'Diaria' : 'Semanal'}:</span>
+                          <p className="font-semibold text-emerald-600 dark:text-emerald-300">{formatCurrency(paymentFrequency === 'weekly' ? calcWeeklyPayment : calcPaymentAmount)}</p>
                         </div>
                         <div>
-                          <span className="text-slate-500">Cuotas:</span>
-                          <p className="font-semibold text-slate-900">{calcNumCuotas}</p>
+                          <span className="text-slate-500 dark:text-slate-400">Cuotas:</span>
+                          <p className="font-semibold text-slate-900 dark:text-slate-100">{calcNumCuotas}</p>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm font-semibold text-slate-700">Cobrador</Label>
-                      <Select value={collectorId} onValueChange={setCollectorId}>
-                        <SelectTrigger className="mt-1.5">
-                          <SelectValue placeholder="Seleccionar cobrador (opcional)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {collectors.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name || c.email} ({c.role})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className={`grid grid-cols-1 ${isAdmin ? 'sm:grid-cols-2' : ''} gap-8`}>
+                    {isAdmin && (
+                      <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+                        <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Cobrador</Label>
+                        <Select value={collectorId} onValueChange={setCollectorId}>
+                          <SelectTrigger className="mt-2">
+                            <SelectValue placeholder="Seleccionar cobrador (opcional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {collectors.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.name || c.email} ({c.role})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
-                    <div>
-                      <Label className="text-sm font-semibold text-slate-700">Zona</Label>
+                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+                      <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Zona</Label>
                       <Select value={zoneId} onValueChange={setZoneId}>
-                        <SelectTrigger className="mt-1.5">
+                        <SelectTrigger className="mt-2">
                           <SelectValue placeholder="Seleccionar zona (opcional)" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1499,7 +1510,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-semibold text-slate-700">Notas</Label>
+                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Notas</Label>
                     <Textarea
                       placeholder="Observaciones adicionales sobre el préstamo..."
                       value={loanNotes}
@@ -1514,7 +1525,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
           </ScrollArea>
 
           {/* Dialog Footer - Navigation */}
-          <div className="px-6 py-4 border-t border-slate-100 bg-slate-50">
+          <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
             <div className="flex items-center justify-between">
               <Button
                 variant="outline"
@@ -1566,20 +1577,20 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       {/* LOAN DETAIL SHEET */}
       {/* ============================================================ */}
       <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
-        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-6">
           {detailLoan && (
             <>
-              <SheetHeader className="pb-4 border-b border-slate-100">
+              <SheetHeader className="border-b border-slate-100 dark:border-slate-800 p-0">
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    detailLoan.status === 'mora' ? 'bg-red-100' :
-                    detailLoan.status === 'completed' || detailLoan.status === 'paid' ? 'bg-emerald-100' :
-                    'bg-teal-100'
+                    detailLoan.status === 'mora' ? 'bg-red-100 dark:bg-red-900/50' :
+                    detailLoan.status === 'completed' || detailLoan.status === 'paid' ? 'bg-emerald-100 dark:bg-emerald-900/50' :
+                    'bg-teal-100 dark:bg-teal-900/50'
                   }`}>
                     <DollarSign className={`h-5 w-5 ${
-                      detailLoan.status === 'mora' ? 'text-red-600' :
-                      detailLoan.status === 'completed' || detailLoan.status === 'paid' ? 'text-emerald-600' :
-                      'text-teal-600'
+                      detailLoan.status === 'mora' ? 'text-red-600 dark:text-red-300' :
+                      detailLoan.status === 'completed' || detailLoan.status === 'paid' ? 'text-emerald-600 dark:text-emerald-300' :
+                      'text-teal-600 dark:text-teal-300'
                     }`} />
                   </div>
                   <div>
@@ -1595,41 +1606,41 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 </div>
               </SheetHeader>
 
-              <div className="py-4 space-y-6">
+              <div className="space-y-6">
                 {/* Client Info */}
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div className="flex items-center gap-2">
                     <Phone className="h-4 w-4 text-slate-400" />
-                    <span className="text-slate-500">Tel:</span>
+                    <span className="text-slate-500 dark:text-slate-400">Tel:</span>
                     <span className="font-medium">{detailLoan.client.phone}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-slate-400" />
-                    <span className="text-slate-500">{getDocumentLabel(detailLoan.client.documentType || 'dni')}:</span>
+                    <span className="text-slate-500 dark:text-slate-400">{getDocumentLabel(detailLoan.client.documentType || 'dni')}:</span>
                     <span className="font-medium">{detailLoan.client.documentNumber}</span>
                   </div>
                   {detailLoan.zone && (
                     <div className="flex items-center gap-2">
                       <MapPin className="h-4 w-4 text-slate-400" />
-                      <span className="text-slate-500">Zona:</span>
+                      <span className="text-slate-500 dark:text-slate-400">Zona:</span>
                       <span className="font-medium">{detailLoan.zone.name}</span>
                     </div>
                   )}
                   {detailLoan.collector && (
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4 text-slate-400" />
-                      <span className="text-slate-500">Cobrador:</span>
+                      <span className="text-slate-500 dark:text-slate-400">Cobrador:</span>
                       <span className="font-medium">{detailLoan.collector.name}</span>
                     </div>
                   )}
                   {detailLoan.client.creditScore !== null && (
                     <div className="flex items-center gap-2">
                       <CreditCard className="h-4 w-4 text-slate-400" />
-                      <span className="text-slate-500">Score:</span>
+                      <span className="text-slate-500 dark:text-slate-400">Score:</span>
                       <span className={`font-semibold ${
-                        detailLoan.client.creditScore < 30 ? 'text-red-600' :
-                        detailLoan.client.creditScore < 50 ? 'text-amber-600' :
-                        'text-emerald-600'
+                        detailLoan.client.creditScore < 30 ? 'text-red-600 dark:text-red-300' :
+                        detailLoan.client.creditScore < 50 ? 'text-amber-600 dark:text-amber-300' :
+                        'text-emerald-600 dark:text-emerald-300'
                       }`}>
                         {detailLoan.client.creditScore}/100
                       </span>
@@ -1641,21 +1652,21 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
                 {/* Financial Summary */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="bg-slate-50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-slate-500">Monto</p>
-                    <p className="text-base font-bold text-slate-900">{formatCurrency(detailLoan.amount)}</p>
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Monto</p>
+                    <p className="text-base font-bold text-slate-900 dark:text-slate-100">{formatCurrency(detailLoan.amount)}</p>
                   </div>
-                  <div className="bg-amber-50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-slate-500">Interés</p>
-                    <p className="text-base font-bold text-amber-600">{formatCurrency(detailLoan.interest)}</p>
+                  <div className="bg-amber-50 dark:bg-amber-950/50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Interés</p>
+                    <p className="text-base font-bold text-amber-600 dark:text-amber-300">{formatCurrency(detailLoan.interest)}</p>
                   </div>
-                  <div className="bg-emerald-50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-slate-500">Total</p>
-                    <p className="text-base font-bold text-emerald-700">{formatCurrency(detailLoan.totalAmount)}</p>
+                  <div className="bg-emerald-50 dark:bg-emerald-950/50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Total</p>
+                    <p className="text-base font-bold text-emerald-700 dark:text-emerald-300">{formatCurrency(detailLoan.totalAmount)}</p>
                   </div>
-                  <div className="bg-teal-50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-slate-500">Cuota</p>
-                    <p className="text-base font-bold text-teal-600">{formatCurrency(detailLoan.dailyPayment)}</p>
+                  <div className="bg-teal-50 dark:bg-teal-950/50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Cuota</p>
+                    <p className="text-base font-bold text-teal-600 dark:text-teal-300">{formatCurrency(detailLoan.dailyPayment)}</p>
                   </div>
                 </div>
 
@@ -1663,17 +1674,17 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 <Card className="border-0 shadow-sm">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-semibold text-slate-700">Progreso de Pago</span>
+                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Progreso de Pago</span>
                       <span className={`text-sm font-bold ${
-                        detailLoan.status === 'mora' ? 'text-red-600' :
-                        detailLoan.progressPercent >= 75 ? 'text-emerald-600' :
-                        'text-amber-600'
+                        detailLoan.status === 'mora' ? 'text-red-600 dark:text-red-300' :
+                        detailLoan.progressPercent >= 75 ? 'text-emerald-600 dark:text-emerald-300' :
+                        'text-amber-600 dark:text-amber-300'
                       }`}>
                         {detailLoan.progressPercent.toFixed(1)}%
                       </span>
                     </div>
                     <Progress value={detailLoan.progressPercent} className={`h-3 ${getProgressColor(detailLoan.progressPercent, detailLoan.status)}`} />
-                    <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
+                    <div className="flex items-center justify-between mt-2 text-xs text-slate-500 dark:text-slate-400">
                       <span>Pagado: {formatCurrency(detailLoan.amountPaid)}</span>
                       <span>Restante: {formatCurrency(detailLoan.remaining)}</span>
                     </div>
@@ -1685,14 +1696,14 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-emerald-500" />
                     <div>
-                      <p className="text-xs text-slate-500">Fecha Inicio</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Fecha Inicio</p>
                       <p className="text-sm font-medium">{detailLoan.startDate ? formatDate(detailLoan.startDate) : 'No definida'}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-amber-500" />
                     <div>
-                      <p className="text-xs text-slate-500">Fecha Fin</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Fecha Fin</p>
                       <p className="text-sm font-medium">{detailLoan.endDate ? formatDate(detailLoan.endDate) : 'No definida'}</p>
                     </div>
                   </div>
@@ -1700,23 +1711,23 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
                 {/* Time info */}
                 <div className="grid grid-cols-3 gap-3 text-center">
-                  <div className="bg-slate-50 rounded-lg p-2">
-                    <p className="text-xs text-slate-500">Días Transcurridos</p>
-                    <p className="text-sm font-bold text-slate-700">{detailLoan.daysElapsed}d</p>
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Días Transcurridos</p>
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{detailLoan.daysElapsed}d</p>
                   </div>
-                  <div className="bg-slate-50 rounded-lg p-2">
-                    <p className="text-xs text-slate-500">Días Restantes</p>
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Días Restantes</p>
                     <p className={`text-sm font-bold ${
-                      detailLoan.daysRemaining !== null && detailLoan.daysRemaining < 0 ? 'text-red-600' :
-                      detailLoan.daysRemaining !== null && detailLoan.daysRemaining < 5 ? 'text-amber-600' :
-                      'text-slate-700'
+                      detailLoan.daysRemaining !== null && detailLoan.daysRemaining < 0 ? 'text-red-600 dark:text-red-300' :
+                      detailLoan.daysRemaining !== null && detailLoan.daysRemaining < 5 ? 'text-amber-600 dark:text-amber-300' :
+                      'text-slate-700 dark:text-slate-300'
                     }`}>
                       {detailLoan.daysRemaining !== null ? `${detailLoan.daysRemaining}d` : '—'}
                     </p>
                   </div>
-                  <div className="bg-slate-50 rounded-lg p-2">
-                    <p className="text-xs text-slate-500">Frecuencia</p>
-                    <p className="text-sm font-bold text-slate-700">
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Frecuencia</p>
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
                       {detailLoan.paymentFrequency === 'daily' ? 'Diario' : 'Semanal'}
                     </p>
                   </div>
@@ -1725,32 +1736,32 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 {/* Notes */}
                 {detailLoan.notes && (
                   <div>
-                    <h4 className="text-sm font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                    <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
                       <FileText className="h-4 w-4" /> Notas
                     </h4>
-                    <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg">{detailLoan.notes}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg">{detailLoan.notes}</p>
                   </div>
                 )}
 
                 {/* Late Fees */}
                 {detailLoan.lateFees && detailLoan.lateFees.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1">
+                    <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1">
                       <AlertTriangle className="h-4 w-4 text-red-500" /> Recargos por Mora
                     </h4>
                     <div className="space-y-2">
                       {detailLoan.lateFees.map((fee) => (
-                        <div key={fee.id} className="flex items-center justify-between bg-red-50 p-3 rounded-lg border border-red-100">
+                        <div key={fee.id} className="flex items-center justify-between bg-red-50 dark:bg-red-950/50 p-3 rounded-lg border border-red-100">
                           <div>
-                            <p className="text-sm font-medium text-red-800">{fee.daysLate} días de atraso</p>
-                            <p className="text-xs text-red-600">Tasa: S/{fee.ratePerDay}/día</p>
+                            <p className="text-sm font-medium text-red-800 dark:text-red-200">{fee.daysLate} días de atraso</p>
+                            <p className="text-xs text-red-600 dark:text-red-300">Tasa: S/{fee.ratePerDay}/día</p>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold text-red-700">{formatCurrency(fee.amount)}</p>
+                            <p className="font-bold text-red-700 dark:text-red-300">{formatCurrency(fee.amount)}</p>
                             <Badge variant="outline" className={`text-xs ${
-                              fee.status === 'pending' ? 'bg-red-100 text-red-700 border-red-200' :
-                              fee.status === 'paid' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                              'bg-slate-100 text-slate-600 border-slate-200'
+                              fee.status === 'pending' ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 border-red-200' :
+                              fee.status === 'paid' ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-200' :
+                              'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200'
                             }`}>
                               {fee.status === 'pending' ? 'Pendiente' : fee.status === 'paid' ? 'Pagado' : 'Condonado'}
                             </Badge>
@@ -1766,7 +1777,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 {/* Payment Schedule */}
                 {detailLoan.schedule && detailLoan.schedule.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1">
+                    <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1">
                       <Calendar className="h-4 w-4 text-emerald-500" /> Cronograma de Pagos
                     </h4>
                     <ScrollArea className="max-h-64">
@@ -1788,8 +1799,8 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                               <TableCell>
                                 <Badge variant="outline" className={`text-xs ${
                                   s.status === 'paid'
-                                    ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                                    : 'bg-slate-100 text-slate-600 border-slate-200'
+                                    ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-200'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200'
                                 }`}>
                                   {s.status === 'paid' ? 'Pagado' : 'Pendiente'}
                                 </Badge>
@@ -1805,7 +1816,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 {/* Recent Payments */}
                 {detailLoan.payments && detailLoan.payments.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1">
+                    <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1">
                       <CreditCard className="h-4 w-4 text-teal-500" /> Últimos Pagos
                     </h4>
                     <ScrollArea className="max-h-64">
@@ -1824,11 +1835,11 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                               <TableCell className="text-xs whitespace-nowrap">{formatDateTime(p.paymentDate)}</TableCell>
                               <TableCell className="text-xs font-semibold">{formatCurrency(p.amount)}</TableCell>
                               <TableCell>
-                                <Badge variant="outline" className="text-xs bg-slate-50">
+                                <Badge variant="outline" className="text-xs bg-slate-50 dark:bg-slate-800/50">
                                   {PAYMENT_METHOD_LABELS[p.paymentMethod] || p.paymentMethod}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-xs text-slate-500">
+                              <TableCell className="text-xs text-slate-500 dark:text-slate-400">
                                 {p.collector?.name || '—'}
                               </TableCell>
                             </TableRow>
@@ -1888,7 +1899,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       <Dialog open={!!cancelLoanId} onOpenChange={(open) => { if (!open) setCancelLoanId(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-700">
+            <DialogTitle className="flex items-center gap-2 text-red-700 dark:text-red-300">
               <AlertTriangle className="h-5 w-5" />
               Confirmar Cancelación
             </DialogTitle>
@@ -1914,7 +1925,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       <Dialog open={!!deleteLoanId} onOpenChange={(open) => { if (!open) setDeleteLoanId(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-700">
+            <DialogTitle className="flex items-center gap-2 text-red-700 dark:text-red-300">
               <AlertTriangle className="h-5 w-5" />
               Eliminar Préstamo
             </DialogTitle>

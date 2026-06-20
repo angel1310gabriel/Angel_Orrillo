@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -114,13 +114,13 @@ const formatDateShort = (dateStr: string) => {
 const getTypeBadge = (type: string) => {
   switch (type) {
     case 'INYECCION':
-      return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      return 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 border-emerald-200';
     case 'RETIRO':
-      return 'bg-amber-100 text-amber-800 border-amber-200';
+      return 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-200';
     case 'PRESTAMO':
-      return 'bg-red-100 text-red-800 border-red-200';
+      return 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 border-red-200';
     default:
-      return 'bg-slate-100 text-slate-800 border-slate-200';
+      return 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200';
   }
 };
 
@@ -291,7 +291,7 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-        <span className="ml-3 text-slate-500">Cargando capital...</span>
+        <span className="ml-3 text-slate-500 dark:text-slate-400">Cargando capital...</span>
       </div>
     );
   }
@@ -330,7 +330,7 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
             <div className="w-full md:w-auto flex gap-3">
               <Button
                 onClick={() => openDialog('INYECCION')}
-                className="bg-white text-emerald-700 hover:bg-emerald-50 font-semibold shadow-lg flex-1 md:flex-none"
+                className="bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 font-semibold shadow-lg flex-1 md:flex-none"
               >
                 <ArrowUpCircle className="h-4 w-4 mr-2" />
                 Inyectar Capital
@@ -338,7 +338,7 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
               <Button
                 onClick={() => openDialog('RETIRO')}
                 variant="outline"
-                className="border-white/30 text-white hover:bg-white/10 font-semibold flex-1 md:flex-none"
+                className="border-white/30 text-white bg-white/15 hover:bg-white/25 font-semibold flex-1 md:flex-none"
               >
                 <ArrowDownCircle className="h-4 w-4 mr-2" />
                 Retirar Capital
@@ -449,11 +449,11 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
             <div className="flex items-center justify-center gap-6 mt-2">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                <span className="text-xs text-slate-600">Disponible ({formatCurrency(currentCapital)})</span>
+                <span className="text-xs text-slate-600 dark:text-slate-400">Disponible ({formatCurrency(currentCapital)})</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-teal-500" />
-                <span className="text-xs text-slate-600">Prestado ({formatCurrency(activeLoansOut)})</span>
+                <span className="text-xs text-slate-600 dark:text-slate-400">Prestado ({formatCurrency(activeLoansOut)})</span>
               </div>
             </div>
           </CardContent>
@@ -544,7 +544,7 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
                 Registro de inyecciones, retiros y préstamos
               </CardDescription>
             </div>
-            <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200">
+            <Badge variant="outline" className="bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border-slate-200">
               {capitalData?.movements.length || 0} movimientos
             </Badge>
           </div>
@@ -554,7 +554,7 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
             <ScrollArea className="max-h-96">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-slate-50/80">
+                  <TableRow className="bg-slate-50/80 dark:bg-slate-800/80">
                     <TableHead className="font-semibold">Fecha</TableHead>
                     <TableHead className="font-semibold">Tipo</TableHead>
                     <TableHead className="font-semibold text-right">Monto</TableHead>
@@ -565,8 +565,8 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
                 </TableHeader>
                 <TableBody>
                   {capitalData.movements.map((m) => (
-                    <TableRow key={m.id} className="hover:bg-slate-50/50">
-                      <TableCell className="text-sm text-slate-600 whitespace-nowrap">
+                    <TableRow key={m.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
+                      <TableCell className="text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
                         {formatDateTime(m.createdAt)}
                       </TableCell>
                       <TableCell>
@@ -578,23 +578,23 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
                         <span
                           className={
                             m.type === 'INYECCION'
-                              ? 'text-emerald-600'
+                              ? 'text-emerald-600 dark:text-emerald-300'
                               : m.type === 'RETIRO'
-                              ? 'text-amber-600'
-                              : 'text-red-600'
+                              ? 'text-amber-600 dark:text-amber-300'
+                              : 'text-red-600 dark:text-red-300'
                           }
                         >
                           {m.type === 'INYECCION' ? '+' : '-'}
                           {formatCurrency(m.amount)}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right text-sm text-slate-500 hidden md:table-cell whitespace-nowrap">
+                      <TableCell className="text-right text-sm text-slate-500 dark:text-slate-400 hidden md:table-cell whitespace-nowrap">
                         {formatCurrency(m.previousCapital)}
                       </TableCell>
-                      <TableCell className="text-right text-sm font-medium text-slate-700 hidden md:table-cell whitespace-nowrap">
+                      <TableCell className="text-right text-sm font-medium text-slate-700 dark:text-slate-300 hidden md:table-cell whitespace-nowrap">
                         {formatCurrency(m.newCapital)}
                       </TableCell>
-                      <TableCell className="text-sm text-slate-500 max-w-48 truncate hidden lg:table-cell">
+                      <TableCell className="text-sm text-slate-500 dark:text-slate-400 max-w-48 truncate hidden lg:table-cell">
                         {m.description || '—'}
                       </TableCell>
                     </TableRow>
@@ -624,7 +624,7 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
           <DialogHeader>
             <DialogTitle
               className={`flex items-center gap-2 ${
-                dialogType === 'INYECCION' ? 'text-emerald-700' : 'text-amber-700'
+                dialogType === 'INYECCION' ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'
               }`}
             >
               {dialogType === 'INYECCION' ? (
@@ -643,14 +643,14 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
 
           <div className="space-y-4 py-2">
             {/* Type indicator */}
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-50 border border-slate-100">
-              <span className="text-sm text-slate-500">Tipo:</span>
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+              <span className="text-sm text-slate-500 dark:text-slate-400">Tipo:</span>
               <Badge
                 variant="outline"
                 className={
                   dialogType === 'INYECCION'
-                    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                    : 'bg-amber-100 text-amber-800 border-amber-200'
+                    ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 border-emerald-200'
+                    : 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-200'
                 }
               >
                 {dialogType === 'INYECCION' ? 'Inyección' : 'Retiro'}
@@ -695,12 +695,12 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
             <Separator />
 
             {/* Confirmation Preview */}
-            <div className="rounded-lg bg-slate-50 border border-slate-100 p-4">
-              <p className="text-xs font-medium text-slate-500 mb-2">Vista previa del movimiento</p>
+            <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 p-4">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Vista previa del movimiento</p>
               <div className="flex items-center justify-between">
                 <div className="text-center">
                   <p className="text-xs text-slate-400">Capital anterior</p>
-                  <p className="text-sm font-semibold text-slate-700">
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                     {formatCurrency(currentCapital)}
                   </p>
                 </div>
@@ -720,8 +720,8 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
                   <p
                     className={`text-sm font-bold ${
                       previewNewCapital >= currentCapital
-                        ? 'text-emerald-600'
-                        : 'text-amber-600'
+                        ? 'text-emerald-600 dark:text-emerald-300'
+                        : 'text-amber-600 dark:text-amber-300'
                     }`}
                   >
                     {formatCurrency(Math.max(0, previewNewCapital))}
@@ -734,8 +734,8 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
             {dialogType === 'RETIRO' &&
               formAmount &&
               parseFloat(formAmount) > currentCapital && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-100">
-                  <span className="text-red-600 text-sm font-medium">
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-950/50 border border-red-100">
+                  <span className="text-red-600 dark:text-red-300 text-sm font-medium">
                     El monto excede el capital disponible ({formatCurrency(currentCapital)})
                   </span>
                 </div>

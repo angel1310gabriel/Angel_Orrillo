@@ -17,11 +17,14 @@ export interface AuthUser {
   isActive: boolean;
 }
 
+export const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutos
+
 export interface AuthState {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  lastActivity: number;
 
   // Actions
   login: (username: string, password: string) => Promise<boolean>;
@@ -31,6 +34,7 @@ export interface AuthState {
   hasRole: (roles: string[]) => boolean;
   changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
   clearError: () => void;
+  updateActivity: () => void;
 }
 
 // ============================================================
@@ -48,6 +52,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'capital',
     'late-fee',
     'config',
+    'chat',
+    'daily-settlement',
+    'map',
   ],
   supervisor: [
     'dashboard',
@@ -57,11 +64,17 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'collectors',
     'audit',
     'late-fee',
+    'chat',
+    'daily-settlement',
+    'map',
   ],
   collector: [
     'loans',
     'clients',
     'payments',
+    'chat',
+    'daily-settlement',
+    'map',
   ],
 };
 
@@ -77,6 +90,7 @@ export const useAuth = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
       error: null,
+      lastActivity: Date.now(),
 
       login: async (username: string, password: string) => {
         set({ isLoading: true, error: null });
@@ -115,6 +129,7 @@ export const useAuth = create<AuthState>()(
             isAuthenticated: true,
             isLoading: false,
             error: null,
+            lastActivity: Date.now(),
           });
 
           return true;
@@ -174,12 +189,18 @@ export const useAuth = create<AuthState>()(
                 isActive: updatedUser.isActive !== false,
               },
               isAuthenticated: true,
+              lastActivity: Date.now(),
             });
-          } else {
+          } else if (response.status === 404) {
+            // User not found on server - clear session
+            console.warn('[Auth] checkSession - User not found (404), clearing session');
             set({
               user: null,
               isAuthenticated: false,
             });
+          } else {
+            // Temporary server issue - keep cached session
+            console.warn('[Auth] checkSession - Server returned error, keeping cached session');
           }
         } catch {
           // Keep cached session during network issues
@@ -257,6 +278,10 @@ export const useAuth = create<AuthState>()(
           set({ error: 'Error de conexión al cambiar contraseña' });
           return false;
         }
+      },
+
+      updateActivity: () => {
+        set({ lastActivity: Date.now() });
       },
 
       clearError: () => {

@@ -79,6 +79,7 @@ export const FIELD_MAP: Record<string, Record<string, string>> = {
     creditApproved: 'credit_approved',
     signature: 'signature',
     notes: 'notes',
+    restDays: 'rest_days',
     chargedOff: 'charged_off',
     chargedOffAt: 'charged_off_at',
     chargedOffBy: 'charged_off_by',
@@ -212,6 +213,8 @@ export const FIELD_MAP: Record<string, Record<string, string>> = {
     latitude: 'latitude',
     longitude: 'longitude',
     accuracy: 'accuracy',
+    speed: 'speed',
+    timestamp: 'timestamp',
     createdAt: 'created_at',
   },
   // notifications table
@@ -234,6 +237,15 @@ export const FIELD_MAP: Record<string, Record<string, string>> = {
     createdBy: 'created_by',
     note: 'note',
     isImportant: 'is_important',
+    createdAt: 'created_at',
+  },
+  // chat_messages table
+  chat_messages: {
+    id: 'id',
+    senderId: 'sender_id',
+    receiverId: 'receiver_id',
+    message: 'message',
+    isRead: 'is_read',
     createdAt: 'created_at',
   },
 };

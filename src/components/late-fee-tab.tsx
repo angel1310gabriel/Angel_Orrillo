@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -118,7 +118,7 @@ export default function LateFeeTab() {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-        <span className="ml-3 text-slate-500">Cargando sistema de mora...</span>
+        <span className="ml-3 text-slate-500 dark:text-slate-400">Cargando sistema de mora...</span>
       </div>
     );
   }
@@ -183,37 +183,37 @@ export default function LateFeeTab() {
           </CardHeader>
           <CardContent className="p-6">
             {moraStatus?.lastExecution && (
-              <div className="mb-4 p-3 rounded-lg bg-slate-50 border border-slate-200">
-                <p className="text-xs text-slate-500 mb-1">Última ejecución:</p>
-                <p className="text-sm font-medium text-slate-700">
+              <div className="mb-4 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Última ejecución:</p>
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   {formatDateTime(moraStatus.lastExecution.createdAt)}
                 </p>
                 <div className="flex gap-3 mt-2">
-                  <span className="text-xs text-slate-500">{moraStatus.lastExecution.loansProcessed} procesados</span>
-                  <span className="text-xs text-slate-500">{moraStatus.lastExecution.feesGenerated} moras generadas</span>
-                  <span className="text-xs text-slate-500">{moraStatus.lastExecution.loansMovedToMora} movidos a mora</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">{moraStatus.lastExecution.loansProcessed} procesados</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">{moraStatus.lastExecution.feesGenerated} moras generadas</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">{moraStatus.lastExecution.loansMovedToMora} movidos a mora</span>
                 </div>
               </div>
             )}
 
             {lastRunResult && (
-              <div className="mb-4 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
-                <p className="text-sm font-semibold text-emerald-800 mb-2">✅ Resultado de la última ejecución:</p>
+              <div className="mb-4 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200">
+                <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200 mb-2">✅ Resultado de la última ejecución:</p>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="text-xs">
-                    <span className="text-slate-500">Procesados:</span>{' '}
+                    <span className="text-slate-500 dark:text-slate-400">Procesados:</span>{' '}
                     <span className="font-semibold">{(lastRunResult as { loansProcessed: number }).loansProcessed}</span>
                   </div>
                   <div className="text-xs">
-                    <span className="text-slate-500">Moras generadas:</span>{' '}
+                    <span className="text-slate-500 dark:text-slate-400">Moras generadas:</span>{' '}
                     <span className="font-semibold">{(lastRunResult as { feesGenerated: number }).feesGenerated}</span>
                   </div>
                   <div className="text-xs">
-                    <span className="text-slate-500">Movidos a mora:</span>{' '}
+                    <span className="text-slate-500 dark:text-slate-400">Movidos a mora:</span>{' '}
                     <span className="font-semibold">{(lastRunResult as { loansMovedToMora: number }).loansMovedToMora}</span>
                   </div>
                   <div className="text-xs">
-                    <span className="text-slate-500">Monto recargos:</span>{' '}
+                    <span className="text-slate-500 dark:text-slate-400">Monto recargos:</span>{' '}
                     <span className="font-semibold">{formatCurrency((lastRunResult as { totalFeeAmount: number }).totalFeeAmount)}</span>
                   </div>
                 </div>
@@ -253,10 +253,10 @@ export default function LateFeeTab() {
           <CardContent className="space-y-6">
             {lateFeeConfig && (
               <>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200">
                   <div>
                     <Label className="text-sm font-medium">Mora Automática</Label>
-                    <p className="text-xs text-slate-500">Ejecutar cálculo automáticamente</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Ejecutar cálculo automáticamente</p>
                   </div>
                   <Switch
                     checked={lateFeeConfig.autoMoraEnabled}
@@ -264,10 +264,10 @@ export default function LateFeeTab() {
                   />
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200">
                   <div>
                     <Label className="text-sm font-medium">Recargos Habilitados</Label>
-                    <p className="text-xs text-slate-500">Generar recargos por mora</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Generar recargos por mora</p>
                   </div>
                   <Switch
                     checked={lateFeeConfig.lateFeeEnabled}
@@ -275,10 +275,10 @@ export default function LateFeeTab() {
                   />
                 </div>
 
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200">
                   <div className="flex items-center justify-between mb-2">
                     <Label className="text-sm font-medium">Tasa Diaria de Recargo (S/)</Label>
-                    <span className="text-lg font-bold text-emerald-600">
+                    <span className="text-lg font-bold text-emerald-600 dark:text-emerald-300">
                       S/{lateFeeConfig.lateFeeRatePerDay.toFixed(2)}
                     </span>
                   </div>
@@ -290,10 +290,10 @@ export default function LateFeeTab() {
                   <p className="text-xs text-slate-400 mt-1">Monto cobrado por día de atraso por préstamo</p>
                 </div>
 
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200">
                   <div className="flex items-center justify-between mb-2">
                     <Label className="text-sm font-medium">Días Umbral para Mora</Label>
-                    <span className="text-lg font-bold text-amber-600">
+                    <span className="text-lg font-bold text-amber-600 dark:text-amber-300">
                       {lateFeeConfig.moraThresholdDays} día{lateFeeConfig.moraThresholdDays !== 1 ? 's' : ''}
                     </span>
                   </div>
@@ -335,24 +335,24 @@ export default function LateFeeTab() {
               </TableHeader>
               <TableBody>
                 {(moraStatus?.moraLoans || []).map((loan) => (
-                  <TableRow key={loan.id} className={loan.daysOverdue > 15 ? 'bg-red-50/50' : loan.daysOverdue > 7 ? 'bg-amber-50/50' : ''}>
+                  <TableRow key={loan.id} className={loan.daysOverdue > 15 ? 'bg-red-50/50 dark:bg-red-950/30' : loan.daysOverdue > 7 ? 'bg-amber-50/50 dark:bg-amber-950/30' : ''}>
                     <TableCell className="font-medium">{loan.clientName}</TableCell>
                     <TableCell>{formatCurrency(loan.amount)}</TableCell>
                     <TableCell>{formatCurrency(loan.totalAmount)}</TableCell>
                     <TableCell>{formatCurrency(loan.amountPaid)}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={
-                        loan.daysOverdue > 15 ? 'bg-red-100 text-red-800 border-red-200' :
-                        loan.daysOverdue > 7 ? 'bg-amber-100 text-amber-800 border-amber-200' :
-                        'bg-orange-100 text-orange-800 border-orange-200'
+                        loan.daysOverdue > 15 ? 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 border-red-200' :
+                        loan.daysOverdue > 7 ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-200' :
+                        'bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200 border-orange-200'
                       }>
                         {loan.daysOverdue}d
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={
-                        (loan.creditScore || 0) < 30 ? 'bg-red-50 text-red-700 border-red-200' :
-                        'bg-amber-50 text-amber-700 border-amber-200'
+                        (loan.creditScore || 0) < 30 ? 'bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-200' :
+                        'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200'
                       }>
                         {loan.creditScore || 'N/A'}
                       </Badge>
@@ -408,16 +408,16 @@ export default function LateFeeTab() {
                     <TableCell className="font-semibold">{exec.feesGenerated}</TableCell>
                     <TableCell>{formatCurrency(exec.totalFeeAmount)}</TableCell>
                     <TableCell>
-                      <span className={exec.loansMovedToMora > 0 ? 'text-red-600 font-semibold' : ''}>
+                      <span className={exec.loansMovedToMora > 0 ? 'text-red-600 dark:text-red-300 font-semibold' : ''}>
                         {exec.loansMovedToMora}
                       </span>
                     </TableCell>
-                    <TableCell className="text-xs text-slate-500">{exec.executionTimeMs}ms</TableCell>
+                    <TableCell className="text-xs text-slate-500 dark:text-slate-400">{exec.executionTimeMs}ms</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={
-                        exec.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                        exec.status === 'failed' ? 'bg-red-50 text-red-700 border-red-200' :
-                        'bg-amber-50 text-amber-700 border-amber-200'
+                        exec.status === 'completed' ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200' :
+                        exec.status === 'failed' ? 'bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-200' :
+                        'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200'
                       }>
                         {exec.status === 'completed' ? '✓ Completado' : exec.status === 'failed' ? '✗ Fallido' : '⚡ Parcial'}
                       </Badge>
