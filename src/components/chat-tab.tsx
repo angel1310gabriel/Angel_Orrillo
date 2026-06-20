@@ -189,9 +189,9 @@ export default function ChatTab() {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     if (diff < 86400000) {
-      return date.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+      return date.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' });
     }
-    return date.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' });
   };
 
   if (loading) {

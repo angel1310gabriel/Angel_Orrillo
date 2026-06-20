@@ -174,7 +174,7 @@ const formatDate = (dateStr: string) => {
 
 const formatDateTime = (dateStr: string) => {
   const date = new Date(dateStr);
-  return date.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' });
 };
 
 const getStatusBadge = (status: string) => {

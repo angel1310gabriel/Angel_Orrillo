@@ -39,7 +39,7 @@ const vPh=(v:string)=>{const cl=v.replace(/\D/g,'');if(!cl)return[false,'Ingrese
 const vB=(v:[boolean,string]|null)=>v?(v[0]?'border-emerald-400 focus-visible:ring-emerald-400':'border-red-400 focus-visible:ring-red-400'):'';
 const avt=(c:CWS)=>c.stats.hasMora?['bg-red-100 dark:bg-red-900/50','text-red-600 dark:text-red-300']:c.stats.activeLoans>0?['bg-emerald-100 dark:bg-emerald-900/50','text-emerald-600 dark:text-emerald-300']:['bg-teal-100 dark:bg-teal-900/50','text-teal-600 dark:text-teal-300'];
 const PAYMENT_METHOD_LABELS: Record<string, string> = {efectivo:'Efectivo',yape:'Yape',plin:'Plin',transferencia:'Transferencia'};
-const fDT2=(s:string)=>new Date(s).toLocaleDateString('es-PE',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const fDT2=(s:string)=>new Date(s).toLocaleDateString('es-PE',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'America/Lima'});
 
 export default function ClientsTab({refreshTrigger}:{refreshTrigger?:number}){
 const{toast}=useToast();

@@ -98,7 +98,7 @@ export default function MapTab() {
 
   const formatTime = (ts: string) => {
     try {
-      return new Date(ts).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      return new Date(ts).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Lima' });
     } catch {
       return '—';
     }
@@ -107,7 +107,7 @@ export default function MapTab() {
   const formatDate = (ts: string) => {
     try {
       const d = new Date(ts);
-      return d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+      return d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' });
     } catch {
       return '—';
     }
