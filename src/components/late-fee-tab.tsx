@@ -10,6 +10,7 @@ import {
   Settings2,
   Loader2,
   Calendar,
+  FileX,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +39,29 @@ export default function LateFeeTab() {
   const [loading, setLoading] = useState(true);
   const [runningFee, setRunningFee] = useState(false);
   const [lastRunResult, setLastRunResult] = useState<Record<string, unknown> | null>(null);
+  const [waiveDialog, setWaiveDialog] = useState<{loanId:string;clientName:string}|null>(null);
+  const [waiveReason, setWaiveReason] = useState('');
+  const [waiving, setWaiving] = useState(false);
+
+  const waiveFees = async () => {
+    if (!waiveDialog || !waiveReason.trim()) return;
+    setWaiving(true);
+    try {
+      const res = await fetch('/api/late-fee?type=bulk-waive', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ loanId: waiveDialog.loanId, waivedBy: 'manual', waivedReason: waiveReason.trim() }),
+      });
+      if (res.ok) {
+        toast({ title: 'Moras condonadas', description: `Recargos condonados para ${waiveDialog.clientName}` });
+        setWaiveDialog(null); setWaiveReason(''); fetchData();
+      } else {
+        toast({ title: 'Error', description: 'No se pudieron condonar las moras', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' });
+    } finally { setWaiving(false); }
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -331,6 +355,7 @@ export default function LateFeeTab() {
                   <TableHead>Días Atraso</TableHead>
                   <TableHead>Score</TableHead>
                   <TableHead>Recargos Pend.</TableHead>
+                  <TableHead>Acción</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -359,6 +384,9 @@ export default function LateFeeTab() {
                     </TableCell>
                     <TableCell>
                       <span className="text-sm font-medium">{loan.pendingFees}</span>
+                    </TableCell>
+                    <TableCell>
+                      {loan.pendingFees>0&&<Button variant="ghost" size="sm" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950 h-7 px-2 text-xs" onClick={()=>setWaiveDialog({loanId:loan.id,clientName:loan.clientName})}><FileX className="h-3.5 w-3.5 mr-1"/>Condonar</Button>}
                     </TableCell>
                   </TableRow>
                 )) || (
@@ -434,6 +462,22 @@ export default function LateFeeTab() {
           </ScrollArea>
         </CardContent>
       </Card>
+
+      {/* Waive Dialog */}
+      {waiveDialog&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={()=>setWaiveDialog(null)}>
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md mx-4 p-6" onClick={e=>e.stopPropagation()}>
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">Condonar Recargos</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Cliente: <strong>{waiveDialog.clientName}</strong></p>
+          <div className="space-y-2">
+            <Label htmlFor="waive-reason" className="text-sm font-medium">Motivo de condonación <span className="text-red-500">*</span></Label>
+            <textarea id="waive-reason" className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[100px] resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Describa el motivo..." value={waiveReason} onChange={e=>setWaiveReason(e.target.value)}/>
+          </div>
+          <div className="flex justify-end gap-3 mt-6">
+            <Button variant="outline" onClick={()=>{setWaiveDialog(null);setWaiveReason('')}} className="border-slate-200">Cancelar</Button>
+            <Button className="bg-amber-600 hover:bg-amber-700 text-white" onClick={waiveFees} disabled={waiving||!waiveReason.trim()}>{waiving?<><Loader2 className="h-4 w-4 mr-2 animate-spin"/>Condonando...</>:'Condonar Recargos'}</Button>
+          </div>
+        </div>
+      </div>}
     </div>
   );
 }

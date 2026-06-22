@@ -47,6 +47,7 @@ const{user}=useAuth();
 const isAdmin=user?.role==='admin';
 const[clients,setClients]=useState<CWS[]>([]);
 const[zones,setZones]=useState<Zone[]>([]);
+const[collectors,setCollectors]=useState<{id:string;name:string|null}[]>([]);
 const[loading,setLoading]=useState(true);
 const[totalC,setTotalC]=useState(0);
 const[totalP,setTotalP]=useState(1);
@@ -63,6 +64,7 @@ const[fPh,setFPh]=useState('');
 const[fAddr,setFAddr]=useState('');
 const[fZone,setFZone]=useState('');
 const[fScore,setFScore]=useState([50]);
+const[fCollector,setFCollector]=useState('');
 const[phOk,setPhOk]=useState(false);
 const[vDocing,setVDocing]=useState(false);
 const[vRes,setVRes]=useState<VR|null>(null);
@@ -92,23 +94,28 @@ const fetchZ=useCallback(async()=>{
   }catch{}
 },[isAdmin,user]);
 
+const fetchCollectors=useCallback(async()=>{
+  try{const r=await fetch('/api/collectors');if(r.ok){const d=await r.json();setCollectors((d?.collectors||[]).map((c:any)=>({id:c.id,name:c.name})))}}catch{}
+},[]);
+
 useEffect(()=>{fetchC()},[fetchC]);
 useEffect(()=>{fetchZ()},[fetchZ]);
+useEffect(()=>{fetchCollectors()},[fetchCollectors]);
 useEffect(()=>{if(refreshTrigger)fetchC()},[refreshTrigger,fetchC]);
 
 const wA=clients.filter(c=>c.stats.activeLoans>0).length;
 const iM=clients.filter(c=>c.stats.hasMora).length;
 const aS=clients.length?Math.round(clients.filter(c=>c.creditScore!==null).reduce((s,c)=>s+(c.creditScore||0),0)/Math.max(clients.filter(c=>c.creditScore!==null).length,1)):0;
 
-const reset=()=>{setFName('');setFDT('dni');setFDN('');setFPh('');setFAddr('');setFZone('');setFScore([50]);setPhOk(false);setVDocing(false);setVRes(null);setEditing(null)};
+const reset=()=>{setFName('');setFDT('dni');setFDN('');setFPh('');setFAddr('');setFZone('');setFCollector('');setFScore([50]);setPhOk(false);setVDocing(false);setVRes(null);setEditing(null)};
 const openNew=()=>{reset();setFOpen(true)};
-const openEdit=(c:CWS)=>{setEditing(c);setFName(c.name);let dt:DT='dni';if(c.documentType==='carnet_extranjeria'||c.documentType==='extranjero')dt='carnet_extranjeria';else if(c.documentType==='pasaporte')dt='pasaporte';setFDT(dt);setFDN(gDN(c));setFPh(c.phone);setFAddr(c.address||'');setFZone(c.zoneId||'');setFScore([c.creditScore??50]);setPhOk(vPh(c.phone)[0]);setVRes(null);setFOpen(true)};
+const openEdit=(c:CWS)=>{setEditing(c);setFName(c.name);let dt:DT='dni';if(c.documentType==='carnet_extranjeria'||c.documentType==='extranjero')dt='carnet_extranjeria';else if(c.documentType==='pasaporte')dt='pasaporte';setFDT(dt);setFDN(gDN(c));setFPh(c.phone);setFAddr(c.address||'');setFZone(c.zoneId||'');setFCollector(c.collectorId||'');setFScore([c.creditScore??50]);setPhOk(vPh(c.phone)[0]);setVRes(null);setFOpen(true)};
 const onDTC=(t:DT)=>{setFDT(t);setFDN('');setVRes(null)};
 const onDNC=(v:string)=>{setFDN(v.replace(/\D/g,'').slice(0,dtCfg(fDT).dg));setVRes(null)};
 const onPhC=(v:string)=>{setFPh(v.replace(/\D/g,'').slice(0,9));setPhOk(false)};
 const verPh=()=>{const v=vPh(fPh);if(v[0]){setPhOk(true);toast({title:'Teléfono verificado'})}else{setPhOk(false);toast({title:'Teléfono inválido',description:v[1],variant:'destructive'})}};
 const verDoc=async()=>{if(!dOk)return;setVDocing(true);setVRes(null);try{const r=await fetch(`/api/verify-document?documentType=${fDT}&documentNumber=${fDN}`);if(r.ok){const d:VR=await r.json();setVRes(d);toast(d.found?{title:'Documento encontrado',description:`${d.results.clients.length} cliente(s), ${d.results.staff.length} personal(es)`}:{title:'Verificado',description:'Sin registros previos'})}else toast({title:'Error',description:'No se pudo verificar',variant:'destructive'})}catch{toast({title:'Error',description:'Error de conexión',variant:'destructive'})}finally{setVDocing(false)}};
-const save=async()=>{if(!fName.trim()){toast({title:'Campo requerido',description:'Nombre obligatorio',variant:'destructive'});return}const dv=vDoc(fDN,fDT);if(!dv[0]){toast({title:'Documento inválido',description:dv[1],variant:'destructive'});return}const pv=vPh(fPh);if(!pv[0]){toast({title:'Teléfono inválido',description:pv[1],variant:'destructive'});return}setSaving(true);try{const body={name:fName.trim(),documentType:fDT,documentNumber:fDN.trim(),phone:fPh.trim(),address:fAddr.trim()||null,zoneId:fZone||null,creditScore:fScore[0],...(editing?{id:editing.id}:{})};const r=await fetch('/api/clients',{method:editing?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(r.ok){toast({title:editing?'Cliente actualizado':'Cliente creado'});setFOpen(false);reset();fetchC()}else{const d=await r.json();toast({title:'Error',description:d.error||'Error al guardar',variant:'destructive'})}}catch{toast({title:'Error',description:'Error de conexión',variant:'destructive'})}finally{setSaving(false)}};
+const save=async()=>{if(!fName.trim()){toast({title:'Campo requerido',description:'Nombre obligatorio',variant:'destructive'});return}const dv=vDoc(fDN,fDT);if(!dv[0]){toast({title:'Documento inválido',description:dv[1],variant:'destructive'});return}const pv=vPh(fPh);if(!pv[0]){toast({title:'Teléfono inválido',description:pv[1],variant:'destructive'});return}setSaving(true);try{const body={name:fName.trim(),documentType:fDT,documentNumber:fDN.trim(),phone:fPh.trim(),address:fAddr.trim()||null,zoneId:fZone||null,collectorId:fCollector||null,creditScore:fScore[0],...(editing?{id:editing.id}:{})};const r=await fetch('/api/clients',{method:editing?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(r.ok){toast({title:editing?'Cliente actualizado':'Cliente creado'});setFOpen(false);reset();fetchC()}else{const d=await r.json();toast({title:'Error',description:d.error||'Error al guardar',variant:'destructive'})}}catch{toast({title:'Error',description:'Error de conexión',variant:'destructive'})}finally{setSaving(false)}};
 const del=async()=>{if(!delC)return;setDeling(true);try{const r=await fetch(`/api/clients?id=${delC.id}`,{method:'DELETE'});if(r.ok){toast({title:'Eliminado',description:`${delC.name} eliminado`});setDelC(null);fetchC()}else{const d=await r.json();toast({title:'Error',description:d.error||'Error',variant:'destructive'})}}catch{toast({title:'Error',description:'Error de conexión',variant:'destructive'})}finally{setDeling(false)}};
 
 const curD=dtCfg(fDT);
@@ -225,6 +232,11 @@ return(
 <div className="space-y-2">
 <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Zona <span className="text-slate-400 font-normal">(opcional)</span></Label>
 <Select value={fZone} onValueChange={setFZone}><SelectTrigger className="bg-white dark:bg-slate-900 border-slate-200 h-11"><MapPin className="h-4 w-4 mr-2 text-slate-400"/><SelectValue placeholder="Seleccionar zona"/></SelectTrigger><SelectContent>{zones.map(z=><SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>)}</SelectContent></Select>
+</div>
+{/* Collector */}
+<div className="space-y-2">
+<Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Cobrador asignado <span className="text-slate-400 font-normal">(opcional)</span></Label>
+<Select value={fCollector} onValueChange={setFCollector}><SelectTrigger className="bg-white dark:bg-slate-900 border-slate-200 h-11"><User className="h-4 w-4 mr-2 text-slate-400"/><SelectValue placeholder="Sin cobrador asignado"/></SelectTrigger><SelectContent>{collectors.filter(c=>c.name).map(c=><SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select>
 </div>
 {/* Score */}
 <div className="space-y-3">

@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Shield, Eye, UserCheck, Search, RefreshCw, Loader2, CheckCircle2, XCircle, User, Mail, Phone, MapPin, Trash2, UserPlus, KeyRound, IdCard, Globe, AlertTriangle } from 'lucide-react';
+import { Users, Shield, Eye, UserCheck, Search, RefreshCw, Loader2, CheckCircle2, XCircle, User, Mail, Phone, MapPin, Trash2, UserPlus, KeyRound, IdCard, Globe, AlertTriangle, DollarSign } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,7 @@ interface StaffMember {
   id: string; name: string | null; email: string; phone: string | null;
   address: string | null; role: string; isActive: boolean; documentType: string;
   documentNumber: string | null; photoUrl: string | null; createdAt: string;
-  zoneIds: string[];
+  zoneIds: string[]; dailyGoal: number | null;
   _count: { loans: number; payments: number };
 }
 
@@ -282,7 +282,7 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
             <>
               <SheetHeader className="pb-4 border-b border-slate-100 dark:border-slate-800"><div className="flex items-center gap-3"><div className={`w-12 h-12 rounded-full flex items-center justify-center ${sel.isActive ? 'bg-emerald-100 dark:bg-emerald-900/50' : 'bg-slate-100 dark:bg-slate-800'}`}><Ic className={`h-6 w-6 ${sel.isActive ? 'text-emerald-600 dark:text-emerald-300' : 'text-slate-400'}`} /></div><div className="flex-1 min-w-0"><SheetTitle className="text-lg">{sel.name || 'Sin nombre'}</SheetTitle><SheetDescription className="flex items-center gap-2 mt-0.5 flex-wrap"><Badge variant="outline" className={`text-xs ${rs.c}`}>{rs.l}</Badge><Badge variant="outline" className={`text-xs ${ds.c}`}>{ds.l}: {sel.documentNumber || '—'}</Badge><Badge variant="outline" className={`text-xs ${actBadge(sel.isActive)}`}>{actLabel(sel.isActive)}</Badge></SheetDescription></div></div></SheetHeader>
               <div className="p-4 space-y-5">
-                <div className="space-y-2"><h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Contacto</h4><div className="space-y-1.5 text-sm text-slate-600 dark:text-slate-400"><div className="flex items-center gap-2"><Mail className="h-4 w-4 text-slate-400 shrink-0" />{sel.email}</div>{sel.phone && <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-slate-400 shrink-0" />{sel.phone}</div>}{sel.address && <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-slate-400 shrink-0" />{sel.address}</div>}</div></div>
+                <div className="space-y-2"><h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Contacto</h4><div className="space-y-1.5 text-sm text-slate-600 dark:text-slate-400"><div className="flex items-center gap-2"><Mail className="h-4 w-4 text-slate-400 shrink-0" />{sel.email}</div>{sel.phone && <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-slate-400 shrink-0" />{sel.phone}</div>}{sel.address && <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-slate-400 shrink-0" />{sel.address}</div>}{sel.dailyGoal !== null && <div className="flex items-center gap-2"><DollarSign className="h-4 w-4 text-emerald-500 shrink-0" />Meta diaria: <strong>S/{sel.dailyGoal.toLocaleString('es-PE',{minimumFractionDigits:2})}</strong></div>}</div></div>
                 <Separator />
                 <div className="space-y-2"><h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Documento</h4><div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800"><Badge variant="outline" className={`text-xs ${ds.c}`}>{ds.l}</Badge><span className="text-lg font-mono font-semibold text-slate-800 dark:text-slate-200">{sel.documentNumber || '—'}</span></div></div>
                 <Separator />

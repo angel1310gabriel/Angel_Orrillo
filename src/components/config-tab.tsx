@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -91,6 +92,13 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
   // Disconnect confirmation
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
 
+  // System settings state
+  const [systemSettings, setSystemSettings] = useState<Record<string,string>>({});
+
+  const fetchSettings = useCallback(async () => {
+    try { const r = await fetch('/api/settings'); if (r.ok) { const d = await r.json(); const m: Record<string, string> = {}; (Array.isArray(d) ? d : []).forEach((s: { key: string; value: string }) => { m[s.key] = s.value; }); setSystemSettings(m); } } catch {}
+  }, []);
+
   // Payment settings state
   const [paymentSettings, setPaymentSettings] = useState<Record<string, string>>({});
   const [savingPaymentSettings, setSavingPaymentSettings] = useState(false);
@@ -126,6 +134,10 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
   useEffect(() => {
     if (refreshTrigger) fetchStatus();
   }, [refreshTrigger, fetchStatus]);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   const fetchPaymentSettings = useCallback(async () => {
     try {
@@ -1065,6 +1077,26 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Settings Management */}
+      <Card className="border-0 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-slate-700 to-slate-800 text-white rounded-t-lg">
+          <CardTitle className="flex items-center gap-2 text-lg"><Database className="h-5 w-5"/>Configuración del Sistema</CardTitle>
+          <CardDescription className="text-slate-300">Parámetros generales de la aplicación</CardDescription>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[['mora_rate_per_day','Tasa Mora Diaria (S/)','number','0.5'],['mora_threshold_days','Días para Mora','number','3'],['auto_mora_enabled','Mora Automática','boolean','true'],['daily_goal_default','Meta Diaria Default (S/)','number','100']].map(([key,label,type,def])=>{
+              const val=systemSettings[key]??def;
+              return<div key={key} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">{label}</Label>
+                {type==='boolean'?<Switch checked={val==='true'||val===true} onCheckedChange={async(v)=>{const r=await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,value:String(v)})});if(r.ok){setSystemSettings(s=>({...s,[key]:String(v)}));toast({title:'Guardado'})}else toast({title:'Error',variant:'destructive'})}} className="mt-2 data-[state=checked]:bg-emerald-500"/>:
+                <Input type={type} step="0.1" defaultValue={val} className="mt-1 h-9" onBlur={async(e)=>{const v=e.target.value;const r=await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,value:v})});if(r.ok){setSystemSettings(s=>({...s,[key]:v}));toast({title:'Guardado'})}else toast({title:'Error',variant:'destructive'})}}/>}
+              </div>
+            })}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

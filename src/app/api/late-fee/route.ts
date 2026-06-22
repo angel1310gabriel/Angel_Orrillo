@@ -639,3 +639,115 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Error al actualizar configuración' }, { status: 500 });
   }
 }
+
+// PATCH /api/late-fee - Waive a late fee (single or bulk)
+export async function PATCH(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get('type');
+
+    // Single late fee waiver: PATCH /api/late-fee?id=xxx
+    if (type !== 'bulk-waive') {
+      const id = searchParams.get('id');
+      if (!id) {
+        return NextResponse.json({ error: 'ID de mora requerido' }, { status: 400 });
+      }
+
+      const body = await request.json();
+      const { waivedBy, waivedReason } = body;
+
+      if (isVercel) {
+        const supabase = await getSupabase();
+        if (!supabase) {
+          return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
+        }
+
+        const { error } = await supabase.from('late_fees').update({
+          status: 'waived',
+          waived_by: waivedBy || null,
+          waived_reason: waivedReason || null,
+          waived_at: new Date().toISOString(),
+        }).eq('id', id);
+
+        if (error) {
+          console.error('[LateFee] Error waiving fee:', error.message);
+          return NextResponse.json({ error: 'Error al condonar mora' }, { status: 500 });
+        }
+
+        return NextResponse.json({ success: true });
+      }
+
+      // Local: Prisma
+      await db.lateFee.update({
+        where: { id },
+        data: {
+          status: 'waived',
+          waivedBy: waivedBy || null,
+          waivedReason: waivedReason || null,
+          waivedAt: new Date(),
+        },
+      });
+
+      return NextResponse.json({ success: true });
+    }
+
+    // Bulk waiver: PATCH /api/late-fee?type=bulk-waive
+    const body = await request.json();
+    const { ids, loanId, waivedBy, waivedReason } = body;
+
+    // Support loanId: find all pending fees for that loan
+    let feeIds = ids;
+    if (!feeIds && loanId) {
+      if (isVercel) {
+        const supabase = await getSupabase();
+        if (!supabase) return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
+        const { data: fees } = await supabase.from('late_fees').select('id').eq('loan_id', loanId).eq('status', 'pending');
+        feeIds = (fees || []).map((f: Record<string, unknown>) => f.id);
+      } else {
+        const fees = await db.lateFee.findMany({ where: { loanId, status: 'pending' }, select: { id: true } });
+        feeIds = fees.map(f => f.id);
+      }
+    }
+
+    if (!feeIds || !Array.isArray(feeIds) || feeIds.length === 0) {
+      return NextResponse.json({ error: 'No hay recargos pendientes para condonar' }, { status: 400 });
+    }
+
+    if (isVercel) {
+      const supabase = await getSupabase();
+      if (!supabase) {
+        return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
+      }
+
+      const { data, error } = await supabase.from('late_fees').update({
+        status: 'waived',
+        waived_by: waivedBy || null,
+        waived_reason: waivedReason || null,
+        waived_at: new Date().toISOString(),
+      }).in('id', feeIds).select();
+
+      if (error) {
+        console.error('[LateFee] Error bulk waiving fees:', error.message);
+        return NextResponse.json({ error: 'Error al condonar moras' }, { status: 500 });
+      }
+
+      return NextResponse.json({ success: true, count: (data || []).length });
+    }
+
+    // Local: Prisma
+    const result = await db.lateFee.updateMany({
+      where: { id: { in: feeIds } },
+      data: {
+        status: 'waived',
+        waivedBy: waivedBy || null,
+        waivedReason: waivedReason || null,
+        waivedAt: new Date(),
+      },
+    });
+
+    return NextResponse.json({ success: true, count: result.count });
+  } catch (error) {
+    console.error('Error waiving late fee:', error);
+    return NextResponse.json({ error: 'Error al condonar mora' }, { status: 500 });
+  }
+}
