@@ -78,27 +78,65 @@ export async function GET(request: NextRequest) {
           // Sync to local in background
           syncClientsToLocal(result.data).catch(() => {});
 
-          const clients = result.data.map((c: Record<string, unknown>) => ({
-            id: c.id,
-            name: c.name || '',
-            firstName: (c.name as string) || '',
-            lastName: '',
-            documentType: c.document_type || 'dni',
-            documentNumber: c.dni,
-            phone: c.phone,
-            email: c.email || null,
-            address: c.address,
-            zoneId: c.zone_id,
-            creditScore: c.credit_score ?? 50,
-            isActive: c.is_active ?? true,
-            latitude: c.latitude || null,
-            longitude: c.longitude || null,
-            createdAt: c.created_at,
-            zone: c.zone_id ? { id: c.zone_id, name: '' } : null,
-            guarantors: [],
-            loans: [],
-            stats: { totalLoans: 0, activeLoans: 0, totalLoaned: 0, totalPaid: 0, hasMora: false },
-          }));
+          // Fetch loan data for all returned clients
+          const clientIds = result.data.map((c: Record<string, unknown>) => c.id as string);
+          const { data: loansData } = await supabase
+            .from('loans')
+            .select('client_id, status, amount, amount_paid')
+            .in('client_id', clientIds);
+
+          // Fetch zones for zone names
+          const zoneIds = result.data.map((c: Record<string, unknown>) => c.zone_id as string).filter(Boolean);
+          const uniqueZoneIds = [...new Set(zoneIds)];
+          const { data: zonesData } = uniqueZoneIds.length > 0
+            ? await supabase.from('zones').select('id, name').in('id', uniqueZoneIds)
+            : { data: [] };
+          const zoneNameMap: Record<string, string> = {};
+          for (const z of (zonesData || []) as Array<{ id: string; name: string }>) {
+            zoneNameMap[z.id] = z.name;
+          }
+
+          // Build loan stats per client
+          const loanMap: Record<string, { totalLoans: number; activeLoans: number; totalLoaned: number; totalPaid: number; hasMora: boolean }> = {};
+          for (const l of (loansData || []) as Array<{ client_id: string; status: string; amount: number; amount_paid: number }>) {
+            if (!loanMap[l.client_id]) {
+              loanMap[l.client_id] = { totalLoans: 0, activeLoans: 0, totalLoaned: 0, totalPaid: 0, hasMora: false };
+            }
+            loanMap[l.client_id].totalLoans += 1;
+            if (l.status === 'active' || l.status === 'mora') {
+              loanMap[l.client_id].activeLoans += 1;
+            }
+            loanMap[l.client_id].totalLoaned += Number(l.amount) || 0;
+            loanMap[l.client_id].totalPaid += Number(l.amount_paid) || 0;
+            if (l.status === 'mora') {
+              loanMap[l.client_id].hasMora = true;
+            }
+          }
+
+          const clients = result.data.map((c: Record<string, unknown>) => {
+            const ls = loanMap[c.id as string] || { totalLoans: 0, activeLoans: 0, totalLoaned: 0, totalPaid: 0, hasMora: false };
+            return {
+              id: c.id,
+              name: c.name || '',
+              firstName: (c.name as string) || '',
+              lastName: '',
+              documentType: c.document_type || 'dni',
+              documentNumber: c.dni,
+              phone: c.phone,
+              email: c.email || null,
+              address: c.address,
+              zoneId: c.zone_id,
+              creditScore: c.credit_score ?? 50,
+              isActive: c.is_active ?? true,
+              latitude: c.latitude || null,
+              longitude: c.longitude || null,
+              createdAt: c.created_at,
+              zone: c.zone_id ? { id: c.zone_id, name: zoneNameMap[c.zone_id as string] || '' } : null,
+              guarantors: [],
+              loans: [],
+              stats: ls,
+            };
+          });
 
           return NextResponse.json({
             clients,

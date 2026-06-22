@@ -146,6 +146,12 @@ export interface Loan {
   creditApproved: boolean;
   signature: string | null;
   notes: string | null;
+  restDays: string;
+  cancellationReason: string | null;
+  cancelledBy: string | null;
+  cancelledAt: string | null;
+  completedAt: string | null;
+  nextPaymentDate: string | null;
   chargedOff: boolean;
   chargedOffAt: string | null;
   chargedOffBy: string | null;
@@ -289,10 +295,11 @@ const LOAN_MAP: Record<string, string> = {
   payment_frequency: 'paymentFrequency', num_cuotas: 'numCuotas',
   amount_paid: 'amountPaid', start_date: 'startDate', end_date: 'endDate',
   status: 'status', credit_approved: 'creditApproved', signature: 'signature',
-  notes: 'notes', charged_off: 'chargedOff', charged_off_at: 'chargedOffAt',
-  charged_off_by: 'chargedOffBy', recovery_collector_id: 'recoveryCollectorId',
+  notes: 'notes', rest_days: 'restDays',
   cancellation_reason: 'cancellationReason', cancelled_by: 'cancelledBy', cancelled_at: 'cancelledAt',
-  completed_at: 'completedAt',
+  completed_at: 'completedAt', next_payment_date: 'nextPaymentDate',
+  charged_off: 'chargedOff', charged_off_at: 'chargedOffAt',
+  charged_off_by: 'chargedOffBy', recovery_collector_id: 'recoveryCollectorId',
   created_by: 'createdBy', created_at: 'createdAt',
 };
 
@@ -1643,6 +1650,7 @@ export async function updateLoan(
     status?: string;
     notes?: string;
     collectorId?: string;
+    cancellationReason?: string;
   }
 ): Promise<Loan> {
   const sb = getClient();
@@ -1668,8 +1676,11 @@ export async function updateLoan(
     throw new Error('No se puede completar un préstamo que no está totalmente pagado');
   }
 
-  // If cancelling, return remaining to capital
+  // Set cancellation fields
   if (data.status === 'cancelled' && existing.status !== 'cancelled') {
+    updateData.cancellationReason = data.cancellationReason || null;
+    updateData.cancelledBy = null; // TODO: pass user info when auth context is available
+    updateData.cancelledAt = new Date().toISOString();
     const remaining = (Number(existing.amount) || 0) - (Number(existing.amount_paid) || 0);
     if (remaining > 0) {
       // Get current capital from settings

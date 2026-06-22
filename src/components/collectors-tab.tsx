@@ -158,9 +158,9 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
     } catch { toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' }); } finally { setDeleting(null); }
   };
 
-  const toggleZone = (zoneId: string) => {
+  const selectZone = (zoneId: string) => {
     setSelectedZoneIds(prev =>
-      prev.includes(zoneId) ? prev.filter(id => id !== zoneId) : [...prev, zoneId]
+      prev.includes(zoneId) ? [] : [zoneId]
     );
   };
 
@@ -287,25 +287,30 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
                 <div className="space-y-2"><h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Documento</h4><div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800"><Badge variant="outline" className={`text-xs ${ds.c}`}>{ds.l}</Badge><span className="text-lg font-mono font-semibold text-slate-800 dark:text-slate-200">{sel.documentNumber || '—'}</span></div></div>
                 <Separator />
                 <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Zonas Asignadas</h4>
+                  <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Zona Asignada</h4>
                   <div className="flex flex-wrap gap-2">
                     {allZones.map(z => (
                       <button
                         key={z.id}
                         type="button"
-                        onClick={() => toggleZone(z.id)}
-                        className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                        onClick={() => selectZone(z.id)}
+                        className={`px-3 py-1.5 rounded-lg text-sm border transition-colors flex items-center gap-2 ${
                           selectedZoneIds.includes(z.id)
-                            ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 text-emerald-700 dark:text-emerald-300'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-300'
                             : 'bg-white dark:bg-slate-900 border-slate-200 text-slate-600 dark:text-slate-400 hover:border-emerald-200'
                         }`}
                       >
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          selectedZoneIds.includes(z.id) ? 'border-emerald-500' : 'border-slate-300'
+                        }`}>
+                          {selectedZoneIds.includes(z.id) && <div className="w-2 h-2 rounded-full bg-emerald-500" />}
+                        </div>
                         {z.name}
                       </button>
                     ))}
                     {allZones.length === 0 && <p className="text-sm text-slate-400">No hay zonas disponibles</p>}
                   </div>
-                  {isAdmin && <Button size="sm" className="mt-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-sm" onClick={handleSaveZones} disabled={savingZones}>{savingZones ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Guardando...</> : 'Guardar Zonas'}</Button>}
+                  {isAdmin && <Button size="sm" className="mt-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-sm" onClick={handleSaveZones} disabled={savingZones}>{savingZones ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Guardando...</> : 'Guardar Zona'}</Button>}
                 </div>
                 <Separator />
                 {sel.role === 'collector' && (<><div className="space-y-2"><h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Estadísticas</h4><div className="grid grid-cols-2 gap-3"><div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-100"><p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{sel._count.loans}</p><p className="text-xs text-emerald-600 dark:text-emerald-300">Préstamos</p></div><div className="p-3 rounded-xl bg-teal-50 dark:bg-teal-950/50 border border-teal-100"><p className="text-2xl font-bold text-teal-700 dark:text-teal-300">{sel._count.payments}</p><p className="text-xs text-teal-600 dark:text-teal-300">Pagos</p></div></div></div><Separator /></>)}

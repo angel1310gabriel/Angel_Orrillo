@@ -60,7 +60,7 @@ interface Reminder {
 interface ReportData {
   collectionsByDay: { date: string; totalAmount: number; count: number }[];
   loansByStatus: { active: number; mora: number; completed: number; cancelled: number; refinanced: number };
-  collectorRanking: { collectorId: string; collectorName: string; totalCollected: number; count: number }[];
+  collectorRanking: { collectorId: string; collectorName: string; totalCollected: number; count: number; totalLoans: number }[];
   zonePerformance: { zoneName: string; activeLoans: number; moraLoans: number; totalLoaned: number }[];
 }
 
@@ -170,17 +170,6 @@ export default function DashboardTab() {
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-md bg-gradient-to-br from-sky-500 to-blue-500 text-white">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sky-100 text-xs font-medium">Eficiencia Cobro</p>
-                <p className="text-2xl font-bold mt-1">{overview?.rates?.collectionEfficiency || 0}%</p>
-              </div>
-              <Activity className="h-8 w-8 text-sky-200" />
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Second row - Financial Details */}
@@ -704,6 +693,7 @@ export default function DashboardTab() {
                       <TableRow>
                         <TableHead>#</TableHead>
                         <TableHead>Cobrador</TableHead>
+                        <TableHead className="text-right">Préstamos</TableHead>
                         <TableHead className="text-right">Total Cobrado</TableHead>
                         <TableHead className="text-right">Pagos</TableHead>
                       </TableRow>
@@ -722,6 +712,9 @@ export default function DashboardTab() {
                             </span>
                           </TableCell>
                           <TableCell className="font-medium">{c.collectorName}</TableCell>
+                          <TableCell className="text-right text-slate-500 dark:text-slate-400">
+                            {c.totalLoans}
+                          </TableCell>
                           <TableCell className="text-right font-semibold text-emerald-600 dark:text-emerald-300">
                             {formatCurrency(c.totalCollected)}
                           </TableCell>

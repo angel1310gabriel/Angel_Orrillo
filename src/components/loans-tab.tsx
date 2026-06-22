@@ -29,6 +29,11 @@ import {
   Info,
   CreditCard,
   Users,
+  Bell,
+  Upload,
+  Banknote,
+  Wifi,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -142,6 +147,20 @@ interface Loan {
   endDate: string | null;
   status: string;
   notes: string | null;
+  creditApproved: boolean;
+  signature: string | null;
+  restDays: string;
+  cancellationReason: string | null;
+  cancelledBy: string | null;
+  cancelledAt: string | null;
+  completedAt: string | null;
+  nextPaymentDate: string | null;
+  chargedOff: boolean;
+  chargedOffAt: string | null;
+  chargedOffBy: string | null;
+  recoveryCollectorId: string | null;
+  createdBy: string | null;
+  createdAt: string;
   progressPercent: number;
   remaining: number;
   daysElapsed: number;
@@ -176,6 +195,12 @@ const formatDateTime = (dateStr: string) => {
   const date = new Date(dateStr);
   return date.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' });
 };
+
+const PAYMENT_METHODS = [
+  { value: 'cash', label: 'Efectivo', icon: Banknote, color: 'text-emerald-600 dark:text-emerald-300', bg: 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-900/70' },
+  { value: 'plin', label: 'Plin', icon: Wifi, color: 'text-sky-600 dark:text-sky-300', bg: 'bg-sky-50 dark:bg-sky-950/50 border-sky-200 dark:border-sky-800 hover:bg-sky-100 dark:hover:bg-sky-900/70' },
+  { value: 'transfer', label: 'Transferencia', icon: ArrowRightLeft, color: 'text-teal-600 dark:text-teal-300', bg: 'bg-teal-50 dark:bg-teal-950/50 border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-900/70' },
+] as const;
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -286,11 +311,25 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
   // Cancel confirmation
   const [cancelLoanId, setCancelLoanId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
 
   // Delete confirmation
   const [deleteLoanId, setDeleteLoanId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Payment dialog state
+  const [payOpen, setPayOpen] = useState(false);
+  const [payRegistering, setPayRegistering] = useState(false);
+  const [payAmount, setPayAmount] = useState('');
+  const [paySelectedInstallments, setPaySelectedInstallments] = useState<string[]>([]);
+  const [payMethod, setPayMethod] = useState('cash');
+  const [payObservation, setPayObservation] = useState('');
+  const [payProofFileBase64, setPayProofFileBase64] = useState('');
+  const [payProofPreview, setPayProofPreview] = useState('');
+  const [payCashReceived, setPayCashReceived] = useState('');
+  const [payQrDataUrl, setPayQrDataUrl] = useState('');
+  const [paySettings, setPaySettings] = useState<Record<string, string>>({});
 
   // ============================================================
   // Data Fetching
@@ -614,6 +653,45 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
     setStartDate(new Date().toISOString().split('T')[0]);
   };
 
+  const handleRecordar = async (loan: Loan) => {
+    try {
+      if (!loan.client.phone) return;
+      const phone = loan.client.phone.replace(/[^0-9]/g, '');
+      const fullPhone = phone.startsWith('51') ? phone : `51${phone}`;
+
+      const res = await fetch('/api/payment-settings');
+      const settings = res.ok ? await res.json() : {};
+      const hour = new Date().getHours();
+      let greeting = 'Buenos días';
+      if (hour >= 12 && hour < 19) greeting = 'Buenas tardes';
+      else if (hour >= 19) greeting = 'Buenas noches';
+
+      const lines = [
+        `${greeting} *${loan.client.name}*`,
+        '',
+        'Le hago recordar del pago pendiente de su préstamo.',
+        'Recuerde que puede realizar el pago a través de:',
+        '',
+        `📍 *Plin*: Al número ${settings.payment_phone_plin || '951959763'} a nombre de *Keysy Otero Cañola*`,
+        settings.payment_qr_plin ? `📷 Código QR Plin: ${settings.payment_qr_plin}` : null,
+        '',
+        '📍 *Transferencia Bancaria*:',
+        `Banco: ${settings.payment_bank_name || 'Interbank'}`,
+        `CCI: ${settings.payment_bank_cci || '00371401349270785038'}`,
+        `Cuenta de Ahorro: ${settings.payment_bank_cuenta || '7143492707850'}`,
+        `A nombre de *Keysy Otero Cañola*`,
+        '',
+        'Por favor, enviar el comprobante de pago por este medio.',
+        '',
+        '¡Gracias!',
+      ].filter(Boolean).join('\n');
+
+      window.open(`https://wa.me/${fullPhone}?text=${encodeURIComponent(lines)}`, '_blank');
+    } catch {
+      // If fetch fails, still send with defaults
+    }
+  };
+
   const handleCancelLoan = async () => {
     if (!cancelLoanId) return;
     setCancelling(true);
@@ -621,11 +699,12 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       const res = await fetch('/api/loans', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: cancelLoanId, status: 'cancelled' }),
+        body: JSON.stringify({ id: cancelLoanId, status: 'cancelled', cancellationReason: cancelReason || null }),
       });
       if (res.ok) {
         toast({ title: 'Préstamo cancelado', description: 'El préstamo ha sido cancelado exitosamente' });
         setCancelLoanId(null);
+        setCancelReason('');
         fetchLoans();
         fetchCapital();
       } else {
@@ -656,6 +735,53 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' });
     } finally {
       setDeleting(false);
+    }
+  };
+
+  // Payment handler
+  const handlePayRegister = async () => {
+    if (!detailLoan || paySelectedInstallments.length === 0 || !payAmount) {
+      toast({ title: 'Campos requeridos', description: 'Seleccione al menos una cuota a cancelar', variant: 'destructive' });
+      return;
+    }
+    const amount = parseFloat(payAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({ title: 'Monto inválido', description: 'El monto debe ser mayor a 0', variant: 'destructive' });
+      return;
+    }
+    setPayRegistering(true);
+    try {
+      const body: Record<string, unknown> = {
+        loanId: detailLoan.id,
+        amount,
+        paymentMethod: payMethod,
+        observation: payObservation || null,
+        proofPhoto: payProofFileBase64 || null,
+        collectorId: user?.id,
+      };
+      const res = await fetch('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.loanCompleted) {
+          toast({ title: 'Préstamo completado', description: 'El préstamo ha sido pagado en su totalidad', variant: 'default' });
+        } else {
+          toast({ title: 'Cobro registrado', description: `${formatCurrency(amount)} cobrado a ${detailLoan.client?.name || 'cliente'}`, variant: 'default' });
+        }
+        setPayOpen(false);
+        setDetailOpen(false);
+        fetchLoans();
+      } else {
+        const data = await res.json();
+        toast({ title: 'Error', description: data.error || 'No se pudo registrar el cobro', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' });
+    } finally {
+      setPayRegistering(false);
     }
   };
 
@@ -1761,6 +1887,27 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                   </div>
                 )}
 
+                {/* Cancellation Info */}
+                {detailLoan.status === 'cancelled' && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-red-700 dark:text-red-300 mb-2 flex items-center gap-1">
+                      <XCircle className="h-4 w-4" /> Cancelación
+                    </h4>
+                    <div className="bg-red-50 dark:bg-red-950/50 p-3 rounded-lg border border-red-100 space-y-1.5">
+                      {detailLoan.cancellationReason && (
+                        <p className="text-sm text-red-800 dark:text-red-200">
+                          <span className="font-medium">Motivo:</span> {detailLoan.cancellationReason}
+                        </p>
+                      )}
+                      {detailLoan.cancelledAt && (
+                        <p className="text-xs text-red-600 dark:text-red-400">
+                          <span className="font-medium">Cancelado el:</span> {formatDate(detailLoan.cancelledAt)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Late Fees */}
                 {detailLoan.lateFees && detailLoan.lateFees.length > 0 && (
                   <div>
@@ -1815,13 +1962,20 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                               <TableCell className="text-xs">{formatDate(s.dueDate)}</TableCell>
                               <TableCell className="text-xs font-semibold">{formatCurrency(s.amount)}</TableCell>
                               <TableCell>
-                                <Badge variant="outline" className={`text-xs ${
-                                  s.status === 'paid'
-                                    ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-200'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200'
-                                }`}>
-                                  {s.status === 'paid' ? 'Pagado' : 'Pendiente'}
-                                </Badge>
+                                {(() => {
+                                  const isOverdue = s.status === 'pending' && new Date(s.dueDate) < new Date(new Date().toDateString());
+                                  return (
+                                    <Badge variant="outline" className={`text-xs ${
+                                      s.status === 'paid'
+                                        ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-200'
+                                        : isOverdue
+                                          ? 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-200'
+                                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200'
+                                    }`}>
+                                      {s.status === 'paid' ? 'Pagado' : isOverdue ? 'No canceló' : 'Pendiente'}
+                                    </Badge>
+                                  );
+                                })()}
                               </TableCell>
                             </TableRow>
                           ))}
@@ -1877,11 +2031,28 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                         className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
                         onClick={() => {
                           setDetailOpen(false);
-                          window.location.href = '?tab=payments';
+                          setPaySelectedInstallments([]);
+                          setPayAmount('');
+                          setPayMethod('cash');
+                          setPayObservation('');
+                          setPayProofFileBase64('');
+                          setPayProofPreview('');
+                          setPayCashReceived('');
+                          setPayQrDataUrl('');
+                          fetch('/api/payment-settings').then(r => r.ok && r.json()).then(d => { if (d) setPaySettings(d); }).catch(() => {});
+                          setPayOpen(true);
                         }}
                       >
                         <DollarSign className="h-4 w-4 mr-2" />
                         Cobrar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300"
+                        onClick={() => handleRecordar(detailLoan)}
+                      >
+                        <Bell className="h-4 w-4 mr-2" />
+                        Recordar
                       </Button>
                       {isAdmin && (
                         <Button
@@ -1898,7 +2069,46 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                     </div>
                   </>
                 )}
-                {isAdmin && (detailLoan.status === 'cancelled' || detailLoan.status === 'completed') && (
+                {(detailLoan.status === 'completed' || detailLoan.status === 'paid') && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
+                        onClick={() => {
+                          setDetailOpen(false);
+                          setTimeout(() => {
+                            resetCreateForm();
+                            setSelectedClientId(detailLoan.client.id);
+                            setLoanAmount(String(detailLoan.amount));
+                            setLoanDays(String(detailLoan.days));
+                            setPaymentFrequency(detailLoan.paymentFrequency);
+                            setCollectorId(detailLoan.collector?.id || '');
+                            setZoneId(detailLoan.zone?.id || '');
+                            setCreateStep(2);
+                            setCreateOpen(true);
+                          }, 300);
+                        }}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Renovar
+                      </Button>
+                      {isAdmin && (
+                        <Button
+                          variant="destructive"
+                          onClick={() => {
+                            setDeleteLoanId(detailLoan.id);
+                            setDetailOpen(false);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Eliminar
+                        </Button>
+                      )}
+                    </div>
+                  </>
+                )}
+                {isAdmin && detailLoan.status === 'cancelled' && (
                   <>
                     <Separator />
                     <div className="flex items-center gap-2">
@@ -1935,9 +2145,18 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
             <DialogDescription>
               ¿Está seguro que desea cancelar este préstamo? Esta acción no se puede deshacer. El monto pendiente será devuelto al capital.
             </DialogDescription>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Motivo de cancelación</label>
+              <textarea
+                className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="Ingrese el motivo de la cancelación..."
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+              />
+            </div>
           </DialogHeader>
           <DialogFooter className="flex items-center gap-2 sm:gap-2">
-            <Button variant="outline" onClick={() => setCancelLoanId(null)} disabled={cancelling}>
+            <Button variant="outline" onClick={() => { setCancelLoanId(null); setCancelReason(''); }} disabled={cancelling}>
               No, volver
             </Button>
             <Button variant="destructive" onClick={handleCancelLoan} disabled={cancelling}>
@@ -1970,6 +2189,329 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
               {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
               Sí, eliminar préstamo
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================ */}
+      {/* PAYMENT DIALOG */}
+      {/* ============================================================ */}
+      <Dialog open={payOpen} onOpenChange={(open) => { if (!open) { setPayOpen(false); } }}>
+        <DialogContent className="max-w-lg max-h-[90dvh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-3 shrink-0">
+            <DialogTitle className="text-lg flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-emerald-500" />
+              Registrar Cobro
+            </DialogTitle>
+            <DialogDescription>
+              {detailLoan ? `Préstamo de ${detailLoan.client?.name || ''} — ${formatCurrency(detailLoan.amount)}` : ''}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 pb-4 overflow-y-auto space-y-5">
+            {/* Loan summary */}
+            {detailLoan && (
+              <div className="grid grid-cols-3 gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Monto</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{formatCurrency(detailLoan.amount)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Diario</p>
+                  <p className="text-sm font-bold text-emerald-600 dark:text-emerald-300">{formatCurrency(detailLoan.dailyPayment)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Restante</p>
+                  <p className="text-sm font-bold text-amber-600 dark:text-amber-300">{formatCurrency(detailLoan.remaining)}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Installments */}
+            <div>
+              <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Seleccionar Cuota(s)</Label>
+              <p className="text-xs text-slate-400 mt-0.5 mb-1">Seleccione una o más cuotas a cancelar</p>
+              <ScrollArea className="max-h-48 mt-1">
+                <div className="space-y-1.5">
+                  {detailLoan?.schedule?.filter(s => s.status === 'pending').map(s => {
+                    const selected = paySelectedInstallments.includes(s.id);
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => {
+                          let newSelected: string[];
+                          if (selected) {
+                            newSelected = paySelectedInstallments.filter(id => id !== s.id);
+                          } else {
+                            newSelected = [...paySelectedInstallments, s.id];
+                          }
+                          setPaySelectedInstallments(newSelected);
+                          const totalAmount = newSelected.reduce((sum, id) => {
+                            const inst = detailLoan?.schedule?.find(sch => sch.id === id);
+                            return sum + (inst ? inst.amount : 0);
+                          }, 0);
+                          setPayAmount(totalAmount.toString());
+                        }}
+                        className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm border transition-colors ${
+                          selected
+                            ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-300'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 text-slate-600 dark:text-slate-400 hover:border-emerald-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                            selected
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                          }`}>
+                            {selected ? '✓' : s.installmentNumber}
+                          </div>
+                          <div className="text-left">
+                            <p className="text-xs text-slate-400">{formatDate(s.dueDate)}</p>
+                          </div>
+                        </div>
+                        <span className="font-semibold">{formatCurrency(s.amount)}</span>
+                      </button>
+                    );
+                  })}
+                  {(!detailLoan?.schedule || detailLoan.schedule.filter(s => s.status === 'pending').length === 0) && (
+                    <p className="text-sm text-slate-400 text-center py-4">No hay cuotas pendientes</p>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+
+            {/* Amount */}
+            {paySelectedInstallments.length > 0 && (
+              <div className="mt-8 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Monto a Cobrar</Label>
+                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-300 mt-1">{formatCurrency(parseFloat(payAmount) || 0)}</p>
+                <p className="text-xs text-slate-400">{paySelectedInstallments.length} cuota(s) seleccionada(s)</p>
+              </div>
+            )}
+
+            {/* Payment Method */}
+            <div className="mt-10">
+              <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Método de Pago</Label>
+              <RadioGroup value={payMethod} onValueChange={setPayMethod} className="flex gap-2 mt-2">
+                {PAYMENT_METHODS.map((method) => {
+                  const Icon = method.icon;
+                  return (
+                    <Label
+                      key={method.value}
+                      className={`flex-1 flex flex-col items-center gap-1.5 p-3 rounded-xl border cursor-pointer transition-all ${
+                        payMethod === method.value
+                          ? `ring-2 ring-emerald-300 ${method.bg}`
+                          : 'bg-white dark:bg-slate-900 border-slate-200 hover:border-emerald-200'
+                      }`}
+                    >
+                      <input type="radio" name="payMethod" value={method.value} checked={payMethod === method.value} onChange={() => setPayMethod(method.value)} className="sr-only" />
+                      <Icon className={`h-5 w-5 ${method.color}`} />
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{method.label}</span>
+                    </Label>
+                  );
+                })}
+              </RadioGroup>
+            </div>
+
+            {/* Cash: Received amount + photo */}
+            {payMethod === 'cash' && (
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Monto Recibido</Label>
+                  <div className="relative mt-1.5">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">S/</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={payCashReceived}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '' || parseFloat(val) >= 0) setPayCashReceived(val);
+                      }}
+                      placeholder="0.00"
+                      className="pl-8 bg-white dark:bg-slate-900 border-slate-200"
+                    />
+                  </div>
+                </div>
+                {payCashReceived && parseFloat(payCashReceived) > parseFloat(payAmount) && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                    Vuelto: {formatCurrency(parseFloat(payCashReceived) - parseFloat(payAmount))}
+                  </p>
+                )}
+                <div>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Foto del Comprobante</Label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-1.5 border-slate-200"
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/*';
+                      input.capture = 'environment';
+                      input.onchange = (e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const result = ev.target?.result as string;
+                            setPayProofFileBase64(result);
+                            setPayProofPreview(result);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      };
+                      input.click();
+                    }}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {payProofPreview ? 'Cambiar Foto' : 'Tomar Foto'}
+                  </Button>
+                  {payProofPreview && (
+                    <img src={payProofPreview} alt="Comprobante" className="mt-2 w-full max-h-32 object-contain rounded-lg border" />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Plin: QR + phone */}
+            {payMethod === 'plin' && (
+              <div className="space-y-3 p-3 rounded-xl bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800">
+                <p className="text-sm font-medium text-sky-700 dark:text-sky-300">Pagar con Plin</p>
+                {paySettings.payment_qr_plin && (
+                  <img src={paySettings.payment_qr_plin} alt="QR Plin" className="w-48 h-48 object-contain mx-auto rounded-lg bg-white p-2" />
+                )}
+                <p className="text-xs text-sky-600 dark:text-sky-400 text-center">
+                  Teléfono: {paySettings.payment_phone_plin || '—'}<br />
+                  Titular: Keysy Otero Cañola
+                </p>
+                <div>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Foto del Comprobante</Label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-1.5 border-sky-200"
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/*';
+                      input.capture = 'environment';
+                      input.onchange = (e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const result = ev.target?.result as string;
+                            setPayProofFileBase64(result);
+                            setPayProofPreview(result);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      };
+                      input.click();
+                    }}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {payProofPreview ? 'Cambiar Foto' : 'Tomar Foto'}
+                  </Button>
+                  {payProofPreview && (
+                    <img src={payProofPreview} alt="Comprobante" className="mt-2 w-full max-h-32 object-contain rounded-lg border" />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Transfer: Bank data */}
+            {payMethod === 'transfer' && (
+              <div className="space-y-3 p-3 rounded-xl bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800">
+                <p className="text-sm font-medium text-teal-700 dark:text-teal-300">Transferencia Bancaria</p>
+                <div className="text-xs text-teal-600 dark:text-teal-400 space-y-1">
+                  <p><strong>Banco:</strong> {paySettings.payment_bank_name || 'Interbank'}</p>
+                  <p><strong>CCI:</strong> {paySettings.payment_bank_cci || '00371401349270785038'}</p>
+                  <p><strong>Cuenta Ahorro:</strong> {paySettings.payment_bank_cuenta || '7143492707850'}</p>
+                  <p><strong>Titular:</strong> Keysy Otero Cañola</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Foto del Comprobante</Label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-1.5 border-teal-200"
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/*';
+                      input.capture = 'environment';
+                      input.onchange = (e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const result = ev.target?.result as string;
+                            setPayProofFileBase64(result);
+                            setPayProofPreview(result);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      };
+                      input.click();
+                    }}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {payProofPreview ? 'Cambiar Foto' : 'Tomar Foto'}
+                  </Button>
+                  {payProofPreview && (
+                    <img src={payProofPreview} alt="Comprobante" className="mt-2 w-full max-h-32 object-contain rounded-lg border" />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Collector */}
+            <div className="mt-6">
+              <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Cobrador</Label>
+              <div className="mt-1.5 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                <User className="h-4 w-4 text-slate-400" />
+                {user?.name || 'Cobrador'}
+              </div>
+            </div>
+
+            {/* Observation */}
+            <div className="mt-6">
+              <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Observación</Label>
+              <Textarea
+                value={payObservation}
+                onChange={(e) => setPayObservation(e.target.value)}
+                placeholder="Observación opcional..."
+                className="mt-1.5 bg-white dark:bg-slate-900 border-slate-200 resize-none"
+                rows={2}
+              />
+            </div>
+          </div>
+
+          {/* Footer */}
+          <DialogFooter className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
+            <div className="flex items-center justify-between w-full">
+              <p className="text-sm text-slate-500">
+                Total: <strong className="text-emerald-600 dark:text-emerald-300">{payAmount ? formatCurrency(parseFloat(payAmount)) : '—'}</strong>
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" className="border-slate-200" onClick={() => { setPayOpen(false); }} disabled={payRegistering}>
+                  Cancelar
+                </Button>
+                <Button
+                  className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
+                  onClick={handlePayRegister}
+                  disabled={paySelectedInstallments.length === 0 || !payAmount || payRegistering}
+                >
+                  {payRegistering ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <DollarSign className="h-4 w-4 mr-2" />}
+                  Registrar Cobro
+                </Button>
+              </div>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

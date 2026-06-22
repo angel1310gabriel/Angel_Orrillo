@@ -1,8 +1,9 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Printer, Share2 } from 'lucide-react';
+import { Printer, Share2, QrCode } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { formatCurrency } from '@/lib/format-helpers';
 
@@ -25,12 +26,19 @@ interface PaymentReceiptProps {
 
 const METHOD_LABELS: Record<string, string> = {
   cash: 'Efectivo',
-  yape: 'Yape',
   plin: 'Plin',
   transfer: 'Transferencia',
 };
 
 export default function PaymentReceipt({ open, onOpenChange, payment }: PaymentReceiptProps) {
+  const [settings, setSettings] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (open) {
+      fetch('/api/payment-settings').then(r => r.ok && r.json()).then(d => setSettings(d || {})).catch(() => {});
+    }
+  }, [open]);
+
   if (!payment) return null;
 
   const formattedDate = new Date(payment.date).toLocaleDateString('es-PE', {
@@ -41,19 +49,39 @@ export default function PaymentReceipt({ open, onOpenChange, payment }: PaymentR
     minute: '2-digit',
   });
 
+  const qrUrl = payment.method === 'plin' ? settings.payment_qr_plin : null;
+  const phoneNum = payment.method === 'plin' ? settings.payment_phone_plin : null;
+
+  const paymentDetails: string[] = [];
+  if (payment.method === 'plin' && phoneNum) {
+    paymentDetails.push(`Número: ${phoneNum}`);
+  }
+  if (payment.method === 'transfer') {
+    if (settings.payment_bank_name) paymentDetails.push(`Banco: ${settings.payment_bank_name}`);
+    if (settings.payment_bank_cci) paymentDetails.push(`CCI: ${settings.payment_bank_cci}`);
+    if (settings.payment_bank_cuenta) paymentDetails.push(`Cuenta de Ahorro: ${settings.payment_bank_cuenta}`);
+  }
+
+  const hour = new Date().getHours();
+  let greeting = 'Buenos días';
+  if (hour >= 12 && hour < 19) greeting = 'Buenas tardes';
+  else if (hour >= 19) greeting = 'Buenas noches';
+
   const whatsappMessage = [
-    '*KC Cobranzas - Comprobante de Pago*',
+    `*KC Cobranzas - Comprobante de Pago*`,
+    '',
+    `${greeting} *${payment.clientName}*`,
     '',
     `Recibo: #${payment.id.slice(0, 8).toUpperCase()}`,
     `Fecha: ${formattedDate}`,
     '',
-    `Cliente: ${payment.clientName}`,
-    `Documento: ${payment.clientDoc}`,
-    '',
     `Monto del Préstamo: ${formatCurrency(payment.loanAmount)}`,
     `Método de Pago: ${METHOD_LABELS[payment.method] || payment.method}`,
     `Monto Pagado: ${formatCurrency(payment.amount)}`,
+    ...(paymentDetails.length ? ['', ...paymentDetails] : []),
+    ...(qrUrl ? ['', qrUrl] : []),
     '',
+    `Pago realizado a nombre de *Keysy Otero Cañola*`,
     `Cobrador: ${payment.collectorName}`,
     '',
     '¡Gracias por su pago!',
@@ -105,6 +133,29 @@ export default function PaymentReceipt({ open, onOpenChange, payment }: PaymentR
               </span>
             </div>
           </div>
+
+          {payment.method === 'plin' && qrUrl && (
+            <div className="flex flex-col items-center gap-2">
+              <Separator />
+              <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                <QrCode className="h-3 w-3" /> Escanea el código QR para pagar
+              </p>
+              <img src={qrUrl} alt={`QR ${METHOD_LABELS[payment.method]}`} className="h-36 w-36 object-contain rounded-lg border" />
+              {phoneNum && <p className="text-xs text-slate-500 dark:text-slate-400">Número: <span className="font-medium text-slate-900 dark:text-slate-100">{phoneNum}</span></p>}
+            </div>
+          )}
+
+          {payment.method === 'transfer' && paymentDetails.length > 0 && (
+            <div>
+              <Separator />
+              <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Datos Bancarios</p>
+              <div className="space-y-1 text-sm bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
+                {paymentDetails.map((d, i) => (
+                  <p key={i} className="text-slate-700 dark:text-slate-300">{d}</p>
+                ))}
+              </div>
+            </div>
+          )}
 
           <Separator />
 

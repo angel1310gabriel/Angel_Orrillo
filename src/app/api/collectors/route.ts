@@ -343,18 +343,29 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 });
       }
 
-      // Update via Supabase
+      // Build update data (may be empty if only zones are being changed)
       const updateData: Record<string, unknown> = {};
       if (name !== undefined) updateData.name = name.trim();
       if (phone !== undefined) updateData.phone = phone;
       if (role !== undefined) updateData.role = role;
       if (isActive !== undefined) updateData.is_active = isActive;
 
-      const { data: updatedProfile, error: updateError } = await supabase.from('profiles').update(updateData).eq('id', id).select().single();
+      let updatedProfile: Record<string, unknown> | null;
+      if (Object.keys(updateData).length > 0) {
+        const { data, error: updateError } = await supabase.from('profiles').update(updateData).eq('id', id).select().single();
+        if (updateError) {
+          console.error('[Collectors] Supabase update error:', updateError.message);
+          return NextResponse.json({ error: 'Error al actualizar personal' }, { status: 500 });
+        }
+        updatedProfile = data;
+      } else {
+        // No profile fields to update; fetch current for response
+        const { data } = await supabase.from('profiles').select('*').eq('id', id).single();
+        updatedProfile = data;
+      }
 
-      if (updateError) {
-        console.error('[Collectors] Supabase update error:', updateError.message);
-        return NextResponse.json({ error: 'Error al actualizar personal' }, { status: 500 });
+      if (!updatedProfile) {
+        return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 });
       }
 
       // Handle zone assignment if provided

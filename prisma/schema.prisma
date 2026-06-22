@@ -121,6 +121,11 @@ model Loan {
   signature         String?
   notes             String?
   restDays          String   @default("")
+  cancellationReason String?
+  cancelledBy       String?
+  cancelledAt       DateTime?
+  completedAt       DateTime?
+  nextPaymentDate   DateTime?
   chargedOff        Boolean  @default(false)
   chargedOffAt      DateTime?
   chargedOffBy      String?

@@ -12,7 +12,6 @@ import {
   RefreshCw,
   Plus,
   Banknote,
-  Smartphone,
   Wifi,
   ArrowRightLeft,
   User,
@@ -182,14 +181,12 @@ const getDocumentLabel = (docType: string) => {
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'Efectivo', icon: Banknote, color: 'text-emerald-600 dark:text-emerald-300', bg: 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-900/70' },
-  { value: 'yape', label: 'Yape', icon: Smartphone, color: 'text-purple-600 dark:text-purple-300', bg: 'bg-purple-50 border-purple-200 hover:bg-purple-100' },
   { value: 'plin', label: 'Plin', icon: Wifi, color: 'text-sky-600 dark:text-sky-300', bg: 'bg-sky-50 border-sky-200 hover:bg-sky-100' },
   { value: 'transfer', label: 'Transferencia', icon: ArrowRightLeft, color: 'text-teal-600 dark:text-teal-300', bg: 'bg-teal-50 border-teal-200 hover:bg-teal-100' },
 ] as const;
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: 'Efectivo',
-  yape: 'Yape',
   plin: 'Plin',
   transfer: 'Transferencia',
 };
@@ -244,6 +241,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
   const [proofFileBase64, setProofFileBase64] = useState('');
   const [proofPreview, setProofPreview] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
+  const [paymentSettings, setPaymentSettings] = useState<Record<string, string>>({});
 
   // Loan completed celebration
   const [completedLoanName, setCompletedLoanName] = useState<string | null>(null);
@@ -304,6 +302,22 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
     }
   }, [toast]);
 
+  const fetchPaymentSettings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/payment-settings');
+      if (res.ok) {
+        const data = await res.json();
+        setPaymentSettings(data);
+      }
+    } catch (e) {
+      console.error('Error fetching payment settings:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPaymentSettings();
+  }, [fetchPaymentSettings]);
+
   const fetchTodayPayments = useCallback(async () => {
     setLoadingPayments(true);
     try {
@@ -357,6 +371,18 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
     }
   }, [refreshTrigger, fetchLoans, fetchTodayPayments]);
 
+  // Check for pending payment from loan detail (Cobrar button)
+  useEffect(() => {
+    const pendingLoanId = sessionStorage.getItem('pendingPaymentLoanId');
+    if (pendingLoanId && activeLoans.length > 0) {
+      const loan = activeLoans.find(l => l.id === pendingLoanId);
+      if (loan) {
+        handleOpenRegister(pendingLoanId);
+        sessionStorage.removeItem('pendingPaymentLoanId');
+      }
+    }
+  }, [activeLoans.length]);
+
   // ============================================================
   // Computed Values
   // ============================================================
@@ -407,12 +433,6 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
   const vueltoAmount = cashReceived && paymentAmount ? Math.max(0, parseFloat(cashReceived) - parseFloat(paymentAmount)) : 0;
 
-  const BANK_ACCOUNTS = [
-    { bank: 'BCP', account: '191-12345678-0-00', holder: 'KC Cobranzas' },
-    { bank: 'BBVA', account: '0011-0123-4500123456', holder: 'KC Cobranzas' },
-    { bank: 'Interbank', account: '898-1234567890', holder: 'KC Cobranzas' },
-  ];
-
   const handleProofFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -445,7 +465,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
     setSelectedInstallment('');
     setPaymentAmount('');
     setPaymentMethod('cash');
-    setPaymentCollectorId('');
+    setPaymentCollectorId(user?.id || '');
     setPaymentObservation('');
     setLoanSearch('');
     setCashReceived('');
@@ -561,7 +581,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
     setPaymentAmount('');
     setSelectedInstallment('');
     setPaymentMethod('cash');
-    setPaymentCollectorId('');
+    setPaymentCollectorId(user?.id || '');
     setPaymentObservation('');
     setLoanSearch('');
     setCashReceived('');
@@ -1389,49 +1409,18 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                           El monto recibido es menor al cobro
                         </p>
                       )}
-                    </div>
-                  )}
-
-                  {(paymentMethod === 'yape' || paymentMethod === 'plin') && (
-                    <div className="space-y-4 p-4 rounded-xl bg-purple-50 dark:bg-purple-950/50 border border-purple-200">
-                      {qrDataUrl && (
-                        <div className="flex flex-col items-center gap-2">
-                          <img
-                            src={qrDataUrl}
-                            alt="QR de pago"
-                            className="w-48 h-48 rounded-xl bg-white dark:bg-slate-900 p-2 shadow-sm"
-                          />
-                          <p className="text-xs text-purple-600 dark:text-purple-300 font-medium">
-                            {paymentMethod === 'yape' ? 'Yape' : 'Plin'} - S/{parseFloat(paymentAmount || '0').toFixed(2)}
-                          </p>
-                        </div>
-                      )}
-                      <div className="flex gap-2">
-                        {selectedLoan?.client.phone && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 border-purple-200 text-purple-600 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-xs"
-                            onClick={() => handleSendWhatsApp(
-                              `*${paymentMethod === 'yape' ? 'YAPE' : 'PLIN'} - KC Cobranzas*\n\nMonto: S/${parseFloat(paymentAmount || '0').toFixed(2)}\nCliente: ${selectedLoan?.client.name}\nRef: ${selectedLoan?.id.slice(0, 8)}\n\nAdjunto el comprobante del pago.`
-                            )}
-                          >
-                            <Send className="h-3.5 w-3.5 mr-1" />
-                            Enviar por WhatsApp
-                          </Button>
-                        )}
-                      </div>
                       <div>
-                        <Label className="text-xs font-semibold text-purple-800 dark:text-purple-200">
-                          Subir Comprobante
+                        <Label className="text-xs font-semibold text-amber-800 dark:text-amber-200">
+                          Subir Comprobante (opcional)
                         </Label>
                         <div className="mt-1.5 flex items-center gap-3">
-                          <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-purple-200 bg-white dark:bg-slate-900 cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-950/50 text-xs text-purple-700 dark:text-purple-300">
-                            <Upload className="h-3.5 w-3.5" />
-                            {proofPreview ? 'Cambiar archivo' : 'Seleccionar imagen'}
+                          <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-amber-200 bg-white dark:bg-slate-900 cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-950/50 text-xs text-amber-700 dark:text-amber-300">
+                            <Upload className="h-4 w-4" />
+                            {proofPreview ? 'Cambiar foto' : 'Tomar foto'}
                             <input
                               type="file"
                               accept="image/*"
+                              capture="environment"
                               onChange={handleProofFile}
                               className="hidden"
                             />
@@ -1450,7 +1439,79 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                             <img
                               src={proofPreview}
                               alt="Comprobante"
-                              className="w-full max-h-40 object-contain rounded-lg border border-purple-200 bg-white dark:bg-slate-900"
+                              className="w-full max-h-40 object-contain rounded-lg border border-amber-200 bg-white dark:bg-slate-900"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {paymentMethod === 'plin' && (
+                    <div className="space-y-4 p-4 rounded-xl bg-sky-50 dark:bg-sky-950/50 border border-sky-200">
+                      {paymentSettings.payment_qr_plin && (
+                        <div className="flex flex-col items-center gap-2">
+                          <img
+                            src={paymentSettings.payment_qr_plin}
+                            alt="QR Plin"
+                            className="w-48 h-48 object-contain rounded-xl bg-white dark:bg-slate-900 p-2 shadow-sm"
+                          />
+                          <p className="text-xs text-sky-600 dark:text-sky-300 font-medium">
+                            Plin - S/{parseFloat(paymentAmount || '0').toFixed(2)}
+                          </p>
+                          {paymentSettings.payment_phone_plin && (
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              Número: <span className="font-medium">{paymentSettings.payment_phone_plin}</span> a nombre de <strong>Keysy Otero Cañola</strong>
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        {selectedLoan?.client.phone && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 border-sky-200 text-sky-600 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-xs"
+                            onClick={() => handleSendWhatsApp(
+                              `*Plin - KC Cobranzas*\n\nMonto: S/${parseFloat(paymentAmount || '0').toFixed(2)}\nCliente: ${selectedLoan?.client.name}\nNúmero: ${paymentSettings.payment_phone_plin || '951959763'}\nA nombre de: Keysy Otero Cañola\n\nAdjunto el comprobante del pago.`
+                            )}
+                          >
+                            <Send className="h-3.5 w-3.5 mr-1" />
+                            Enviar por WhatsApp
+                          </Button>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="text-xs font-semibold text-sky-800 dark:text-sky-200">
+                          Subir Comprobante
+                        </Label>
+                        <div className="mt-1.5 flex items-center gap-3">
+                          <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-sky-200 bg-white dark:bg-slate-900 cursor-pointer hover:bg-sky-50 dark:hover:bg-sky-950/50 text-xs text-sky-700 dark:text-sky-300">
+                            <Upload className="h-4 w-4" />
+                            {proofPreview ? 'Cambiar foto' : 'Tomar foto'}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              onChange={handleProofFile}
+                              className="hidden"
+                            />
+                          </label>
+                          {proofFileBase64 && (
+                            <button
+                              className="text-xs text-red-500 hover:text-red-700 dark:text-red-300"
+                              onClick={() => { setProofFileBase64(''); setProofPreview(''); }}
+                            >
+                              Eliminar
+                            </button>
+                          )}
+                        </div>
+                        {proofPreview && (
+                          <div className="mt-2">
+                            <img
+                              src={proofPreview}
+                              alt="Comprobante"
+                              className="w-full max-h-40 object-contain rounded-lg border border-sky-200 bg-white dark:bg-slate-900"
                             />
                           </div>
                         )}
@@ -1464,17 +1525,18 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                         Transferencia Bancaria
                       </Label>
                       <div className="space-y-2">
-                        {BANK_ACCOUNTS.map((acc, i) => (
-                          <div
-                            key={i}
-                            className="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-teal-200"
-                          >
-                            <div>
-                              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{acc.bank}</p>
-                              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">{acc.account}</p>
-                            </div>
+                        {paymentSettings.payment_bank_name && (
+                          <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-teal-200">
+                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{paymentSettings.payment_bank_name}</p>
+                            {paymentSettings.payment_bank_cuenta && (
+                              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">Cuenta Ahorro: {paymentSettings.payment_bank_cuenta}</p>
+                            )}
+                            {paymentSettings.payment_bank_cci && (
+                              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">CCI: {paymentSettings.payment_bank_cci}</p>
+                            )}
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">A nombre de <strong>Keysy Otero Cañola</strong></p>
                           </div>
-                        ))}
+                        )}
                       </div>
                       {selectedLoan?.client.phone && (
                         <Button
@@ -1482,7 +1544,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                           size="sm"
                           className="w-full border-teal-200 text-teal-600 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/50 text-xs"
                           onClick={() => handleSendWhatsApp(
-                            `*Transferencia - KC Cobranzas*\n\nMonto: S/${parseFloat(paymentAmount || '0').toFixed(2)}\nCliente: ${selectedLoan?.client.name}\n\nDatos bancarios:\n${BANK_ACCOUNTS.map(a => `• ${a.bank}: ${a.account}`).join('\n')}\n\nAdjunto el comprobante de la transferencia.`
+                            `*Transferencia Bancaria - KC Cobranzas*\n\nMonto: S/${parseFloat(paymentAmount || '0').toFixed(2)}\nCliente: ${selectedLoan?.client.name}\n\nDatos bancarios:\n• Banco: ${paymentSettings.payment_bank_name || 'Interbank'}\n• CCI: ${paymentSettings.payment_bank_cci || ''}\n• Cuenta Ahorro: ${paymentSettings.payment_bank_cuenta || ''}\nA nombre de: Keysy Otero Cañola\n\nAdjunto el comprobante de la transferencia.`
                           )}
                         >
                           <Send className="h-3.5 w-3.5 mr-1" />
@@ -1494,12 +1556,13 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                           Subir Comprobante
                         </Label>
                         <div className="mt-1.5 flex items-center gap-3">
-                          <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-teal-200 bg-white dark:bg-slate-900 cursor-pointer hover:bg-teal-50 dark:hover:bg-teal-950/50 text-xs text-teal-700 dark:text-teal-300">
-                            <Upload className="h-3.5 w-3.5" />
-                            {proofPreview ? 'Cambiar archivo' : 'Seleccionar imagen'}
+                          <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-teal-200 bg-white dark:bg-slate-900 cursor-pointer hover:bg-teal-50 dark:hover:bg-teal-950/50 text-xs text-teal-700 dark:text-teal-300">
+                            <Upload className="h-4 w-4" />
+                            {proofPreview ? 'Cambiar foto' : 'Tomar foto'}
                             <input
                               type="file"
                               accept="image/*"
+                              capture="environment"
                               onChange={handleProofFile}
                               className="hidden"
                             />
@@ -1531,18 +1594,10 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                     <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                       Cobrador
                     </Label>
-                    <Select value={paymentCollectorId} onValueChange={setPaymentCollectorId}>
-                      <SelectTrigger className="mt-1.5 bg-white dark:bg-slate-900 border-slate-200">
-                        <SelectValue placeholder="Seleccionar cobrador (opcional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {collectors.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name || c.email}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="mt-1.5 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                      <User className="h-4 w-4 text-slate-400" />
+                      {user?.name || 'Cobrador'}
+                    </div>
                   </div>
 
                   {/* Observation */}

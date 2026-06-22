@@ -87,7 +87,7 @@ async function getReportsFromSupabase() {
     .eq('role', 'collector')
     .eq('is_active', true);
 
-  const collectorRanking: { collectorId: string; collectorName: string; totalCollected: number; count: number }[] = [];
+  const collectorRanking: { collectorId: string; collectorName: string; totalCollected: number; count: number; totalLoans: number }[] = [];
   for (const collector of collectors || []) {
     const { data: payments } = await supabase
       .from('payments')
@@ -95,12 +95,18 @@ async function getReportsFromSupabase() {
       .eq('collector_id', collector.id)
       .eq('status', 'completed');
 
+    const { count: totalLoans } = await supabase
+      .from('loans')
+      .select('*', { count: 'exact', head: true })
+      .eq('collector_id', collector.id);
+
     const totalCollected = (payments || []).reduce((s: number, p: Record<string, unknown>) => s + (Number(p.amount) || 0), 0);
     collectorRanking.push({
       collectorId: collector.id,
       collectorName: collector.name || 'Sin nombre',
       totalCollected,
       count: payments?.length || 0,
+      totalLoans: totalLoans || 0,
     });
   }
   collectorRanking.sort((a, b) => b.totalCollected - a.totalCollected);
@@ -171,11 +177,13 @@ async function getReportsFromPrisma() {
         _count: true,
         where: { collectorId: c.id, status: 'completed' },
       });
+      const loanCount = await db.loan.count({ where: { collectorId: c.id } });
       return {
         collectorId: c.id,
         collectorName: c.name || 'Sin nombre',
         totalCollected: agg._sum.amount || 0,
         count: agg._count,
+        totalLoans: loanCount,
       };
     })
   );

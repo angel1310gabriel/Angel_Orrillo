@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 // ============================================================
 // Types
@@ -79,6 +79,34 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
 };
 
 // ============================================================
+// Sync initial state from localStorage (synchronous!)
+// This runs at module level, BEFORE any React render
+// ============================================================
+
+const STORAGE_KEY = 'kc-cobranzas-auth-v3';
+
+function getStoredState(): { user: AuthUser | null; isAuthenticated: boolean; lastActivity: number } {
+  if (typeof window === 'undefined') return { user: null, isAuthenticated: false, lastActivity: Date.now() };
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const data = parsed?.state || parsed;
+      if (data?.user && data?.isAuthenticated) {
+        return {
+          user: data.user as AuthUser,
+          isAuthenticated: true,
+          lastActivity: Date.now(),
+        };
+      }
+    }
+  } catch {}
+  return { user: null, isAuthenticated: false, lastActivity: Date.now() };
+}
+
+const initialStored = getStoredState();
+
+// ============================================================
 // Auth Store with Zustand + Persist
 // Login con DNI, Email o Celular via Supabase
 // ============================================================
@@ -86,11 +114,11 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
 export const useAuth = create<AuthState>()(
   persist(
     (set, get) => ({
-      user: null,
-      isAuthenticated: false,
+      user: initialStored.user,
+      isAuthenticated: initialStored.isAuthenticated,
       isLoading: false,
       error: null,
-      lastActivity: Date.now(),
+      lastActivity: initialStored.lastActivity,
 
       login: async (username: string, password: string) => {
         set({ isLoading: true, error: null });
@@ -177,7 +205,6 @@ export const useAuth = create<AuthState>()(
 
           if (data.success && data.user) {
             const updatedUser = data.user as AuthUser;
-            console.log('[Auth] checkSession - Updated role from server:', updatedUser.role, 'name:', updatedUser.name);
             set({
               user: {
                 id: updatedUser.id,
@@ -192,14 +219,12 @@ export const useAuth = create<AuthState>()(
               lastActivity: Date.now(),
             });
           } else if (response.status === 404) {
-            // User not found on server - clear session
             console.warn('[Auth] checkSession - User not found (404), clearing session');
             set({
               user: null,
               isAuthenticated: false,
             });
           } else {
-            // Temporary server issue - keep cached session
             console.warn('[Auth] checkSession - Server returned error, keeping cached session');
           }
         } catch {
@@ -207,7 +232,6 @@ export const useAuth = create<AuthState>()(
         }
       },
 
-      // Force refresh role from server - always called on page load
       refreshRole: async () => {
         const { user } = get();
         if (!user) return;
@@ -223,9 +247,7 @@ export const useAuth = create<AuthState>()(
 
           if (data.success && data.user) {
             const serverUser = data.user as AuthUser;
-            // Always update from server - this fixes cached wrong roles
             if (serverUser.role !== user.role || serverUser.name !== user.name) {
-              console.log('[Auth] refreshRole - Role/name mismatch! Cache:', user.role, user.name, '→ Server:', serverUser.role, serverUser.name);
               set({
                 user: {
                   id: serverUser.id,
@@ -289,20 +311,13 @@ export const useAuth = create<AuthState>()(
       },
     }),
     {
-      // Changed key name to completely invalidate old cache with wrong role
-      name: 'kc-cobranzas-auth-v3',
-      version: 3,
+      name: STORAGE_KEY,
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
+        lastActivity: state.lastActivity,
       }),
-      migrate: (persistedState: unknown, version: number) => {
-        // If coming from any older version, clear it completely
-        if (version < 3) {
-          return null as unknown as Partial<AuthState>;
-        }
-        return persistedState as Partial<AuthState>;
-      },
     }
   )
 );

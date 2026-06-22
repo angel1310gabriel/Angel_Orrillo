@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { useTheme } from 'next-themes';
 import LoansTab from '@/components/loans-tab';
 import CapitalTab from '@/components/capital-tab';
 import ClientsTab from '@/components/clients-tab';
@@ -40,8 +39,6 @@ import {
   KeyRound,
   Download,
   Upload,
-  Sun,
-  Moon,
   Map,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -103,8 +100,7 @@ const ROLE_BADGE: Record<string, { label: string; color: string }> = {
 // ============================================================
 
 export default function KCobranzasDashboard() {
-  const { user, isAuthenticated, logout, checkSession, refreshRole } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { user, isAuthenticated, logout, refreshRole } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showDataTools, setShowDataTools] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
@@ -115,7 +111,20 @@ export default function KCobranzasDashboard() {
   });
   const [refreshKey, setRefreshKey] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('kc-cobranzas-auth-v3');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.state?.isAuthenticated && parsed?.state?.user) {
+            return true;
+          }
+        }
+      } catch {}
+    }
+    return false;
+  });
   const hasCheckedSession = useRef(false);
 
   // Location tracking state + refs — must be before early returns to satisfy React's rules of hooks
@@ -124,18 +133,14 @@ export default function KCobranzasDashboard() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSentRef = useRef<{latitude: number; longitude: number; accuracy: number | null; speed: number | null} | null>(null);
 
-  // Wait for hydration of persisted zustand store
+  // Background role refresh on first load
   useEffect(() => {
     if (!hasCheckedSession.current) {
       hasCheckedSession.current = true;
-      Promise.resolve().then(() => {
-        setIsHydrated(true);
-        checkSession();
-        // Always force-refresh role from server to fix cached wrong roles
-        refreshRole();
-      });
+      setIsHydrated(true);
+      refreshRole();
     }
-  }, [checkSession, refreshRole]);
+  }, [refreshRole]);
 
   // Location tracking effect — must be before early returns
   useEffect(() => {
@@ -163,6 +168,18 @@ export default function KCobranzasDashboard() {
       setLocationTracking(false);
     };
   }, [user?.role, user?.id]);
+
+  // Listen for external tab navigation events (from child components)
+  useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      if (e.detail?.tab) {
+        setActiveTab(e.detail.tab);
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('navigate-to-tab', handler as EventListener);
+    return () => window.removeEventListener('navigate-to-tab', handler as EventListener);
+  }, []);
 
   // Sync activeTab to URL
   useEffect(() => {
@@ -301,16 +318,6 @@ export default function KCobranzasDashboard() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="h-8 w-8 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50"
-                title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
-              >
-                <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
                 onClick={() => setShowChangePassword(true)}
                 className="h-8 w-8 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50"
                 title="Cambiar contraseña"
@@ -440,14 +447,6 @@ export default function KCobranzasDashboard() {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="w-full justify-center text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
-              >
-                {theme === 'dark' ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
-                {theme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}
-              </Button>
-              <Button
-                variant="outline"
                 onClick={handleLogout}
                 className="w-full justify-center text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
               >
@@ -485,16 +484,6 @@ export default function KCobranzasDashboard() {
                 Realtime
               </Badge>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="h-8 w-8 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50"
-              title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
-            >
-              <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            </Button>
             <Button
               variant="ghost"
               size="sm"

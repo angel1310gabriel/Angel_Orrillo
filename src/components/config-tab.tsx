@@ -91,6 +91,10 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
   // Disconnect confirmation
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
 
+  // Payment settings state
+  const [paymentSettings, setPaymentSettings] = useState<Record<string, string>>({});
+  const [savingPaymentSettings, setSavingPaymentSettings] = useState(false);
+
   // ============================================================
   // Data Fetching
   // ============================================================
@@ -122,6 +126,43 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
   useEffect(() => {
     if (refreshTrigger) fetchStatus();
   }, [refreshTrigger, fetchStatus]);
+
+  const fetchPaymentSettings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/payment-settings');
+      if (res.ok) {
+        const data = await res.json();
+        setPaymentSettings(data);
+      }
+    } catch (e) {
+      console.error('Error fetching payment settings:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPaymentSettings();
+  }, [fetchPaymentSettings]);
+
+  const handleSavePaymentSettings = async () => {
+    setSavingPaymentSettings(true);
+    try {
+      const res = await fetch('/api/payment-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(paymentSettings),
+      });
+      if (res.ok) {
+        toast({ title: 'Configuración guardada', description: 'Los datos de cobro se actualizaron correctamente' });
+      } else {
+        const data = await res.json();
+        toast({ title: 'Error', description: data.error || 'No se pudo guardar', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' });
+    } finally {
+      setSavingPaymentSettings(false);
+    }
+  };
 
   // ============================================================
   // Handlers
@@ -736,6 +777,100 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
                 Desconectar
               </Button>
             )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ============================================================ */}
+      {/* PAYMENT SETTINGS */}
+      {/* ============================================================ */}
+      <Card className="border-0 shadow-lg">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-300" />
+            Configuración de Cobros
+          </CardTitle>
+          <CardDescription>Datos que aparecerán en el comprobante de pago para Plin y Transferencia</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Plin */}
+            <div className="space-y-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100">
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-4 w-4 text-purple-500" />
+                <h4 className="font-semibold text-sm">Plin</h4>
+              </div>
+              <div className="space-y-2">
+                <div>
+                  <Label className="text-xs">Número Plin</Label>
+                  <Input
+                    placeholder="+51 999 999 999"
+                    value={paymentSettings.payment_phone_plin}
+                    onChange={(e) => setPaymentSettings(p => ({ ...p, payment_phone_plin: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">URL del QR Plin</Label>
+                  <Input
+                    placeholder="https://ejemplo.com/qr-plin.png"
+                    value={paymentSettings.payment_qr_plin}
+                    onChange={(e) => setPaymentSettings(p => ({ ...p, payment_qr_plin: e.target.value }))}
+                  />
+                  {paymentSettings.payment_qr_plin && (
+                    <img src={paymentSettings.payment_qr_plin} alt="QR Plin" className="mt-2 h-32 w-32 object-contain rounded-lg border" />
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bank Transfer */}
+          <div className="space-y-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100">
+            <div className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-amber-500" />
+              <h4 className="font-semibold text-sm">Transferencia Bancaria</h4>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs">Banco</Label>
+                <Input
+                  placeholder="Ej: Interbank"
+                  value={paymentSettings.payment_bank_name}
+                  onChange={(e) => setPaymentSettings(p => ({ ...p, payment_bank_name: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label className="text-xs">CCI (Código Interbancario)</Label>
+                <Input
+                  placeholder="002-XXX-XXXXXXXXXXXX-XX"
+                  value={paymentSettings.payment_bank_cci}
+                  onChange={(e) => setPaymentSettings(p => ({ ...p, payment_bank_cci: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Cuenta de Ahorro</Label>
+                <Input
+                  placeholder="0XXX-XXXXXX-XX-XX"
+                  value={paymentSettings.payment_bank_cuenta}
+                  onChange={(e) => setPaymentSettings(p => ({ ...p, payment_bank_cuenta: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
+              onClick={handleSavePaymentSettings}
+              disabled={savingPaymentSettings}
+            >
+              {savingPaymentSettings ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+              )}
+              Guardar Configuración de Cobros
+            </Button>
           </div>
         </CardContent>
       </Card>

@@ -435,7 +435,7 @@ async function pushLoanToSupabase(loan: {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, status, notes, collectorId } = body;
+    const { id, status, notes, collectorId, cancellationReason } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
@@ -451,6 +451,7 @@ export async function PUT(request: NextRequest) {
               status,
               notes,
               collectorId,
+              cancellationReason,
             }),
             new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), 5000)),
           ]);
@@ -505,8 +506,11 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // If cancelling, return remaining to capital
+    // If cancelling, set cancellation fields and return remaining to capital
     if (status === 'cancelled' && existing.status !== 'cancelled') {
+      updateData.cancellationReason = cancellationReason || null;
+      updateData.cancelledBy = null; // TODO: pass user info when auth context is available
+      updateData.cancelledAt = new Date().toISOString();
       const remaining = existing.amount - existing.amountPaid;
       if (remaining > 0) {
         const lastCapital = await db.capitalMovement.findFirst({ orderBy: { createdAt: 'desc' } });
