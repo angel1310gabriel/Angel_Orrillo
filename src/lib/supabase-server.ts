@@ -108,9 +108,12 @@ export interface Client {
   phone: string;
   address: string | null;
   zoneId: string | null;
+  collectorId: string | null;
   zone: { id: string; name: string } | null;
   photoUrl: string | null;
   creditScore: number | null;
+  creditScoreLabel: string | null;
+  status: string | null;
   latitude: number | null;
   longitude: number | null;
   createdBy: string | null;
@@ -282,9 +285,9 @@ export interface PaginatedResult<T> {
 
 const CLIENT_MAP: Record<string, string> = {
   id: 'id', name: 'name', dni: 'documentNumber', phone: 'phone', address: 'address',
-  zone_id: 'zoneId', photo_url: 'photoUrl', document_type: 'documentType',
+  zone_id: 'zoneId', collector_id: 'collectorId', photo_url: 'photoUrl', document_type: 'documentType',
   credit_score: 'creditScore', credit_score_label: 'creditScoreLabel',
-  latitude: 'latitude', longitude: 'longitude',
+  status: 'status', latitude: 'latitude', longitude: 'longitude',
   created_by: 'createdBy', created_at: 'createdAt',
 };
 

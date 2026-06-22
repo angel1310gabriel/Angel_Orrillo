@@ -490,7 +490,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
                   <p className="text-xs text-emerald-600 dark:text-emerald-300">Jala zonas, clientes, préstamos y pagos desde tu base de datos Supabase</p>
                 </div>
                 <Button
-                  className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-md"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md"
                   onClick={handleSyncZones}
                   disabled={syncing}
                   size="sm"
@@ -750,7 +750,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
             </Button>
 
             <Button
-              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0 shadow-lg shadow-emerald-500/20"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/20"
               onClick={handleSave}
               disabled={saving || !supabaseUrl || !anonKey}
             >
@@ -860,7 +860,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
 
           <div className="flex justify-end">
             <Button
-              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white border-0"
               onClick={handleSavePaymentSettings}
               disabled={savingPaymentSettings}
             >

@@ -221,7 +221,7 @@ export default function LateFeeTab() {
             )}
 
             <Button
-              className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-500/20"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20"
               size="lg"
               onClick={runLateFeeCalculation}
               disabled={runningFee}

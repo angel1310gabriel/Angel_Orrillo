@@ -195,7 +195,7 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
         <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" /><Input placeholder="Buscar por nombre, documento o email..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-full sm:w-80 bg-white dark:bg-slate-900 border-slate-200" /></div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" className="border-slate-200" onClick={() => fetchS()}><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></Button>
-          <Button className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-md" onClick={() => { reset(); setRegOpen(true); }}><UserPlus className="h-4 w-4 mr-2" /> Registro Personal</Button>
+          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md" onClick={() => { reset(); setRegOpen(true); }}><UserPlus className="h-4 w-4 mr-2" /> Registro Personal</Button>
         </div>
       </div>
 
@@ -268,7 +268,7 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
               <div className="space-y-2"><Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2"><KeyRound className="h-4 w-4 text-slate-400" /> Contraseña *</Label><VInput value={fPw} valid={pwOk} type="password" placeholder="Mínimo 4 caracteres" onChange={e => setFPw(e.target.value)} /></div>
 
               <div className="pt-3 flex items-center gap-3">
-                <Button className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-md h-11 text-sm font-semibold" onClick={onRegister} disabled={!formOk || submitting}>{submitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Registrando...</> : <><UserPlus className="h-4 w-4 mr-2" /> Registrar Personal</>}</Button>
+                <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md h-11 text-sm font-semibold" onClick={onRegister} disabled={!formOk || submitting}>{submitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Registrando...</> : <><UserPlus className="h-4 w-4 mr-2" /> Registrar Personal</>}</Button>
                 <Button variant="outline" className="border-slate-200 h-11" onClick={() => setRegOpen(false)} disabled={submitting}>Cancelar</Button>
               </div>
             </div>
@@ -310,7 +310,7 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
                     ))}
                     {allZones.length === 0 && <p className="text-sm text-slate-400">No hay zonas disponibles</p>}
                   </div>
-                  {isAdmin && <Button size="sm" className="mt-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-sm" onClick={handleSaveZones} disabled={savingZones}>{savingZones ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Guardando...</> : 'Guardar Zona'}</Button>}
+                  {isAdmin && <Button size="sm" className="mt-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm" onClick={handleSaveZones} disabled={savingZones}>{savingZones ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Guardando...</> : 'Guardar Zona'}</Button>}
                 </div>
                 <Separator />
                 {sel.role === 'collector' && (<><div className="space-y-2"><h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Estadísticas</h4><div className="grid grid-cols-2 gap-3"><div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-100"><p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{sel._count.loans}</p><p className="text-xs text-emerald-600 dark:text-emerald-300">Préstamos</p></div><div className="p-3 rounded-xl bg-teal-50 dark:bg-teal-950/50 border border-teal-100"><p className="text-2xl font-bold text-teal-700 dark:text-teal-300">{sel._count.payments}</p><p className="text-xs text-teal-600 dark:text-teal-300">Pagos</p></div></div></div><Separator /></>)}

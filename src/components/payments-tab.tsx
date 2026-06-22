@@ -708,7 +708,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
           </Button>
           {isToday && (
             <Button
-              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0 shadow-lg shadow-emerald-500/20"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/20"
               onClick={() => handleOpenRegister()}
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -906,7 +906,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                         {isToday && !isPaid && (
                           <Button
                             size="sm"
-                            className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0 shadow-sm shrink-0"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-sm shrink-0"
                             onClick={() => handleOpenRegister(loan.id)}
                           >
                             <DollarSign className="h-4 w-4 mr-1" />
@@ -1461,7 +1461,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                           </p>
                           {paymentSettings.payment_phone_plin && (
                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                              Número: <span className="font-medium">{paymentSettings.payment_phone_plin}</span> a nombre de <strong>Keysy Otero Cañola</strong>
+                              Número: <a href={`tel:${paymentSettings.payment_phone_plin}`} className="font-medium text-sky-600 dark:text-sky-300 hover:underline">{paymentSettings.payment_phone_plin}</a> a nombre de <strong>Keysy Otero Cañola</strong>
                             </p>
                           )}
                         </div>
@@ -1529,10 +1529,10 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                           <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-teal-200">
                             <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{paymentSettings.payment_bank_name}</p>
                             {paymentSettings.payment_bank_cuenta && (
-                              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">Cuenta Ahorro: {paymentSettings.payment_bank_cuenta}</p>
+                              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">Cuenta Ahorro: <span className="select-all cursor-pointer hover:text-teal-600">{paymentSettings.payment_bank_cuenta}</span></p>
                             )}
                             {paymentSettings.payment_bank_cci && (
-                              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">CCI: {paymentSettings.payment_bank_cci}</p>
+                              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">CCI: <span className="select-all cursor-pointer hover:text-teal-600">{paymentSettings.payment_bank_cci}</span></p>
                             )}
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">A nombre de <strong>Keysy Otero Cañola</strong></p>
                           </div>
@@ -1640,7 +1640,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                     Cancelar
                   </Button>
                   <Button
-                    className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0 shadow-lg shadow-emerald-500/20 min-w-32"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/20 min-w-32"
                     onClick={handleRegisterPayment}
                     disabled={registering || !selectedInstallment || !paymentAmount || parseFloat(paymentAmount) <= 0}
                   >
@@ -1686,7 +1686,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
               </p>
             </div>
             <Button
-              className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0 shadow-lg shadow-emerald-500/20"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/20"
               onClick={() => setCelebrationOpen(false)}
             >
               Continuar

@@ -1,6 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, isVercel } from '@/lib/db';
 
+// DELETE /api/chat-messages?userId=xxx&contactId=xxx - Delete conversation
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+    const contactId = searchParams.get('contactId');
+
+    if (!userId || !contactId) {
+      return NextResponse.json({ error: 'userId y contactId son requeridos' }, { status: 400 });
+    }
+
+    const supabase = await getSupabase();
+    if (supabase) {
+      try {
+        const { error } = await supabase
+          .from('chat_messages')
+          .delete()
+          .or(`and(sender_id.eq.${userId},receiver_id.eq.${contactId}),and(sender_id.eq.${contactId},receiver_id.eq.${userId})`);
+
+        if (!error) {
+          // Also delete local
+          if (!isVercel) {
+            await db.chatMessage.deleteMany({
+              where: {
+                OR: [
+                  { senderId: userId, receiverId: contactId },
+                  { senderId: contactId, receiverId: userId },
+                ],
+              },
+            });
+          }
+          return NextResponse.json({ success: true });
+        }
+      } catch (error) {
+        console.error('Supabase delete failed, falling back:', error);
+      }
+    }
+
+    if (isVercel) {
+      return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
+    }
+
+    // Fallback to Prisma
+    await db.chatMessage.deleteMany({
+      where: {
+        OR: [
+          { senderId: userId, receiverId: contactId },
+          { senderId: contactId, receiverId: userId },
+        ],
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting conversation:', error);
+    return NextResponse.json({ error: 'Error al eliminar conversación' }, { status: 500 });
+  }
+}
+
 async function getSupabase() {
   try {
     const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

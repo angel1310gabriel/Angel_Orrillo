@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import LoansTab from '@/components/loans-tab';
 import CapitalTab from '@/components/capital-tab';
@@ -40,6 +40,11 @@ import {
   Download,
   Upload,
   Map,
+  Bell,
+  BellRing,
+  CheckCheck,
+  Trash2,
+  ExternalLink,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -111,6 +116,10 @@ export default function KCobranzasDashboard() {
   });
   const [refreshKey, setRefreshKey] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<{id:string;title:string;body:string|null;type:string|null;isRead:boolean;createdAt:string;referenceType:string|null;referenceId:string|null}[]>([]);
+  const notifRef = useRef<HTMLDivElement>(null);
+  const unreadCount = notifications.filter(n=>!n.isRead).length;
   const [isHydrated, setIsHydrated] = useState(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -202,6 +211,48 @@ export default function KCobranzasDashboard() {
     handleRealtimeChange,
     { debounceMs: 1500, enabled: isAuthenticated }
   );
+
+  // Fetch notifications
+  const fetchNotifs = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const res = await fetch(`/api/notifications?collectorId=${user.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data);
+      }
+    } catch {}
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchNotifs();
+    const iv = setInterval(fetchNotifs, 30000);
+    return () => clearInterval(iv);
+  }, [fetchNotifs]);
+
+  // Close notifications on click outside
+  useEffect(() => {
+    if (!notifOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [notifOpen]);
+
+  const markRead = async (ids: string[]) => {
+    try {
+      await fetch('/api/notifications', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) });
+      setNotifications(prev => prev.map(n => ids.includes(n.id) ? { ...n, isRead: true } : n));
+    } catch {}
+  };
+
+  const delNotif = async (id: string) => {
+    try {
+      await fetch(`/api/notifications?id=${id}`, { method: 'DELETE' });
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    } catch {}
+  };
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -363,6 +414,12 @@ export default function KCobranzasDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <div className="relative">
+              <button onClick={()=>{setNotifOpen(!notifOpen);if(!notifOpen)markRead(notifications.filter(n=>!n.isRead).map(n=>n.id))}} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors relative" aria-label="Notificaciones">
+                {unreadCount>0?<BellRing className="h-5 w-5 text-emerald-500"/>:<Bell className="h-5 w-5 text-slate-600 dark:text-slate-400"/>}
+                {unreadCount>0&&<span className="absolute -top-0.5 -right-0.5 h-3.5 min-w-[14px] px-0.5 rounded-full bg-red-500 text-[9px] text-white flex items-center justify-center font-bold">{unreadCount>9?'9+':unreadCount}</span>}
+              </button>
+            </div>
             <Badge variant="outline" className={`${roleBadge.color} text-[10px]`}>
               <User className="h-2.5 w-2.5 mr-0.5" />
               {roleBadge.label}
@@ -484,6 +541,31 @@ export default function KCobranzasDashboard() {
                 Realtime
               </Badge>
             )}
+            <div className="relative" ref={notifRef}>
+              <Button variant="ghost" size="icon" onClick={()=>{setNotifOpen(!notifOpen);if(!notifOpen)markRead(notifications.filter(n=>!n.isRead).map(n=>n.id))}} className="relative text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Notificaciones">
+                {unreadCount>0?<BellRing className="h-5 w-5 text-emerald-500"/>:<Bell className="h-5 w-5"/>}
+                {unreadCount>0&&<span className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 rounded-full bg-red-500 text-[10px] text-white flex items-center justify-center font-bold">{unreadCount>9?'9+':unreadCount}</span>}
+              </Button>
+              {notifOpen&&<div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Notificaciones</span>
+                  {unreadCount>0&&<Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 text-xs">{unreadCount} sin leer</Badge>}
+                </div>
+                <div className="max-h-[400px] overflow-y-auto">
+                  {notifications.length===0?<div className="p-8 text-center text-slate-400"><Bell className="h-8 w-8 mx-auto mb-2 opacity-50"/><p className="text-sm">Sin notificaciones</p></div>:notifications.map(n=><div key={n.id} className={`flex items-start gap-3 p-3 border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors ${!n.isRead?'bg-emerald-50/50 dark:bg-emerald-950/20':''}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${n.type==='warning'?'bg-amber-100 dark:bg-amber-900/50':n.type==='error'?'bg-red-100 dark:bg-red-900/50':'bg-blue-100 dark:bg-blue-900/50'}`}>
+                      {n.type==='warning'?<Activity className="h-4 w-4 text-amber-600 dark:text-amber-300"/>:n.type==='error'?<ShieldCheck className="h-4 w-4 text-red-600 dark:text-red-300"/>:<Bell className="h-4 w-4 text-blue-600 dark:text-blue-300"/>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm ${!n.isRead?'font-semibold text-slate-800 dark:text-slate-200':'text-slate-600 dark:text-slate-400'}`}>{n.title}</p>
+                      {n.body&&<p className="text-xs text-slate-500 dark:text-slate-500 mt-0.5 line-clamp-2">{n.body}</p>}
+                      <p className="text-[10px] text-slate-400 mt-1">{new Date(n.createdAt).toLocaleDateString('es-PE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</p>
+                    </div>
+                    <button onClick={()=>delNotif(n.id)} className="shrink-0 p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-red-500 transition-colors"><Trash2 className="h-3.5 w-3.5"/></button>
+                  </div>)}
+                </div>
+              </div>}
+            </div>
             <Button
               variant="ghost"
               size="sm"

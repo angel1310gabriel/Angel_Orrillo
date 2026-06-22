@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { Send, MessageCircle, User, ChevronLeft } from 'lucide-react';
+import { Send, MessageCircle, User, ChevronLeft, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -177,6 +177,24 @@ export default function ChatTab() {
     }
   };
 
+  const handleDeleteChat = async () => {
+    if (!user || !selectedContact) return;
+    if (!confirm('¿Eliminar toda la conversación con ' + selectedContact.name + '?')) return;
+    try {
+      const res = await fetch(`/api/chat-messages?userId=${user.id}&contactId=${selectedContact.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setMessages([]);
+        setSelectedContact(null);
+        fetchContacts();
+        toast({ title: 'Conversación eliminada' });
+      } else {
+        toast({ title: 'Error', description: 'No se pudo eliminar', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' });
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -330,6 +348,15 @@ export default function ChatTab() {
                   {ROLE_LABELS[selectedContact.role] || selectedContact.role}
                 </Badge>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                onClick={handleDeleteChat}
+                title="Eliminar conversación"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
 
             {/* Messages */}
@@ -385,7 +412,7 @@ export default function ChatTab() {
                 <Button
                   onClick={handleSend}
                   disabled={!newMessage.trim() || sending}
-                  className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-sm shrink-0"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shrink-0"
                   size="icon"
                 >
                   <Send className="h-4 w-4" />

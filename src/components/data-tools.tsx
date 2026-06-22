@@ -215,7 +215,7 @@ export default function DataToolsDialog({ open, onClose }: { open: boolean; onCl
                   <Button
                     onClick={handleImportConfirm}
                     disabled={importing}
-                    className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500"
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
                   >
                     {importing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
                     Importar {importPreview.length} registros

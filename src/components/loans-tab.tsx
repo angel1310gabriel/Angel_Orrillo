@@ -34,6 +34,7 @@ import {
   Banknote,
   Wifi,
   ArrowRightLeft,
+  Send,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -869,7 +870,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
               size="sm"
               className={
                 statusFilter === filter.key
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0'
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-0'
                   : 'border-slate-200 hover:border-emerald-300 hover:text-emerald-600 dark:text-emerald-300'
               }
               onClick={() => { setStatusFilter(filter.key); setPage(1); }}
@@ -898,7 +899,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
             <RefreshCw className="h-4 w-4" />
           </Button>
           <Button
-            className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0 shadow-lg shadow-emerald-500/20"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/20"
             onClick={() => {
               resetCreateForm();
               setCreateOpen(true);
@@ -945,7 +946,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 : 'Aún no se han registrado préstamos'}
             </p>
             <Button
-              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white border-0"
               onClick={() => {
                 resetCreateForm();
                 setCreateOpen(true);
@@ -1688,7 +1689,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
               {createStep < 3 ? (
                 <Button
-                  className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white border-0"
                   disabled={
                     (createStep === 1 && !canProceedStep1) ||
                     (createStep === 2 && !canProceedStep2)
@@ -1700,7 +1701,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 </Button>
               ) : (
                 <Button
-                  className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0 shadow-lg shadow-emerald-500/20"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/20"
                   disabled={creating || parseFloat(loanAmount) > capital}
                   onClick={handleCreateLoan}
                 >
@@ -2028,7 +2029,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                     <Separator />
                     <div className="flex items-center gap-2">
                       <Button
-                        className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
                         onClick={() => {
                           setDetailOpen(false);
                           setPaySelectedInstallments([]);
@@ -2074,7 +2075,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                     <Separator />
                     <div className="flex items-center gap-2">
                       <Button
-                        className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
                         onClick={() => {
                           setDetailOpen(false);
                           setTimeout(() => {
@@ -2377,94 +2378,154 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
               </div>
             )}
 
-            {/* Plin: QR + phone */}
+            {/* Plin: QR + phone + WhatsApp */}
             {payMethod === 'plin' && (
-              <div className="space-y-3 p-3 rounded-xl bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800">
-                <p className="text-sm font-medium text-sky-700 dark:text-sky-300">Pagar con Plin</p>
+              <div className="space-y-4 p-4 rounded-xl bg-sky-50 dark:bg-sky-950/50 border border-sky-200">
+                <p className="text-sm font-semibold text-sky-800 dark:text-sky-200">Pagar con Plin</p>
                 {paySettings.payment_qr_plin && (
-                  <img src={paySettings.payment_qr_plin} alt="QR Plin" className="w-48 h-48 object-contain mx-auto rounded-lg bg-white p-2" />
+                  <div className="flex flex-col items-center gap-2">
+                    <img src={paySettings.payment_qr_plin} alt="QR Plin" className="w-48 h-48 object-contain rounded-xl bg-white dark:bg-slate-900 p-2 shadow-sm" />
+                    <p className="text-xs text-sky-600 dark:text-sky-300 font-medium">
+                      Plin - S/{parseFloat(payAmount || '0').toFixed(2)}
+                    </p>
+                  </div>
                 )}
-                <p className="text-xs text-sky-600 dark:text-sky-400 text-center">
-                  Teléfono: {paySettings.payment_phone_plin || '—'}<br />
-                  Titular: Keysy Otero Cañola
-                </p>
-                <div>
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Foto del Comprobante</Label>
+                {paySettings.payment_phone_plin && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+                    Número: <a href={`tel:${paySettings.payment_phone_plin}`} className="font-medium text-sky-600 dark:text-sky-300 hover:underline">{paySettings.payment_phone_plin}</a> a nombre de <strong>Keysy Otero Cañola</strong>
+                  </p>
+                )}
+                {detailLoan?.client.phone && (
                   <Button
                     variant="outline"
                     size="sm"
-                    className="mt-1.5 border-sky-200"
+                    className="w-full border-sky-200 text-sky-600 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-xs"
                     onClick={() => {
-                      const input = document.createElement('input');
-                      input.type = 'file';
-                      input.accept = 'image/*';
-                      input.capture = 'environment';
-                      input.onchange = (e) => {
-                        const file = (e.target as HTMLInputElement).files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (ev) => {
-                            const result = ev.target?.result as string;
-                            setPayProofFileBase64(result);
-                            setPayProofPreview(result);
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      };
-                      input.click();
+                      const phone = detailLoan.client.phone.replace(/[^0-9]/g, '');
+                      const fullPhone = phone.startsWith('51') ? phone : `51${phone}`;
+                      const msg = `*Plin - KC Cobranzas*\n\nMonto: S/${parseFloat(payAmount || '0').toFixed(2)}\nCliente: ${detailLoan.client.name}\nNúmero: ${paySettings.payment_phone_plin || '951959763'}\nA nombre de: Keysy Otero Cañola\n\nAdjunto el comprobante del pago.`;
+                      window.open(`https://wa.me/${fullPhone}?text=${encodeURIComponent(msg)}`, '_blank');
                     }}
                   >
-                    <Upload className="h-4 w-4 mr-2" />
-                    {payProofPreview ? 'Cambiar Foto' : 'Tomar Foto'}
+                    <Send className="h-3.5 w-3.5 mr-1" />
+                    Enviar por WhatsApp
                   </Button>
+                )}
+                <div>
+                  <Label className="text-xs font-semibold text-sky-800 dark:text-sky-200">Subir Comprobante</Label>
+                  <div className="mt-1.5 flex items-center gap-3">
+                    <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-sky-200 bg-white dark:bg-slate-900 cursor-pointer hover:bg-sky-50 dark:hover:bg-sky-950/50 text-xs text-sky-700 dark:text-sky-300">
+                      <Upload className="h-4 w-4" />
+                      {payProofPreview ? 'Cambiar foto' : 'Tomar foto'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              const result = ev.target?.result as string;
+                              setPayProofFileBase64(result);
+                              setPayProofPreview(result);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                    {payProofFileBase64 && (
+                      <button
+                        className="text-xs text-red-500 hover:text-red-700 dark:text-red-300"
+                        onClick={() => { setPayProofFileBase64(''); setPayProofPreview(''); }}
+                      >
+                        Eliminar
+                      </button>
+                    )}
+                  </div>
                   {payProofPreview && (
-                    <img src={payProofPreview} alt="Comprobante" className="mt-2 w-full max-h-32 object-contain rounded-lg border" />
+                    <div className="mt-2">
+                      <img src={payProofPreview} alt="Comprobante" className="w-full max-h-40 object-contain rounded-lg border border-sky-200 bg-white dark:bg-slate-900" />
+                    </div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Transfer: Bank data */}
+            {/* Transfer: Bank data + WhatsApp */}
             {payMethod === 'transfer' && (
-              <div className="space-y-3 p-3 rounded-xl bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800">
-                <p className="text-sm font-medium text-teal-700 dark:text-teal-300">Transferencia Bancaria</p>
+              <div className="space-y-4 p-4 rounded-xl bg-teal-50 dark:bg-teal-950/50 border border-teal-200">
+                <p className="text-sm font-semibold text-teal-800 dark:text-teal-200">Transferencia Bancaria</p>
                 <div className="text-xs text-teal-600 dark:text-teal-400 space-y-1">
-                  <p><strong>Banco:</strong> {paySettings.payment_bank_name || 'Interbank'}</p>
-                  <p><strong>CCI:</strong> {paySettings.payment_bank_cci || '00371401349270785038'}</p>
-                  <p><strong>Cuenta Ahorro:</strong> {paySettings.payment_bank_cuenta || '7143492707850'}</p>
-                  <p><strong>Titular:</strong> Keysy Otero Cañola</p>
+                  {paySettings.payment_bank_name && (
+                    <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-teal-200">
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{paySettings.payment_bank_name}</p>
+                      {paySettings.payment_bank_cuenta && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">Cuenta Ahorro: <span className="select-all cursor-pointer hover:text-teal-600">{paySettings.payment_bank_cuenta}</span></p>
+                      )}
+                      {paySettings.payment_bank_cci && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">CCI: <span className="select-all cursor-pointer hover:text-teal-600">{paySettings.payment_bank_cci}</span></p>
+                      )}
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">A nombre de <strong>Keysy Otero Cañola</strong></p>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Foto del Comprobante</Label>
+                {detailLoan?.client.phone && (
                   <Button
                     variant="outline"
                     size="sm"
-                    className="mt-1.5 border-teal-200"
+                    className="w-full border-teal-200 text-teal-600 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/50 text-xs"
                     onClick={() => {
-                      const input = document.createElement('input');
-                      input.type = 'file';
-                      input.accept = 'image/*';
-                      input.capture = 'environment';
-                      input.onchange = (e) => {
-                        const file = (e.target as HTMLInputElement).files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (ev) => {
-                            const result = ev.target?.result as string;
-                            setPayProofFileBase64(result);
-                            setPayProofPreview(result);
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      };
-                      input.click();
+                      const phone = detailLoan.client.phone.replace(/[^0-9]/g, '');
+                      const fullPhone = phone.startsWith('51') ? phone : `51${phone}`;
+                      const msg = `*Transferencia Bancaria - KC Cobranzas*\n\nMonto: S/${parseFloat(payAmount || '0').toFixed(2)}\nCliente: ${detailLoan.client.name}\n\nDatos bancarios:\n• Banco: ${paySettings.payment_bank_name || 'Interbank'}\n• CCI: ${paySettings.payment_bank_cci || ''}\n• Cuenta Ahorro: ${paySettings.payment_bank_cuenta || ''}\nA nombre de: Keysy Otero Cañola\n\nAdjunto el comprobante de la transferencia.`;
+                      window.open(`https://wa.me/${fullPhone}?text=${encodeURIComponent(msg)}`, '_blank');
                     }}
                   >
-                    <Upload className="h-4 w-4 mr-2" />
-                    {payProofPreview ? 'Cambiar Foto' : 'Tomar Foto'}
+                    <Send className="h-3.5 w-3.5 mr-1" />
+                    Enviar datos por WhatsApp
                   </Button>
+                )}
+                <div>
+                  <Label className="text-xs font-semibold text-teal-800 dark:text-teal-200">Subir Comprobante</Label>
+                  <div className="mt-1.5 flex items-center gap-3">
+                    <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-teal-200 bg-white dark:bg-slate-900 cursor-pointer hover:bg-teal-50 dark:hover:bg-teal-950/50 text-xs text-teal-700 dark:text-teal-300">
+                      <Upload className="h-4 w-4" />
+                      {payProofPreview ? 'Cambiar foto' : 'Tomar foto'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              const result = ev.target?.result as string;
+                              setPayProofFileBase64(result);
+                              setPayProofPreview(result);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                    {payProofFileBase64 && (
+                      <button
+                        className="text-xs text-red-500 hover:text-red-700 dark:text-red-300"
+                        onClick={() => { setPayProofFileBase64(''); setPayProofPreview(''); }}
+                      >
+                        Eliminar
+                      </button>
+                    )}
+                  </div>
                   {payProofPreview && (
-                    <img src={payProofPreview} alt="Comprobante" className="mt-2 w-full max-h-32 object-contain rounded-lg border" />
+                    <div className="mt-2">
+                      <img src={payProofPreview} alt="Comprobante" className="w-full max-h-40 object-contain rounded-lg border border-teal-200 bg-white dark:bg-slate-900" />
+                    </div>
                   )}
                 </div>
               </div>
@@ -2503,7 +2564,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                   Cancelar
                 </Button>
                 <Button
-                  className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
                   onClick={handlePayRegister}
                   disabled={paySelectedInstallments.length === 0 || !payAmount || payRegistering}
                 >
