@@ -79,6 +79,8 @@ const[payAmount,setPayAmount]=useState('');
 const[payMethod,setPayMethod]=useState('efectivo');
 const[payDate,setPayDate]=useState(new Date().toISOString().split('T')[0]);
 const[paying,setPaying]=useState(false);
+const[paySchedule,setPaySchedule]=useState<{id:string;installmentNumber:number;amount:number;dueDate:string;status:string}[]>([]);
+const[paySelectedInst,setPaySelectedInst]=useState<string[]>([]);
 
 const docV=useMemo(()=>fDN?vDoc(fDN,fDT):null,[fDN,fDT]);
 const phV=useMemo(()=>fPh?vPh(fPh):null,[fPh]);
@@ -308,7 +310,7 @@ return(
 </div>
 </div>
 {c.guarantors.length>0&&<><Separator/><div className="space-y-2"><h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2"><Shield className="h-4 w-4 text-emerald-500"/>Avalistas ({c.guarantors.length})</h3>{c.guarantors.map(g=><div key={g.id} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg"><div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center"><User className="h-4 w-4 text-amber-600 dark:text-amber-300"/></div><div><p className="text-sm font-medium">{g.name}</p>{g.phone&&<p className="text-xs text-slate-500 dark:text-slate-400">{g.phone}</p>}</div></div>)}</div></>}
-{c.loans.length>0&&<><Separator/><div className="space-y-2"><h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2"><CreditCard className="h-4 w-4 text-emerald-500"/>Préstamos ({c.loans.length})</h3>{c.loans.map(l=>{const[cn,lb]=lB(l.status),pct=l.totalAmount>0?Math.round((l.amountPaid/l.totalAmount)*100):0;const isActive=l.status==='active'||l.status==='mora';return<div key={l.id} className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg space-y-2"><div className="flex items-center justify-between"><Badge variant="outline" className={`text-xs ${cn}`}>{lb}</Badge><span className="text-sm font-bold">{fC(l.amount)}</span></div><div className="flex justify-between text-xs text-slate-500 dark:text-slate-400"><span>Pagado: {fC(l.amountPaid)}</span><span>{pct}%</span></div><Progress value={pct} className="h-1.5"/>{isActive&&<Button className="w-full mt-1 h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={()=>{setDetO(false);setPayLoanId(l.id);setPayAmount(l.totalAmount-l.amountPaid>0?String(l.totalAmount-l.amountPaid):'')}}>Cobrar</Button>}{l.payments&&l.payments.length>0&&<div className="mt-1 pt-2 border-t border-slate-200 dark:border-slate-700 space-y-1">{l.payments.map(p=><div key={p.id} className="flex items-center justify-between text-xs"><span className="text-slate-500">{fDT2(p.paymentDate)}</span><span className="font-semibold text-emerald-600 dark:text-emerald-400">{fC(p.amount)}</span><Badge variant="outline" className="text-[10px] bg-white dark:bg-slate-900">{PAYMENT_METHOD_LABELS[p.paymentMethod]||p.paymentMethod}</Badge></div>)}</div>}</div>})}</div></>}
+{c.loans.length>0&&<><Separator/><div className="space-y-2"><h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2"><CreditCard className="h-4 w-4 text-emerald-500"/>Préstamos ({c.loans.length})</h3>{c.loans.map(l=>{const[cn,lb]=lB(l.status),pct=l.totalAmount>0?Math.round((l.amountPaid/l.totalAmount)*100):0;const isActive=l.status==='active'||l.status==='mora';return<div key={l.id} className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg space-y-2"><div className="flex items-center justify-between"><Badge variant="outline" className={`text-xs ${cn}`}>{lb}</Badge><span className="text-sm font-bold">{fC(l.amount)}</span></div><div className="flex justify-between text-xs text-slate-500 dark:text-slate-400"><span>Pagado: {fC(l.amountPaid)}</span><span>{pct}%</span></div><Progress value={pct} className="h-1.5"/>{isActive&&<Button className="w-full mt-1 h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={()=>{setDetO(false);setPayLoanId(l.id);setPayAmount(String(l.totalAmount-l.amountPaid));fetch(`/api/payment-schedule?loanId=${l.id}`).then(r=>r.ok&&r.json()).then(d=>setPaySchedule(Array.isArray(d)?d:[])).catch(()=>{});setPaySelectedInst([])}}>Cobrar</Button>}{l.payments&&l.payments.length>0&&<div className="mt-1 pt-2 border-t border-slate-200 dark:border-slate-700 space-y-1">{l.payments.map(p=><div key={p.id} className="flex items-center justify-between text-xs"><span className="text-slate-500">{fDT2(p.paymentDate)}</span><span className="font-semibold text-emerald-600 dark:text-emerald-400">{fC(p.amount)}</span><Badge variant="outline" className="text-[10px] bg-white dark:bg-slate-900">{PAYMENT_METHOD_LABELS[p.paymentMethod]||p.paymentMethod}</Badge></div>)}</div>}</div>})}</div></>}
 <div className="flex gap-3 pt-2">
 <Button className={`flex-1 ${GB}`} onClick={()=>{setDetO(false);openEdit(c)}}><Pencil className="h-4 w-4 mr-2"/>Editar</Button>
 <Button variant="outline" className="border-slate-200" onClick={()=>setNotesO(true)}><StickyNote className="h-4 w-4 mr-2"/>Notas</Button>
@@ -322,36 +324,70 @@ return(
 <ClientNotesDialog open={notesO} onOpenChange={setNotesO} clientId={detC?.id||null} clientName={detC?.name||''}/>
 
 {/* Inline Payment Dialog */}
-<Dialog open={!!payLoanId} onOpenChange={(o)=>{if(!o)setPayLoanId(null)}}>
-<DialogContent className="max-w-sm">
-<DialogHeader>
-<DialogTitle className="flex items-center gap-2 text-lg">
+<Dialog open={!!payLoanId} onOpenChange={(o)=>{if(!o){setPayLoanId(null);setPaySelectedInst([])}}}>
+<DialogContent className="max-w-lg max-h-[90dvh] flex flex-col p-0">
+<DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+<DialogTitle className="flex items-center gap-2 text-xl">
 <DollarSign className="h-5 w-5 text-emerald-600"/>
 Registrar Cobro
 </DialogTitle>
 </DialogHeader>
-<div className="space-y-4 py-2">
-<div>
-<Label className="text-sm font-medium">Monto</Label>
-<Input type="number" step="0.01" value={payAmount} onChange={(e)=>setPayAmount(e.target.value)} placeholder="0.00"/>
+<div className="overflow-y-auto flex-1 px-6 min-h-0">
+<div className="py-4 space-y-5">
+{/* Installments */}
+{paySchedule.filter(s=>s.status==='pending').length>0&&<div>
+<Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Seleccionar Cuota(s)</Label>
+<ScrollArea className="max-h-48 mt-2">
+<div className="space-y-1.5 pr-2">
+{paySchedule.filter(s=>s.status==='pending').map(s=>{
+const sel=paySelectedInst.includes(s.id);
+return<button key={s.id} type="button" onClick={()=>{
+let n:string[];if(sel)n=paySelectedInst.filter(id=>id!==s.id);else n=[...paySelectedInst,s.id];
+setPaySelectedInst(n);
+const t=n.reduce((sum,id)=>{const inst=paySchedule.find(sch=>sch.id===id);return sum+(inst?inst.amount:0)},0);
+setPayAmount(t.toString());
+}}
+className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm border transition-colors ${sel?'bg-emerald-50 border-emerald-300 text-emerald-700 ring-2 ring-emerald-300':'bg-white border-slate-200 text-slate-600 hover:border-emerald-200'}`}>
+<div className="flex items-center gap-2">
+<div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${sel?'bg-emerald-500 text-white':'bg-slate-100 text-slate-500'}`}>{sel?'✓':s.installmentNumber}</div>
+<span className="text-xs text-slate-400">{new Date(s.dueDate).toLocaleDateString('es-PE',{day:'2-digit',month:'short'})}</span>
 </div>
-<div>
-<Label className="text-sm font-medium">Método</Label>
-<Select value={payMethod} onValueChange={setPayMethod}>
-<SelectTrigger><SelectValue/></SelectTrigger>
-<SelectContent>
-<SelectItem value="efectivo">Efectivo</SelectItem>
-<SelectItem value="yape">Yape</SelectItem>
-<SelectItem value="plin">Plin</SelectItem>
-<SelectItem value="transferencia">Transferencia</SelectItem>
-</SelectContent>
-</Select>
+<span className="font-semibold">{fC(s.amount)}</span>
+</button>
+})}
 </div>
+</ScrollArea>
+</div>}
+{paySelectedInst.length>0&&<div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900 flex items-center justify-between">
+<span className="text-sm text-emerald-700">Total a Cobrar</span>
+<span className="text-lg font-bold text-emerald-600">{fC(parseFloat(payAmount)||0)}</span>
+</div>}
+{/* Payment Method */}
 <div>
-<Label className="text-sm font-medium">Fecha</Label>
-<Input type="date" value={payDate} onChange={(e)=>setPayDate(e.target.value)}/>
+<Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Método de Pago</Label>
+<div className="grid grid-cols-4 gap-2 mt-2">
+{[
+{v:'efectivo',l:'Efectivo',c:'bg-emerald-100 text-emerald-700 border-emerald-200'},
+{v:'yape',l:'Yape',c:'bg-purple-100 text-purple-700 border-purple-200'},
+{v:'plin',l:'Plin',c:'bg-sky-100 text-sky-700 border-sky-200'},
+{v:'transferencia',l:'Transf.',c:'bg-blue-100 text-blue-700 border-blue-200'},
+].map(m=>
+<button key={m.v} type="button" onClick={()=>setPayMethod(m.v)}
+className={`p-2 rounded-lg text-xs font-medium border transition-all ${payMethod===m.v?m.c+' ring-2 ring-offset-1':'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}>
+{m.l}
+</button>
+)}
 </div>
-<Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" disabled={!payAmount||paying} onClick={async()=>{
+</div>
+{/* Date */}
+<div>
+<Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Fecha</Label>
+<Input type="date" value={payDate} onChange={(e)=>setPayDate(e.target.value)} className="mt-1.5"/>
+</div>
+</div>
+</div>
+<div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 shrink-0">
+<Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-10" disabled={!payAmount||paying} onClick={async()=>{
 if(!payLoanId||!payAmount)return;
 setPaying(true);
 try{
@@ -369,8 +405,7 @@ collectorId:null,
 if(res.ok){
 toast({title:'Cobro registrado',description:'El pago se registró correctamente'});
 setPayLoanId(null);
-setPayAmount('');
-// Refresh client detail
+setPaySelectedInst([]);
 if(detC){const r=await fetch(`/api/clients?id=${detC.id}`);if(r.ok)setDetC(await r.json())}
 }else{
 const d=await res.json();

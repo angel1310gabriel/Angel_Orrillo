@@ -2401,7 +2401,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
             <div>
               <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Seleccionar Cuota(s)</Label>
               <p className="text-xs text-slate-400 mt-0.5 mb-1">Seleccione una o más cuotas a cancelar</p>
-              <ScrollArea className="max-h-48 mt-1">
+              <ScrollArea className="max-h-64 mt-1">
                 <div className="space-y-1.5">
                   {detailLoan?.schedule?.filter(s => s.status === 'pending').map(s => {
                     const selected = paySelectedInstallments.includes(s.id);
