@@ -2068,9 +2068,10 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 {(detailLoan.status === 'active' || detailLoan.status === 'mora') && (
                   <>
                     <Separator />
-                    <div className="flex items-center gap-2">
+                    <div className="space-y-2">
+                      {/* Primary action - Cobrar */}
                       <Button
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/25 h-10"
                         onClick={() => {
                           setDetailOpen(false);
                           setPaySelectedInstallments([]);
@@ -2085,62 +2086,67 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                           setPayOpen(true);
                         }}
                       >
-                        <DollarSign className="h-4 w-4 mr-2" />
+                        <DollarSign className="h-5 w-5 mr-2" />
                         Cobrar
                       </Button>
-                      <Button
-                        variant="outline"
-                        className="flex-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300"
-                        onClick={() => handleRecordar(detailLoan)}
-                      >
-                        <Bell className="h-4 w-4 mr-2" />
-                        Recordar
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="flex-1 border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300"
-                        onClick={() => { setSelectedLoanId(detailLoan.id); setChargeOffOpen(true); }}
-                      >
-                        <AlertTriangle className="h-4 w-4 mr-2" />
-                        Castigar
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="flex-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300"
-                        onClick={() => { setSelectedLoanId(detailLoan.id); setScheduleOpen(true); }}
-                      >
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Cronograma
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="flex-1 border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300"
-                        onClick={() => { setSelectedLoanId(detailLoan.id); setLinksOpen(true); }}
-                      >
-                        <Link2 className="h-4 w-4 mr-2" />
-                        Links Pago
-                      </Button>
-                      {isAdmin && (
+                      {/* Secondary actions grid */}
+                      <div className="grid grid-cols-2 gap-2">
                         <Button
                           variant="outline"
-                          className="flex-1 border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300"
-                          onClick={() => { setRefinanceOpen(true); setRefinanceNewAmount(String(detailLoan.amount)); setRefinanceNewDays(String(detailLoan.days)); setRefinanceReason(''); }}
+                          className="border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 h-10"
+                          onClick={() => handleRecordar(detailLoan)}
                         >
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          Refinanciar
+                          <Bell className="h-4 w-4 mr-2 text-emerald-500" />
+                          Recordar
                         </Button>
-                      )}
-                      {isAdmin && (
                         <Button
-                          variant="destructive"
-                          onClick={() => {
-                            setCancelLoanId(detailLoan.id);
-                            setDetailOpen(false);
-                          }}
+                          variant="outline"
+                          className="border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 h-10"
+                          onClick={() => { setSelectedLoanId(detailLoan.id); setScheduleOpen(true); }}
                         >
-                          <XCircle className="h-4 w-4 mr-2" />
-                          Cancelar
+                          <Calendar className="h-4 w-4 mr-2 text-emerald-500" />
+                          Cronograma
                         </Button>
+                        <Button
+                          variant="outline"
+                          className="border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 h-10"
+                          onClick={() => { setSelectedLoanId(detailLoan.id); setLinksOpen(true); }}
+                        >
+                          <Link2 className="h-4 w-4 mr-2 text-amber-500" />
+                          Links Pago
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="border-red-200 dark:border-red-900 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 h-10"
+                          onClick={() => { setSelectedLoanId(detailLoan.id); setChargeOffOpen(true); }}
+                        >
+                          <AlertTriangle className="h-4 w-4 mr-2 text-red-500" />
+                          Castigar
+                        </Button>
+                      </div>
+                      {/* Admin actions */}
+                      {isAdmin && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            variant="outline"
+                            className="border-amber-200 dark:border-amber-900 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950 h-10"
+                            onClick={() => { setRefinanceOpen(true); setRefinanceNewAmount(String(detailLoan.amount)); setRefinanceNewDays(String(detailLoan.days)); setRefinanceReason(''); }}
+                          >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Refinanciar
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            className="h-10"
+                            onClick={() => {
+                              setCancelLoanId(detailLoan.id);
+                              setDetailOpen(false);
+                            }}
+                          >
+                            <XCircle className="h-4 w-4 mr-2" />
+                            Cancelar
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </>

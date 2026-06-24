@@ -167,131 +167,178 @@ export default function PaymentScheduleView({
     );
   };
 
+  const paidCount = schedule.filter((s) => s.status === 'paid').length;
+  const progressPercent = schedule.length > 0 ? Math.round((paidCount / schedule.length) * 100) : 0;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90dvh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
-          <DialogTitle className="flex items-center gap-2 text-xl">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
-              <Calendar className="h-4 w-4 text-white" />
+      <DialogContent className="max-w-2xl max-h-[90dvh] flex flex-col p-0 gap-0">
+        <DialogHeader className="px-5 pt-5 pb-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+          <DialogTitle className="flex items-center gap-3 text-lg">
+            <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center shadow-md shadow-emerald-500/20">
+              <Calendar className="h-5 w-5 text-white" />
             </div>
-            Cronograma de Pagos
+            <div>
+              <span>Cronograma de Pagos</span>
+              {schedule.length > 0 && (
+                <span className="text-sm font-normal text-slate-500 dark:text-slate-400 ml-2">
+                  ({paidCount}/{schedule.length} cuotas)
+                </span>
+              )}
+            </div>
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-6">
-          <div className="py-4 space-y-5">
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
-                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Cargando cronograma...</p>
+        {loading ? (
+          <div className="flex-1 flex flex-col items-center justify-center py-16">
+            <Loader2 className="h-10 w-10 animate-spin text-emerald-600" />
+            <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">Cargando cronograma...</p>
+          </div>
+        ) : schedule.length === 0 ? (
+          <ScrollArea className="flex-1">
+            <div className="px-5 py-5 space-y-5">
+              <div className="text-center py-6">
+                <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
+                  <Calendar className="h-8 w-8 text-slate-400" />
+                </div>
+                <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300">
+                  Sin cronograma de pagos
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto">
+                  Genere el cronograma de cuotas para este préstamo
+                </p>
               </div>
-            ) : schedule.length === 0 ? (
-              <div className="space-y-5">
-                <div className="text-center py-4">
-                  <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3">
-                    <Calendar className="h-7 w-7 text-slate-400" />
-                  </div>
-                  <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300">
-                    Sin cronograma de pagos
-                  </h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    Genere el cronograma de cuotas para este préstamo
-                  </p>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="numInstallments" className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                      Número de Cuotas
-                    </Label>
-                    <Input
-                      id="numInstallments"
-                      type="number"
-                      min={1}
-                      value={newSchedule.numInstallments}
-                      onChange={(e) =>
-                        setNewSchedule((prev) => ({
-                          ...prev,
-                          numInstallments: parseInt(e.target.value) || 1,
-                        }))
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="startDate" className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                      Fecha de Inicio
-                    </Label>
-                    <Input
-                      id="startDate"
-                      type="date"
-                      value={newSchedule.startDate}
-                      onChange={(e) =>
-                        setNewSchedule((prev) => ({
-                          ...prev,
-                          startDate: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="numInstallments" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Número de Cuotas
+                  </Label>
+                  <Input
+                    id="numInstallments"
+                    type="number"
+                    min={1}
+                    className="h-10"
+                    value={newSchedule.numInstallments}
+                    onChange={(e) =>
+                      setNewSchedule((prev) => ({
+                        ...prev,
+                        numInstallments: parseInt(e.target.value) || 1,
+                      }))
+                    }
+                  />
                 </div>
-
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-600 dark:text-slate-400">
-                      Cuota por cuota:
-                    </span>
-                    <span className="text-lg font-bold text-emerald-600 dark:text-emerald-300">
-                      {formatCurrency(
-                        newSchedule.numInstallments > 0
-                          ? (loanAmount || 0) / newSchedule.numInstallments
-                          : 0
-                      )}
-                    </span>
-                  </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="startDate" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Fecha de Inicio
+                  </Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={newSchedule.startDate}
+                    onChange={(e) =>
+                      setNewSchedule((prev) => ({
+                        ...prev,
+                        startDate: e.target.value,
+                      }))
+                    }
+                  />
                 </div>
-
-                <Button
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/20"
-                  onClick={handleGenerate}
-                  disabled={generating}
-                >
-                  {generating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Generando...
-                    </>
-                  ) : (
-                    <>
-                      <DollarSign className="h-4 w-4 mr-2" />
-                      Generar
-                    </>
-                  )}
-                </Button>
               </div>
-            ) : (
-              <div className="space-y-4">
+
+              <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-100 dark:border-emerald-900/50">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-emerald-700 dark:text-emerald-300">
+                    Cuota por cuota:
+                  </span>
+                  <span className="text-xl font-bold text-emerald-600 dark:text-emerald-300">
+                    {formatCurrency(
+                      newSchedule.numInstallments > 0
+                        ? (loanAmount || 0) / newSchedule.numInstallments
+                        : 0
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              <Button
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/25 h-11"
+                onClick={handleGenerate}
+                disabled={generating}
+              >
+                {generating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Generando...
+                  </>
+                ) : (
+                  <>
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    Generar Cronograma
+                  </>
+                )}
+              </Button>
+            </div>
+          </ScrollArea>
+        ) : (
+          <ScrollArea className="flex-1">
+            <div className="px-5 py-5 space-y-5">
+              {/* Summary card */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3 text-center">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total</p>
+                  <p className="text-lg font-bold text-slate-800 dark:text-slate-200 mt-1">{formatCurrency(totalAmount)}</p>
+                </div>
+                <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 p-3 text-center">
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Pagado</p>
+                  <p className="text-lg font-bold text-emerald-600 dark:text-emerald-300 mt-1">{paidCount} cuotas</p>
+                </div>
+                <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 p-3 text-center">
+                  <p className="text-xs text-amber-600 dark:text-amber-400 uppercase tracking-wide">Pendiente</p>
+                  <p className="text-lg font-bold text-amber-600 dark:text-amber-300 mt-1">{schedule.length - paidCount} cuotas</p>
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
+                  <span>Progreso</span>
+                  <span>{progressPercent}%</span>
+                </div>
+                <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, progressPercent)}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Schedule table */}
+              <div className="rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-16"># Cuota</TableHead>
-                      <TableHead>Fecha Vencimiento</TableHead>
-                      <TableHead className="text-right">Monto</TableHead>
-                      <TableHead className="text-center">Estado</TableHead>
+                    <TableRow className="bg-slate-50 dark:bg-slate-800/50">
+                      <TableHead className="text-xs font-semibold text-slate-500 uppercase">#</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-500 uppercase">Vencimiento</TableHead>
+                      <TableHead className="text-right text-xs font-semibold text-slate-500 uppercase">Monto</TableHead>
+                      <TableHead className="text-center text-xs font-semibold text-slate-500 uppercase">Estado</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {schedule
                       .sort((a, b) => a.installmentNumber - b.installmentNumber)
-                      .map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell className="font-medium text-slate-900 dark:text-slate-100">
+                      .map((item, idx) => (
+                        <TableRow key={item.id} className={idx % 2 === 0 ? 'bg-white dark:bg-transparent' : 'bg-slate-50/50 dark:bg-slate-800/20'}>
+                          <TableCell className="text-sm font-semibold text-slate-900 dark:text-slate-100 w-12">
                             {item.installmentNumber}
                           </TableCell>
-                          <TableCell className="text-slate-600 dark:text-slate-400">
-                            {formatDate(item.dueDate)}
+                          <TableCell className="text-sm text-slate-600 dark:text-slate-400">
+                            <span className="inline-flex items-center gap-1.5">
+                              <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                              {formatDate(item.dueDate)}
+                            </span>
                           </TableCell>
-                          <TableCell className="text-right font-semibold text-emerald-600 dark:text-emerald-300">
+                          <TableCell className="text-right text-sm font-bold text-emerald-600 dark:text-emerald-300">
                             {formatCurrency(item.amount)}
                           </TableCell>
                           <TableCell className="text-center">
@@ -299,11 +346,11 @@ export default function PaymentScheduleView({
                           </TableCell>
                         </TableRow>
                       ))}
-                    <TableRow className="bg-slate-50 dark:bg-slate-800/50 font-bold">
-                      <TableCell colSpan={2} className="text-slate-900 dark:text-slate-100">
-                        Total
+                    <TableRow className="bg-slate-100 dark:bg-slate-800/70 font-bold">
+                      <TableCell colSpan={2} className="text-sm text-slate-800 dark:text-slate-200">
+                        Total {schedule.length} cuotas
                       </TableCell>
-                      <TableCell className="text-right text-emerald-600 dark:text-emerald-300">
+                      <TableCell className="text-right text-sm text-emerald-600 dark:text-emerald-300">
                         {formatCurrency(totalAmount)}
                       </TableCell>
                       <TableCell />
@@ -311,9 +358,9 @@ export default function PaymentScheduleView({
                   </TableBody>
                 </Table>
               </div>
-            )}
-          </div>
-        </ScrollArea>
+            </div>
+          </ScrollArea>
+        )}
       </DialogContent>
     </Dialog>
   );
