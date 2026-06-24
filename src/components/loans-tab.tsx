@@ -34,6 +34,7 @@ import {
   Banknote,
   Wifi,
   ArrowRightLeft,
+  Link2,
   Send,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -61,6 +62,9 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
+import LoanChargeOffDialog from './loan-charge-off-dialog';
+import PaymentLinksPanel from './payment-links-panel';
+import PaymentScheduleView from './payment-schedule-view';
 
 // ============================================================
 // Types
@@ -331,6 +335,12 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
   const [payCashReceived, setPayCashReceived] = useState('');
   const [payQrDataUrl, setPayQrDataUrl] = useState('');
   const [paySettings, setPaySettings] = useState<Record<string, string>>({});
+
+  // New integration states
+  const [chargeOffOpen, setChargeOffOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [linksOpen, setLinksOpen] = useState(false);
+  const [selectedLoanId, setSelectedLoanId] = useState<string | null>(null);
 
   // ============================================================
   // Data Fetching
@@ -2055,6 +2065,30 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                         <Bell className="h-4 w-4 mr-2" />
                         Recordar
                       </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1 border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300"
+                        onClick={() => { setSelectedLoanId(detailLoan.id); setChargeOffOpen(true); }}
+                      >
+                        <AlertTriangle className="h-4 w-4 mr-2" />
+                        Castigar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300"
+                        onClick={() => { setSelectedLoanId(detailLoan.id); setScheduleOpen(true); }}
+                      >
+                        <Calendar className="h-4 w-4 mr-2" />
+                        Cronograma
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1 border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300"
+                        onClick={() => { setSelectedLoanId(detailLoan.id); setLinksOpen(true); }}
+                      >
+                        <Link2 className="h-4 w-4 mr-2" />
+                        Links Pago
+                      </Button>
                       {isAdmin && (
                         <Button
                           variant="destructive"
@@ -2132,6 +2166,21 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* ============================================================ */}
+      {/* LOAN CHARGE OFF DIALOG */}
+      {/* ============================================================ */}
+      <LoanChargeOffDialog open={chargeOffOpen} onOpenChange={setChargeOffOpen} loanId={selectedLoanId} clientName={detailLoan?.client?.name || ''} />
+
+      {/* ============================================================ */}
+      {/* PAYMENT SCHEDULE VIEW */}
+      {/* ============================================================ */}
+      <PaymentScheduleView open={scheduleOpen} onOpenChange={setScheduleOpen} loanId={selectedLoanId} loanAmount={detailLoan?.totalAmount} numInstallments={detailLoan?.numCuotas} />
+
+      {/* ============================================================ */}
+      {/* PAYMENT LINKS PANEL */}
+      {/* ============================================================ */}
+      <PaymentLinksPanel loanId={selectedLoanId} clientId={detailLoan?.clientId || null} />
 
       {/* ============================================================ */}
       {/* CANCEL CONFIRMATION DIALOG */}

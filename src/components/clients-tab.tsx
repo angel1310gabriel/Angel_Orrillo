@@ -1,6 +1,6 @@
 ﻿'use client';
 import React,{useState,useEffect,useCallback,useMemo}from 'react';
-import{Search,RefreshCw,Eye,Pencil,Trash2,ChevronLeft,ChevronRight,Loader2,User,Phone,MapPin,CreditCard,Users,AlertTriangle,CheckCircle2,XCircle,FileText,TrendingUp,Shield,Calendar,UserPlus,IdCard,Globe,CheckCheck,BadgeCheck,BookOpen,Fingerprint,ScanLine,DollarSign}from'lucide-react';
+import{Search,RefreshCw,Eye,Pencil,Trash2,ChevronLeft,ChevronRight,Loader2,User,Phone,MapPin,CreditCard,Users,AlertTriangle,CheckCircle2,XCircle,FileText,TrendingUp,Shield,Calendar,UserPlus,IdCard,Globe,CheckCheck,BadgeCheck,BookOpen,Fingerprint,ScanLine,DollarSign,StickyNote}from'lucide-react';
 import{Card,CardContent}from'@/components/ui/card';
 import{Button}from'@/components/ui/button';
 import{Input}from'@/components/ui/input';
@@ -18,6 +18,7 @@ import{Alert,AlertDescription}from'@/components/ui/alert';
 import{AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogFooter,AlertDialogTitle,AlertDialogDescription,AlertDialogAction,AlertDialogCancel}from'@/components/ui/alert-dialog';
 import{useToast}from'@/hooks/use-toast';
 import{useAuth}from'@/hooks/use-auth';
+import ClientNotesDialog from './client-notes-dialog';
 
 interface PaymentItem{id:string;amount:number;paymentMethod:string;paymentDate:string;status:string}
 interface CWS{id:string;name:string;documentType:string;documentNumber:string;phone:string;address:string|null;zoneId:string|null;collectorId:string|null;zone:{id:string;name:string}|null;creditScore:number|null;creditScoreLabel:string|null;status:string|null;photoUrl:string|null;createdAt:string;guarantors:{id:string;name:string;phone:string|null}[];loans:{id:string;status:string;amount:number;totalAmount:number;amountPaid:number;payments?:PaymentItem[]}[];stats:{totalLoans:number;activeLoans:number;totalLoaned:number;totalPaid:number;hasMora:boolean}}
@@ -70,6 +71,7 @@ const[vDocing,setVDocing]=useState(false);
 const[vRes,setVRes]=useState<VR|null>(null);
 const[detC,setDetC]=useState<CWS|null>(null);
 const[detO,setDetO]=useState(false);
+const[notesO,setNotesO]=useState(false);
 const[delC,setDelC]=useState<CWS|null>(null);
 const[deling,setDeling]=useState(false);
 
@@ -304,11 +306,14 @@ return(
 {c.loans.length>0&&<><Separator/><div className="space-y-2"><h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2"><CreditCard className="h-4 w-4 text-emerald-500"/>Préstamos ({c.loans.length})</h3>{c.loans.map(l=>{const[cn,lb]=lB(l.status),pct=l.totalAmount>0?Math.round((l.amountPaid/l.totalAmount)*100):0;const isActive=l.status==='active'||l.status==='mora';return<div key={l.id} className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg space-y-2"><div className="flex items-center justify-between"><Badge variant="outline" className={`text-xs ${cn}`}>{lb}</Badge><span className="text-sm font-bold">{fC(l.amount)}</span></div><div className="flex justify-between text-xs text-slate-500 dark:text-slate-400"><span>Pagado: {fC(l.amountPaid)}</span><span>{pct}%</span></div><Progress value={pct} className="h-1.5"/>{isActive&&<Button className="w-full mt-1 h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={()=>{setDetO(false);window.dispatchEvent(new CustomEvent('navigate-to-tab',{detail:{tab:'payments'}}))}}>Cobrar</Button>}{l.payments&&l.payments.length>0&&<div className="mt-1 pt-2 border-t border-slate-200 dark:border-slate-700 space-y-1">{l.payments.map(p=><div key={p.id} className="flex items-center justify-between text-xs"><span className="text-slate-500">{fDT2(p.paymentDate)}</span><span className="font-semibold text-emerald-600 dark:text-emerald-400">{fC(p.amount)}</span><Badge variant="outline" className="text-[10px] bg-white dark:bg-slate-900">{PAYMENT_METHOD_LABELS[p.paymentMethod]||p.paymentMethod}</Badge></div>)}</div>}</div>})}</div></>}
 <div className="flex gap-3 pt-2">
 <Button className={`flex-1 ${GB}`} onClick={()=>{setDetO(false);openEdit(c)}}><Pencil className="h-4 w-4 mr-2"/>Editar</Button>
+<Button variant="outline" className="border-slate-200" onClick={()=>setNotesO(true)}><StickyNote className="h-4 w-4 mr-2"/>Notas</Button>
 <Button variant="outline" className="flex-1 border-slate-200" onClick={()=>setDetO(false)}>Cerrar</Button>
 </div>
 </div>
 </>);})()}
 </SheetContent>
 </Sheet>
+
+<ClientNotesDialog open={notesO} onOpenChange={setNotesO} clientId={detC?.id||null} clientName={detC?.name||''}/>
 </div>);
 }

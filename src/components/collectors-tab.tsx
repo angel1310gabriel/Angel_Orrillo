@@ -1,7 +1,9 @@
 ﻿'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Shield, Eye, UserCheck, Search, RefreshCw, Loader2, CheckCircle2, XCircle, User, Mail, Phone, MapPin, Trash2, UserPlus, KeyRound, IdCard, Globe, AlertTriangle, DollarSign } from 'lucide-react';
+import { Users, Shield, Eye, UserCheck, Search, RefreshCw, Loader2, CheckCircle2, XCircle, User, Mail, Phone, MapPin, Trash2, UserPlus, KeyRound, IdCard, Globe, AlertTriangle, DollarSign, Wallet } from 'lucide-react';
+import CollectorExpensesPanel from './collector-expenses-panel';
+import CollectorLocationsMap from './collector-locations-map';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -84,11 +86,11 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
   const [regOpen, setRegOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [fDT, setFDT] = useState('dni'), [fDN, setFDN] = useState(''), [fN, setFN] = useState(''), [fE, setFE] = useState('');
-  const [fPh, setFPh] = useState(''), [fAd, setFAd] = useState(''), [fR, setFR] = useState('collector'), [fPw, setFPw] = useState('');
+  const [fPh, setFPh] = useState(''), [fAd, setFAd] = useState(''), [fDailyGoal, setFDailyGoal] = useState(''), [fR, setFR] = useState('collector'), [fPw, setFPw] = useState('');
   const [phOk, setPhOk] = useState(false);
   const [vDoc, setVDoc] = useState(false), [dOk, setDOk] = useState(false), [dRes, setDRes] = useState<VerifyResult | null>(null);
   const [vPh, setVPh] = useState(false);
-  const [sel, setSel] = useState<StaffMember | null>(null), [detOpen, setDetOpen] = useState(false);
+  const [sel, setSel] = useState<StaffMember | null>(null), [detOpen, setDetOpen] = useState(false), [expensesOpen, setExpensesOpen] = useState(false), [locationsOpen, setLocationsOpen] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null), [deleting, setDeleting] = useState<string | null>(null);
   const [allZones, setAllZones] = useState<Zone[]>([]);
   const [selectedZoneIds, setSelectedZoneIds] = useState<string[]>([]);
@@ -115,7 +117,7 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
   const q = search.toLowerCase().trim();
   const filtered = q ? staff.filter(s => (s.name || '').toLowerCase().includes(q) || (s.documentNumber || '').includes(q) || s.email.toLowerCase().includes(q)) : staff;
 
-  const reset = () => { setFDT('dni'); setFDN(''); setFN(''); setFE(''); setFPh(''); setFAd(''); setFR('collector'); setFPw(''); setPhOk(false); setDOk(false); setDRes(null); };
+  const reset = () => { setFDT('dni'); setFDN(''); setFN(''); setFE(''); setFPh(''); setFAd(''); setFDailyGoal(''); setFR('collector'); setFPw(''); setPhOk(false); setDOk(false); setDRes(null); };
 
   const onVerifyDoc = async () => {
     if (!docOk) return; setVDoc(true);
@@ -132,7 +134,7 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
     if (!formOk) { toast({ title: 'Error', description: 'Complete todos los campos', variant: 'destructive' }); return; }
     setSubmitting(true);
     try {
-      const r = await fetch('/api/collectors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: fN.trim(), email: fE.trim(), password: fPw, documentType: fDT, documentNumber: fDN, phone: fPh, address: fAd || undefined, role: fR }) });
+      const r = await fetch('/api/collectors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: fN.trim(), email: fE.trim(), password: fPw, documentType: fDT, documentNumber: fDN, phone: fPh, address: fAd || undefined, role: fR, dailyGoal: parseFloat(fDailyGoal) || 0 }) });
       const d = await r.json();
       if (!r.ok) { toast({ title: 'Error', description: d.error || 'No se pudo registrar', variant: 'destructive' }); return; }
       toast({ title: 'Personal registrado', description: `${fN.trim()} como ${RS[fR]?.l || fR}` }); setRegOpen(false); reset(); fetchS();
@@ -258,6 +260,8 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
 
               <div className="space-y-2"><Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2"><MapPin className="h-4 w-4 text-slate-400" /> Dirección <span className="text-slate-400 font-normal">(opcional)</span></Label><Input placeholder="Ej: Av. Principal 123, Lima" value={fAd} onChange={e => setFAd(e.target.value)} className="bg-white dark:bg-slate-900 border-slate-200" /></div>
 
+              <div className="space-y-2"><Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2"><DollarSign className="h-4 w-4 text-emerald-500" /> Meta Diaria (S/) <span className="text-slate-400 font-normal">(opcional)</span></Label><Input type="number" step="0.01" placeholder="Ej: 100.00" value={fDailyGoal} onChange={e => setFDailyGoal(e.target.value)} className="bg-white dark:bg-slate-900 border-slate-200" /></div>
+
               <Separator />
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2"><Shield className="h-4 w-4 text-emerald-600 dark:text-emerald-300" /> Rol *</Label>
@@ -316,13 +320,16 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
                 {sel.role === 'collector' && (<><div className="space-y-2"><h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Estadísticas</h4><div className="grid grid-cols-2 gap-3"><div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-100"><p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{sel._count.loans}</p><p className="text-xs text-emerald-600 dark:text-emerald-300">Préstamos</p></div><div className="p-3 rounded-xl bg-teal-50 dark:bg-teal-950/50 border border-teal-100"><p className="text-2xl font-bold text-teal-700 dark:text-teal-300">{sel._count.payments}</p><p className="text-xs text-teal-600 dark:text-teal-300">Pagos</p></div></div></div><Separator /></>)}
                 <p className="text-sm text-slate-500 dark:text-slate-400">Registrado el {new Date(sel.createdAt).toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
                 <Separator />
-                <div className="space-y-3"><h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Acciones</h4>{isAdmin && <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800"><div><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{sel.isActive ? 'Desactivar' : 'Activar'} Personal</p><p className="text-xs text-slate-500 dark:text-slate-400">{sel.isActive ? 'No podrá acceder al sistema' : 'Podrá acceder nuevamente'}</p></div><Switch checked={sel.isActive} onCheckedChange={() => onToggle(sel)} disabled={toggling === sel.id} className="data-[state=checked]:bg-emerald-500" /></div>}
+                <div className="space-y-3"><h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Acciones</h4><div className="flex gap-2"><Button variant="outline" className="flex-1 border-slate-200" onClick={() => setExpensesOpen(true)}><Wallet className="h-4 w-4 mr-2" /> Gastos</Button><Button variant="outline" className="flex-1 border-slate-200" onClick={() => setLocationsOpen(true)}><MapPin className="h-4 w-4 mr-2" /> Ubicaciones</Button></div>{isAdmin && <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800"><div><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{sel.isActive ? 'Desactivar' : 'Activar'} Personal</p><p className="text-xs text-slate-500 dark:text-slate-400">{sel.isActive ? 'No podrá acceder al sistema' : 'Podrá acceder nuevamente'}</p></div><Switch checked={sel.isActive} onCheckedChange={() => onToggle(sel)} disabled={toggling === sel.id} className="data-[state=checked]:bg-emerald-500" /></div>}
 {isAdmin && <Button variant="outline" className="w-full border-red-200 text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/50 hover:text-red-700 dark:text-red-300 hover:border-red-300" disabled={deleting === sel.id} onClick={() => onDel(sel)}>{deleting === sel.id ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Eliminando...</> : <><Trash2 className="h-4 w-4 mr-2" /> Eliminar Personal</>}</Button>}</div>
               </div>
             </>
           ); })()}
         </SheetContent>
       </Sheet>
+
+      <CollectorExpensesPanel open={expensesOpen} onOpenChange={setExpensesOpen} collectorId={sel?.id||null} collectorName={sel?.name||''} />
+      <CollectorLocationsMap open={locationsOpen} onOpenChange={setLocationsOpen} collectorId={sel?.id||null} collectorName={sel?.name||''} />
     </div>
   );
 }

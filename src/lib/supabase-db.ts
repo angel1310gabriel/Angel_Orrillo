@@ -248,6 +248,21 @@ export const FIELD_MAP: Record<string, Record<string, string>> = {
     isRead: 'is_read',
     createdAt: 'created_at',
   },
+  // audit_logs table
+  audit_logs: {
+    id: 'id',
+    userId: 'user_id',
+    action: 'action',
+    entityType: 'entity_type',
+    entityId: 'entity_id',
+    entityName: 'entity_name',
+    changes: 'changes',
+    ipAddress: 'ip_address',
+    userAgent: 'user_agent',
+    severity: 'severity',
+    notes: 'notes',
+    createdAt: 'created_at',
+  },
 };
 
 // Helper: Convert Prisma-style camelCase fields to snake_case for Supabase
