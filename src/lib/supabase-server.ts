@@ -705,7 +705,79 @@ export async function getAnalyticsOverview(): Promise<OverviewData | null> {
     const expected30Days = dailyExpected * 30;
     const collectionEfficiency = expected30Days > 0 ? (amountLast30Days / expected30Days) * 100 : 0;
 
+    // --- Recent payments (last 7 days) ---
+    const recentPayments: { date: string; amount: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today.getTime() - i * 86400000);
+      const ds = d.toISOString().split('T')[0];
+      const next = new Date(d.getTime() + 86400000).toISOString().split('T')[0];
+      const { data: dayData } = await sb
+        .from('payments')
+        .select('amount')
+        .eq('status', 'completed')
+        .gte('payment_date', ds)
+        .lt('payment_date', next);
+      const amount = (dayData || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+      recentPayments.push({ date: ds, amount });
+    }
+
+    // --- Payment methods breakdown ---
+    const { data: allPaymentMethods } = await sb
+      .from('payments')
+      .select('payment_method, amount')
+      .eq('status', 'completed');
+    const methodMap = new Map<string, { amount: number; count: number }>();
+    (allPaymentMethods || []).forEach(p => {
+      const m = p.payment_method || 'efectivo';
+      const e = methodMap.get(m) || { amount: 0, count: 0 };
+      e.amount += Number(p.amount) || 0;
+      e.count++;
+      methodMap.set(m, e);
+    });
+    const paymentMethods = Array.from(methodMap.entries()).map(([method, v]) => ({ method, amount: v.amount, count: v.count }));
+
+    // --- Top clients ---
+    const { data: topLoans } = await sb
+      .from('loans')
+      .select('client_id, amount, amount_paid')
+      .neq('status', 'cancelled')
+      .order('amount', { ascending: false })
+      .limit(50);
+    const clientAgg = new Map<string, { totalLoaned: number; totalPaid: number }>();
+    (topLoans || []).forEach(l => {
+      const cId = l.client_id;
+      const e = clientAgg.get(cId) || { totalLoaned: 0, totalPaid: 0 };
+      e.totalLoaned += Number(l.amount) || 0;
+      e.totalPaid += Number(l.amount_paid) || 0;
+      clientAgg.set(cId, e);
+    });
+    const topClientIds = Array.from(clientAgg.entries())
+      .sort((a, b) => b[1].totalLoaned - a[1].totalLoaned)
+      .slice(0, 5)
+      .map(([id]) => id);
+    const topClientNames: Record<string, string> = {};
+    if (topClientIds.length > 0) {
+      const { data: topClientsData } = await sb.from('clients').select('id, name').in('id', topClientIds);
+      (topClientsData || []).forEach(c => { topClientNames[c.id] = c.name; });
+    }
+    const topClients = Array.from(clientAgg.entries())
+      .sort((a, b) => b[1].totalLoaned - a[1].totalLoaned)
+      .slice(0, 5)
+      .map(([id, v]) => ({
+        name: topClientNames[id] || '—',
+        totalLoaned: v.totalLoaned,
+        totalPaid: v.totalPaid,
+      }));
+
     return {
+      overview: {
+        totalLoaned: loanFinancials.totalLoaned,
+        totalCollected: loanFinancials.totalCollected,
+        totalInterest: loanFinancials.totalInterest,
+        activeLoans: activeCount,
+        moraLoans: moraCount,
+        completedLoans: completedCount,
+      },
       loans: {
         total: totalLoans,
         active: activeCount,
@@ -713,13 +785,7 @@ export async function getAnalyticsOverview(): Promise<OverviewData | null> {
         completed: completedCount,
         cancelled: cancelledCount,
       },
-      financials: {
-        totalLoaned: loanFinancials.totalLoaned,
-        totalExpected: loanFinancials.totalExpected,
-        totalCollected: loanFinancials.totalCollected,
-        totalInterest: loanFinancials.totalInterest,
-        moraOutstanding,
-      },
+      financials: loanFinancials,
       payments: {
         total: totalPaymentsRes.count || 0,
         last7Days: payments7dRes.count || 0,
@@ -742,6 +808,9 @@ export async function getAnalyticsOverview(): Promise<OverviewData | null> {
         moraRate: Math.round(moraRate * 100) / 100,
         collectionEfficiency: Math.round(collectionEfficiency * 100) / 100,
       },
+      recentPayments,
+      paymentMethods,
+      topClients,
     };
   } catch (err) {
     console.error('Error in getAnalyticsOverview:', err);
