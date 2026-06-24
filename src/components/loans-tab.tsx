@@ -2232,7 +2232,17 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       {/* ============================================================ */}
       {/* PAYMENT LINKS PANEL */}
       {/* ============================================================ */}
-      <PaymentLinksPanel loanId={selectedLoanId} clientId={detailLoan?.clientId || null} />
+      <Dialog open={linksOpen} onOpenChange={setLinksOpen}>
+        <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="h-5 w-5 text-emerald-600" />
+              Links de Pago
+            </DialogTitle>
+          </DialogHeader>
+          <PaymentLinksPanel loanId={selectedLoanId} clientId={detailLoan?.clientId || null} />
+        </DialogContent>
+      </Dialog>
 
       {/* ============================================================ */}
       {/* REFINANCE DIALOG */}

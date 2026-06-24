@@ -161,7 +161,64 @@ async function getOverview() {
     _avg: { creditScore: true },
   });
 
+  // Recent payments (last 7 days)
+  const recentPayments: { date: string; amount: number }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today.getTime() - i * 86400000);
+    const ds = d.toISOString().split('T')[0];
+    const next = new Date(d.getTime() + 86400000);
+    const dayPayments = await db.payment.aggregate({
+      _sum: { amount: true },
+      where: {
+        status: 'completed',
+        paymentDate: { gte: d, lt: next },
+      },
+    });
+    recentPayments.push({ date: ds, amount: dayPayments._sum.amount || 0 });
+  }
+
+  // Payment methods breakdown
+  const paymentsWithMethods = await db.payment.findMany({
+    where: { status: 'completed' },
+    select: { paymentMethod: true, amount: true },
+  });
+  const methodMap = new Map<string, { amount: number; count: number }>();
+  paymentsWithMethods.forEach(p => {
+    const m = p.paymentMethod || 'efectivo';
+    const e = methodMap.get(m) || { amount: 0, count: 0 };
+    e.amount += p.amount;
+    e.count++;
+    methodMap.set(m, e);
+  });
+  const paymentMethods = Array.from(methodMap.entries()).map(([method, v]) => ({ method, amount: v.amount, count: v.count }));
+
+  // Top clients
+  const topClientsRaw = await db.loan.groupBy({
+    by: ['clientId'],
+    _sum: { amount: true, amountPaid: true },
+    orderBy: { _sum: { amount: 'desc' } },
+    take: 5,
+  });
+  const clientIds = topClientsRaw.map(c => c.clientId);
+  const clientNames = clientIds.length > 0
+    ? await db.client.findMany({ where: { id: { in: clientIds } }, select: { id: true, name: true } })
+    : [];
+  const nameMap = new Map(clientNames.map(c => [c.id, c.name]));
+  const topClients = topClientsRaw.map(c => ({
+    name: nameMap.get(c.clientId) || '—',
+    totalLoaned: c._sum.amount || 0,
+    totalPaid: c._sum.amountPaid || 0,
+  }));
+
   return NextResponse.json({
+    overview: {
+      totalLoaned: loanFinancials._sum.amount || 0,
+      totalCollected: loanFinancials._sum.amountPaid || 0,
+      totalInterest: loanFinancials._sum.interest || 0,
+      activeLoans,
+      moraLoans,
+      completedLoans,
+    },
     loans: {
       total: totalLoans,
       active: activeLoans,
@@ -200,6 +257,9 @@ async function getOverview() {
       moraRate: Math.round(moraRate * 100) / 100,
       collectionEfficiency: Math.round(collectionEfficiency * 100) / 100,
     },
+    recentPayments,
+    paymentMethods,
+    topClients,
   });
 }
 

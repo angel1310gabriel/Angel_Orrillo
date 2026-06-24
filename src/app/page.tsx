@@ -372,8 +372,8 @@ export default function KCobranzasDashboard() {
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="px-3 py-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
-          <div className="flex items-center gap-3 px-2 py-2">
+        <div className="px-3 py-3 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3 px-2 py-2 mb-2">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold shadow-sm">
               {user.name?.charAt(0)?.toUpperCase() || 'U'}
             </div>
@@ -383,47 +383,20 @@ export default function KCobranzasDashboard() {
                 {roleBadge.label}
               </Badge>
             </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => { setProfileName(user.name || ''); setProfileEmail(user.email || ''); setShowProfile(true); }}
-                className="h-8 w-8 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50"
-                title="Perfil"
-              >
-                <User className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowChangePassword(true)}
-                className="h-8 w-8 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50"
-                title="Cambiar contraseña"
-              >
-                <KeyRound className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  const isDark = document.documentElement.classList.toggle('dark');
-                  localStorage.setItem('kc-dark-mode', isDark ? 'dark' : 'light');
-                }}
-                className="h-8 w-8 text-slate-400 hover:text-amber-500 hover:bg-amber-50"
-                title="Modo oscuro/claro"
-              >
-                {typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleLogout}
-                className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
-                title="Cerrar sesión"
-              >
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            <Button variant="ghost" size="sm" onClick={() => { setProfileName(user.name || ''); setProfileEmail(user.email || ''); setShowProfile(true); }} className="text-xs text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950 justify-start px-2 h-8">
+              <User className="h-3.5 w-3.5 mr-2" />Perfil
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowChangePassword(true)} className="text-xs text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950 justify-start px-2 h-8">
+              <KeyRound className="h-3.5 w-3.5 mr-2" />Contraseña
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => { const isDark = document.documentElement.classList.toggle('dark'); localStorage.setItem('kc-dark-mode', isDark ? 'dark' : 'light'); }} className="text-xs text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950 justify-start px-2 h-8">
+              {typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? <Sun className="h-3.5 w-3.5 mr-2" /> : <Moon className="h-3.5 w-3.5 mr-2" />}{typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? 'Claro' : 'Oscuro'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-xs text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 justify-start px-2 h-8">
+              <LogOut className="h-3.5 w-3.5 mr-2" />Salir
+            </Button>
           </div>
           <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-[10px] w-full justify-center">
             <Activity className="h-3 w-3 mr-1" />
