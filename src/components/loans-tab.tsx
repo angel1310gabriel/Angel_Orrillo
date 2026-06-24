@@ -903,7 +903,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
           {statusFilters.map((filter) => (
             <Button
               key={filter.key}
@@ -911,8 +911,8 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
               size="sm"
               className={
                 statusFilter === filter.key
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-0'
-                  : 'border-slate-200 hover:border-emerald-300 hover:text-emerald-600 dark:text-emerald-300'
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all'
+                  : 'border-slate-200 dark:border-slate-700 hover:border-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-400 text-slate-600 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
               }
               onClick={() => { setStatusFilter(filter.key); setPage(1); }}
             >
@@ -940,7 +940,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
             <RefreshCw className="h-4 w-4" />
           </Button>
           <Button
-            className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/20"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all"
             onClick={() => {
               resetCreateForm();
               setCreateOpen(true);
@@ -1401,14 +1401,14 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                             </div>
                             )}
                           </div>
-                          <Button
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                            onClick={handleCreateClient}
-                            disabled={creatingClient}
-                          >
-                            {creatingClient ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <UserPlus className="h-4 w-4 mr-2" />}
-                            Registrar Cliente
-                          </Button>
+                            <Button
+                              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all"
+                              onClick={handleCreateClient}
+                              disabled={creatingClient}
+                            >
+                              {creatingClient ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <UserPlus className="h-4 w-4 mr-2" />}
+                              Registrar Cliente
+                            </Button>
                         </CardContent>
                       </Card>
                     )}
@@ -1715,6 +1715,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
             <div className="flex items-center justify-between">
               <Button
                 variant="outline"
+                className="border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950"
                 onClick={() => {
                   if (createStep > 1) {
                     setCreateStep(createStep - 1);
@@ -1730,7 +1731,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
               {createStep < 3 ? (
                 <Button
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white border-0"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all"
                   disabled={
                     (createStep === 1 && !canProceedStep1) ||
                     (createStep === 2 && !canProceedStep2)
@@ -1742,7 +1743,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 </Button>
               ) : (
                 <Button
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/20"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all"
                   disabled={creating || parseFloat(loanAmount) > capital}
                   onClick={handleCreateLoan}
                 >
@@ -2071,7 +2072,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                     <div className="space-y-2">
                       {/* Primary action - Cobrar */}
                       <Button
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/25 h-10"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all h-10"
                         onClick={() => {
                           setDetailOpen(false);
                           setPaySelectedInstallments([]);
@@ -2093,7 +2094,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                       <div className="grid grid-cols-2 gap-2">
                         <Button
                           variant="outline"
-                          className="border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 h-10"
+                          className="border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950 h-10"
                           onClick={() => handleRecordar(detailLoan)}
                         >
                           <Bell className="h-4 w-4 mr-2 text-emerald-500" />
@@ -2101,7 +2102,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                         </Button>
                         <Button
                           variant="outline"
-                          className="border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 h-10"
+                          className="border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950 h-10"
                           onClick={() => { setSelectedLoanId(detailLoan.id); setScheduleOpen(true); }}
                         >
                           <Calendar className="h-4 w-4 mr-2 text-emerald-500" />
@@ -2109,7 +2110,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                         </Button>
                         <Button
                           variant="outline"
-                          className="border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 h-10"
+                          className="border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950 h-10"
                           onClick={() => { setSelectedLoanId(detailLoan.id); setLinksOpen(true); }}
                         >
                           <Link2 className="h-4 w-4 mr-2 text-amber-500" />
@@ -2272,11 +2273,11 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRefinanceOpen(false)} disabled={refinancing}>
+            <Button variant="outline" className="border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950" onClick={() => setRefinanceOpen(false)} disabled={refinancing}>
               Cancelar
             </Button>
             <Button
-              className="bg-amber-600 hover:bg-amber-700 text-white"
+              className="bg-amber-600 hover:bg-amber-700 text-white border-0 shadow-lg shadow-amber-600/25 hover:shadow-amber-600/40 transition-all"
               onClick={handleRefinance}
               disabled={!refinanceReason || refinancing}
             >
@@ -2311,10 +2312,10 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
             </div>
           </DialogHeader>
           <DialogFooter className="flex items-center gap-2 sm:gap-2">
-            <Button variant="outline" onClick={() => { setCancelLoanId(null); setCancelReason(''); }} disabled={cancelling}>
+            <Button variant="outline" className="border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950" onClick={() => { setCancelLoanId(null); setCancelReason(''); }} disabled={cancelling}>
               No, volver
             </Button>
-            <Button variant="destructive" onClick={handleCancelLoan} disabled={cancelling}>
+            <Button variant="destructive" className="shadow-lg shadow-red-600/25 hover:shadow-red-600/40" onClick={handleCancelLoan} disabled={cancelling}>
               {cancelling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
               Sí, cancelar préstamo
             </Button>
@@ -2337,10 +2338,10 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex items-center gap-2 sm:gap-2">
-            <Button variant="outline" onClick={() => setDeleteLoanId(null)} disabled={deleting}>
+            <Button variant="outline" className="border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950" onClick={() => setDeleteLoanId(null)} disabled={deleting}>
               No, volver
             </Button>
-            <Button variant="destructive" onClick={handleDeleteLoan} disabled={deleting}>
+            <Button variant="destructive" className="shadow-lg shadow-red-600/25 hover:shadow-red-600/40" onClick={handleDeleteLoan} disabled={deleting}>
               {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
               Sí, eliminar préstamo
             </Button>
@@ -2714,11 +2715,11 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 Total: <strong className="text-emerald-600 dark:text-emerald-300">{payAmount ? formatCurrency(parseFloat(payAmount)) : '—'}</strong>
               </p>
               <div className="flex items-center gap-2">
-                <Button variant="outline" className="border-slate-200" onClick={() => { setPayOpen(false); }} disabled={payRegistering}>
+                <Button variant="outline" className="border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950" onClick={() => { setPayOpen(false); }} disabled={payRegistering}>
                   Cancelar
                 </Button>
                 <Button
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all"
                   onClick={handlePayRegister}
                   disabled={paySelectedInstallments.length === 0 || !payAmount || payRegistering}
                 >

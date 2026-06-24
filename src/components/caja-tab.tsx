@@ -243,11 +243,11 @@ export default function CajaTab() {
       </div>
 
       <div className="flex gap-2">
-        <Button onClick={() => openDialog('income')} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+        <Button onClick={() => openDialog('income')} className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all">
           <Plus className="h-4 w-4 mr-1" />
           Nuevo Ingreso
         </Button>
-        <Button onClick={() => openDialog('expense')} variant="outline" className="border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950">
+        <Button onClick={() => openDialog('expense')} className="bg-amber-600 hover:bg-amber-700 text-white border-0 shadow-lg shadow-amber-600/25 hover:shadow-amber-600/40 transition-all">
           <Plus className="h-4 w-4 mr-1" />
           Nuevo Egreso
         </Button>
@@ -374,10 +374,10 @@ export default function CajaTab() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={submitting}>
+            <Button variant="outline" className="border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950" onClick={() => setDialogOpen(false)} disabled={submitting}>
               Cancelar
             </Button>
-            <Button onClick={handleSubmit} disabled={submitting}>
+            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all" onClick={handleSubmit} disabled={submitting}>
               {submitting && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
               {formType === 'income' ? 'Registrar Ingreso' : 'Registrar Egreso'}
             </Button>

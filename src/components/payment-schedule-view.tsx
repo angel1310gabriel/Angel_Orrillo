@@ -262,7 +262,7 @@ export default function PaymentScheduleView({
               </div>
 
               <Button
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/25 h-11"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all h-11"
                 onClick={handleGenerate}
                 disabled={generating}
               >

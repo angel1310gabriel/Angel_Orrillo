@@ -708,7 +708,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
           </Button>
           {isToday && (
             <Button
-              className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/20"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all"
               onClick={() => handleOpenRegister()}
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -1631,6 +1631,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
+                    className="border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950"
                     onClick={() => {
                       resetForm();
                       setRegisterOpen(false);
@@ -1640,7 +1641,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                     Cancelar
                   </Button>
                   <Button
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/20 min-w-32"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all min-w-32"
                     onClick={handleRegisterPayment}
                     disabled={registering || !selectedInstallment || !paymentAmount || parseFloat(paymentAmount) <= 0}
                   >
@@ -1686,7 +1687,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
               </p>
             </div>
             <Button
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/20"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all"
               onClick={() => setCelebrationOpen(false)}
             >
               Continuar

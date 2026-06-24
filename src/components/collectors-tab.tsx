@@ -197,7 +197,7 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
         <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" /><Input placeholder="Buscar por nombre, documento o email..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-full sm:w-80 bg-white dark:bg-slate-900 border-slate-200" /></div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" className="border-slate-200" onClick={() => fetchS()}><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></Button>
-          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md" onClick={() => { reset(); setRegOpen(true); }}><UserPlus className="h-4 w-4 mr-2" /> Registro Personal</Button>
+          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all" onClick={() => { reset(); setRegOpen(true); }}><UserPlus className="h-4 w-4 mr-2" /> Registro Personal</Button>
         </div>
       </div>
 
@@ -272,8 +272,8 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
               <div className="space-y-2"><Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2"><KeyRound className="h-4 w-4 text-slate-400" /> Contraseña *</Label><VInput value={fPw} valid={pwOk} type="password" placeholder="Mínimo 4 caracteres" onChange={e => setFPw(e.target.value)} /></div>
 
               <div className="pt-3 flex items-center gap-3">
-                <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md h-11 text-sm font-semibold" onClick={onRegister} disabled={!formOk || submitting}>{submitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Registrando...</> : <><UserPlus className="h-4 w-4 mr-2" /> Registrar Personal</>}</Button>
-                <Button variant="outline" className="border-slate-200 h-11" onClick={() => setRegOpen(false)} disabled={submitting}>Cancelar</Button>
+                <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all h-11 text-sm font-semibold" onClick={onRegister} disabled={!formOk || submitting}>{submitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Registrando...</> : <><UserPlus className="h-4 w-4 mr-2" /> Registrar Personal</>}</Button>
+                <Button variant="outline" className="border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950 h-11" onClick={() => setRegOpen(false)} disabled={submitting}>Cancelar</Button>
               </div>
             </div>
           </ScrollArea>
