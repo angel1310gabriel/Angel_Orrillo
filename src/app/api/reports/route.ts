@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, isVercel } from '@/lib/db';
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const format = searchParams.get('format') || 'json';
+
+    let data;
+
     try {
       const { isSupabaseConfigured } = await import('@/lib/supabase-server');
       if (isSupabaseConfigured()) {
         try {
-          const data = await Promise.race([
+          data = await Promise.race([
             getReportsFromSupabase(),
             new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), 5000)),
           ]);
-          if (data) {
-            return NextResponse.json(data);
-          }
         } catch (error) {
           console.error('Supabase getReports failed, falling back to Prisma:', error);
         }
@@ -22,16 +24,72 @@ export async function GET(_request: NextRequest) {
       console.error('Supabase not available, using Prisma fallback:', error);
     }
 
-    if (isVercel) {
-      return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
+    if (!data) {
+      if (isVercel) {
+        return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
+      }
+      data = await getReportsFromPrisma();
     }
 
-    const data = await getReportsFromPrisma();
+    if (format === 'csv') {
+      const csv = generateReportCsv(data);
+      return new NextResponse(csv, {
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="reporte-${new Date().toISOString().split('T')[0]}.csv"`,
+        },
+      });
+    }
+
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching reports:', error);
     return NextResponse.json({ error: 'Error al obtener reportes' }, { status: 500 });
   }
+}
+
+function generateReportCsv(data: {
+  collectionsByDay: { date: string; totalAmount: number; count: number }[];
+  loansByStatus: Record<string, number>;
+  collectorRanking: { collectorName: string; totalCollected: number; count: number; totalLoans: number }[];
+  zonePerformance: { zoneName: string; activeLoans: number; moraLoans: number; totalLoaned: number }[];
+}): string {
+  const lines: string[] = [];
+  lines.push('REPORTE GENERAL DE COBRANZAS');
+  lines.push(`Generado: ${new Date().toLocaleString('es-PE')}`);
+  lines.push('');
+
+  lines.push('COBRANZAS POR DIA (ultimos 30 dias)');
+  lines.push('Fecha,Monto,Transacciones');
+  for (const d of data.collectionsByDay) {
+    lines.push(`${d.date},${d.totalAmount.toFixed(2)},${d.count}`);
+  }
+  const total = data.collectionsByDay.reduce((s, d) => s + d.totalAmount, 0);
+  const totalCount = data.collectionsByDay.reduce((s, d) => s + d.count, 0);
+  lines.push(`TOTAL,,${total.toFixed(2)},${totalCount}`);
+  lines.push('');
+
+  lines.push('PRESTAMOS POR ESTADO');
+  lines.push('Estado,Cantidad');
+  for (const [status, count] of Object.entries(data.loansByStatus)) {
+    lines.push(`${status},${count}`);
+  }
+  lines.push('');
+
+  lines.push('RANKING DE COBRADORES');
+  lines.push('Cobrador,Monto Cobrado,Transacciones,Prestamos Asignados');
+  for (const c of data.collectorRanking) {
+    lines.push(`${c.collectorName},${c.totalCollected.toFixed(2)},${c.count},${c.totalLoans}`);
+  }
+  lines.push('');
+
+  lines.push('RENDIMIENTO POR ZONA');
+  lines.push('Zona,Activos,Mora,Monto Total Prestado');
+  for (const z of data.zonePerformance) {
+    lines.push(`${z.zoneName},${z.activeLoans},${z.moraLoans},${z.totalLoaned.toFixed(2)}`);
+  }
+
+  return lines.join('\r\n');
 }
 
 async function getReportsFromSupabase() {

@@ -640,7 +640,7 @@ export default function KCobranzasDashboard() {
                 </div>
               </div>}
             </div>
-            <Button variant="ghost" size="sm" onClick={()=>window.open('/api/reports?type=overview', '_blank')} className="text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Descargar Reporte">
+            <Button variant="ghost" size="sm" onClick={()=>window.open('/api/reports?format=csv', '_blank')} className="text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Descargar Reporte CSV">
               <BarChart3 className="h-4 w-4 mr-1"/>Reportes
             </Button>
             <Button
