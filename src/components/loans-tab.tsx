@@ -341,6 +341,11 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [linksOpen, setLinksOpen] = useState(false);
   const [selectedLoanId, setSelectedLoanId] = useState<string | null>(null);
+  const [refinanceOpen, setRefinanceOpen] = useState(false);
+  const [refinanceNewAmount, setRefinanceNewAmount] = useState('');
+  const [refinanceNewDays, setRefinanceNewDays] = useState('');
+  const [refinanceReason, setRefinanceReason] = useState('');
+  const [refinancing, setRefinancing] = useState(false);
 
   // ============================================================
   // Data Fetching
@@ -749,6 +754,32 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
     }
   };
 
+  const handleRefinance = async () => {
+    if (!detailLoan || !refinanceReason) return;
+    setRefinancing(true);
+    try {
+      const res = await fetch('/api/loans', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: detailLoan.id, status: 'refinanced', refinanceReason: refinanceReason }),
+      });
+      if (res.ok) {
+        toast({ title: 'Préstamo refinanciado', description: 'El préstamo ha sido refinanciado exitosamente' });
+        setRefinanceOpen(false);
+        setDetailOpen(false);
+        fetchLoans();
+        fetchCapital();
+      } else {
+        const data = await res.json();
+        toast({ title: 'Error', description: data.error || 'No se pudo refinanciar', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' });
+    } finally {
+      setRefinancing(false);
+    }
+  };
+
   // Payment handler
   const handlePayRegister = async () => {
     if (!detailLoan || paySelectedInstallments.length === 0 || !payAmount) {
@@ -896,7 +927,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
             <Input
               placeholder="Buscar cliente, DNI..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
               className="pl-9 w-full sm:w-64 bg-white dark:bg-slate-900 border-slate-200"
             />
           </div>
@@ -2091,6 +2122,16 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                       </Button>
                       {isAdmin && (
                         <Button
+                          variant="outline"
+                          className="flex-1 border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300"
+                          onClick={() => { setRefinanceOpen(true); setRefinanceNewAmount(String(detailLoan.amount)); setRefinanceNewDays(String(detailLoan.days)); setRefinanceReason(''); }}
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Refinanciar
+                        </Button>
+                      )}
+                      {isAdmin && (
+                        <Button
                           variant="destructive"
                           onClick={() => {
                             setCancelLoanId(detailLoan.id);
@@ -2181,6 +2222,64 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       {/* PAYMENT LINKS PANEL */}
       {/* ============================================================ */}
       <PaymentLinksPanel loanId={selectedLoanId} clientId={detailLoan?.clientId || null} />
+
+      {/* ============================================================ */}
+      {/* REFINANCE DIALOG */}
+      {/* ============================================================ */}
+      <Dialog open={refinanceOpen} onOpenChange={setRefinanceOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
+              <RefreshCw className="h-5 w-5" />
+              Refinanciar Préstamo
+            </DialogTitle>
+            <DialogDescription>
+              Complete los datos para refinanciar el préstamo de {detailLoan?.client?.name || ''}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Nuevo Monto (S/)</Label>
+              <Input
+                type="number"
+                value={refinanceNewAmount}
+                onChange={(e) => setRefinanceNewAmount(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+            <div>
+              <Label>Nuevos Días</Label>
+              <Input
+                type="number"
+                value={refinanceNewDays}
+                onChange={(e) => setRefinanceNewDays(e.target.value)}
+                placeholder="24"
+              />
+            </div>
+            <div>
+              <Label>Motivo de Refinanciamiento</Label>
+              <Textarea
+                value={refinanceReason}
+                onChange={(e) => setRefinanceReason(e.target.value)}
+                placeholder="Ingrese el motivo..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRefinanceOpen(false)} disabled={refinancing}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              onClick={handleRefinance}
+              disabled={!refinanceReason || refinancing}
+            >
+              {refinancing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              Refinanciar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ============================================================ */}
       {/* CANCEL CONFIRMATION DIALOG */}

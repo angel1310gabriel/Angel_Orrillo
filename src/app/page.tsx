@@ -45,6 +45,8 @@ import {
   CheckCheck,
   Trash2,
   ExternalLink,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -108,6 +110,10 @@ export default function KCobranzasDashboard() {
   const { user, isAuthenticated, logout, refreshRole } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showDataTools, setShowDataTools] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [profileName, setProfileName] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined') {
       return new URLSearchParams(window.location.search).get('tab') || 'dashboard';
@@ -211,6 +217,13 @@ export default function KCobranzasDashboard() {
     handleRealtimeChange,
     { debounceMs: 1500, enabled: isAuthenticated }
   );
+
+  // Dark mode persistence
+  useEffect(() => {
+    const saved = localStorage.getItem('kc-dark-mode');
+    if (saved === 'dark') document.documentElement.classList.add('dark');
+    else if (saved === 'light') document.documentElement.classList.remove('dark');
+  }, []);
 
   // Fetch notifications
   const fetchNotifs = useCallback(async () => {
@@ -369,11 +382,32 @@ export default function KCobranzasDashboard() {
               <Button
                 variant="ghost"
                 size="icon"
+                onClick={() => { setProfileName(user.name || ''); setProfileEmail(user.email || ''); setShowProfile(true); }}
+                className="h-8 w-8 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50"
+                title="Perfil"
+              >
+                <User className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setShowChangePassword(true)}
                 className="h-8 w-8 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50"
                 title="Cambiar contraseña"
               >
                 <KeyRound className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  const isDark = document.documentElement.classList.toggle('dark');
+                  localStorage.setItem('kc-dark-mode', isDark ? 'dark' : 'light');
+                }}
+                className="h-8 w-8 text-slate-400 hover:text-amber-500 hover:bg-amber-50"
+                title="Modo oscuro/claro"
+              >
+                {typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
               <Button
                 variant="ghost"
@@ -392,6 +426,42 @@ export default function KCobranzasDashboard() {
           </Badge>
         </div>
       </aside>
+
+      {/* Profile Dialog */}
+      {showProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm mx-4 border border-slate-100 dark:border-slate-800 p-6">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Editar Perfil</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre</label>
+                <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
+                <input type="email" value={profileEmail} onChange={e => setProfileEmail(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setShowProfile(false)}>Cancelar</Button>
+                <Button onClick={async () => {
+                  setSavingProfile(true);
+                  try {
+                    const res = await fetch('/api/collectors', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id, name: profileName, email: profileEmail }) });
+                    if (res.ok) {
+                      setShowProfile(false);
+                      refreshRole();
+                    }
+                  } catch {} finally {
+                    setSavingProfile(false);
+                  }
+                }} disabled={savingProfile}>
+                  {savingProfile ? 'Guardando...' : 'Guardar'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Change Password Dialog */}
       {showChangePassword && (
@@ -566,6 +636,9 @@ export default function KCobranzasDashboard() {
                 </div>
               </div>}
             </div>
+            <Button variant="ghost" size="sm" onClick={()=>window.open('/api/reports?type=overview', '_blank')} className="text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Descargar Reporte">
+              <BarChart3 className="h-4 w-4 mr-1"/>Reportes
+            </Button>
             <Button
               variant="ghost"
               size="sm"
