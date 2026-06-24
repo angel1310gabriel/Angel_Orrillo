@@ -54,6 +54,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'config',
     'chat',
     'daily-settlement',
+    'caja',
     'map',
   ],
   supervisor: [
@@ -66,6 +67,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'late-fee',
     'chat',
     'daily-settlement',
+    'caja',
     'map',
   ],
   collector: [

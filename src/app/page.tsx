@@ -9,10 +9,12 @@ import PaymentsTab from '@/components/payments-tab';
 import ConfigTab from '@/components/config-tab';
 import CollectorsTab from '@/components/collectors-tab';
 import DailySettlementTab from '@/components/daily-settlement-tab';
+import CajaTab from '@/components/caja-tab';
 import ChatTab from '@/components/chat-tab';
 import LoginScreen from '@/components/login-screen';
 import { ErrorBoundary } from '@/components/error-boundary';
 import DataToolsDialog from '@/components/data-tools';
+import CompanySelector from '@/components/company-selector';
 import { useSupabaseRealtime } from '@/hooks/use-supabase-realtime';
 import { useAuth, ROLE_PERMISSIONS } from '@/hooks/use-auth';
 
@@ -213,7 +215,7 @@ export default function KCobranzasDashboard() {
   };
 
   useSupabaseRealtime(
-    ['zones', 'profiles', 'clients', 'loans', 'payments', 'capital_movements', 'settings', 'late_fees', 'daily_settlements'],
+    ['zones', 'profiles', 'clients', 'loans', 'payments', 'capital_movements', 'settings', 'late_fees', 'daily_settlements', 'caja_movements'],
     handleRealtimeChange,
     { debounceMs: 1500, enabled: isAuthenticated }
   );
@@ -289,6 +291,7 @@ export default function KCobranzasDashboard() {
     { value: 'chat', icon: MessageCircle, label: 'Mensajes' },
     { value: 'late-fee', icon: Clock, label: 'Mora Auto' },
     { value: 'daily-settlement', icon: Wallet, label: 'Cierre de Caja' },
+    { value: 'caja', icon: Wallet, label: 'Caja' },
     { value: 'map', icon: Map, label: 'Mapa' },
   ];
 
@@ -597,6 +600,7 @@ export default function KCobranzasDashboard() {
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{getActiveLabel()}</h2>
           </div>
           <div className="flex items-center gap-3">
+            <CompanySelector />
             <Badge variant="outline" className={`text-xs ${roleBadge.color}`}>
               <User className="h-3 w-3 mr-1" />
               {user.name} — {roleBadge.label}
@@ -673,6 +677,7 @@ export default function KCobranzasDashboard() {
           {activeTab === 'chat' && <ChatTab key={`chat-${refreshKey}`} />}
           {activeTab === 'late-fee' && <ErrorBoundary><LateFeeTab key={`latefee-${refreshKey}`} /></ErrorBoundary>}
           {activeTab === 'daily-settlement' && <DailySettlementTab key={`daily-settlement-${refreshKey}`} />}
+          {activeTab === 'caja' && <CajaTab key={`caja-${refreshKey}`} />}
           {activeTab === 'map' && <ErrorBoundary><MapTab key={`map-${refreshKey}`} /></ErrorBoundary>}
           {activeTab === 'config' && <ConfigTab key={`config-${refreshKey}`} />}
         </div>
