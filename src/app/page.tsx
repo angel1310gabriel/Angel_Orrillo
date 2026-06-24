@@ -14,6 +14,7 @@ import ChatTab from '@/components/chat-tab';
 import LoginScreen from '@/components/login-screen';
 import { ErrorBoundary } from '@/components/error-boundary';
 import DataToolsDialog from '@/components/data-tools';
+import ReportsDialog from '@/components/reports-dialog';
 import CompanySelector from '@/components/company-selector';
 import { useSupabaseRealtime } from '@/hooks/use-supabase-realtime';
 import { useAuth, ROLE_PERMISSIONS } from '@/hooks/use-auth';
@@ -113,6 +114,7 @@ export default function KCobranzasDashboard() {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showDataTools, setShowDataTools] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showReports, setShowReports] = useState(false);
   const [profileName, setProfileName] = useState('');
   const [profileEmail, setProfileEmail] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
@@ -475,6 +477,7 @@ export default function KCobranzasDashboard() {
         </div>
       )}
       <DataToolsDialog open={showDataTools} onClose={() => setShowDataTools(false)} />
+      <ReportsDialog open={showReports} onOpenChange={setShowReports} />
 
       {/* MOBILE HEADER */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800 shadow-sm">
@@ -640,7 +643,7 @@ export default function KCobranzasDashboard() {
                 </div>
               </div>}
             </div>
-            <Button variant="ghost" size="sm" onClick={()=>window.open('/api/reports?format=csv', '_blank')} className="text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Descargar Reporte CSV">
+            <Button variant="ghost" size="sm" onClick={()=>setShowReports(true)} className="text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Ver Reportes">
               <BarChart3 className="h-4 w-4 mr-1"/>Reportes
             </Button>
             <Button
