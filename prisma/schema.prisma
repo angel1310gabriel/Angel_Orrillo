@@ -334,6 +334,35 @@ model AuditLog {
 }
 
 // ============================================================
+// Caja Movements (Cash Register)
+// ============================================================
+
+model CajaMovement {
+  id            String   @id @default(cuid())
+  type          String   // income, expense
+  amount        Float
+  category      String
+  description   String?
+  referenceType String?
+  referenceId   String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+}
+
+// ============================================================
+// Companies (Multi-tenant)
+// ============================================================
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logoUrl   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+// ============================================================
 // NEW: Late Fee Automation Execution Log
 // ============================================================
 

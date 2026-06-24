@@ -263,6 +263,27 @@ export const FIELD_MAP: Record<string, Record<string, string>> = {
     notes: 'notes',
     createdAt: 'created_at',
   },
+  // caja_movements table
+  caja_movements: {
+    id: 'id',
+    type: 'type',
+    amount: 'amount',
+    category: 'category',
+    description: 'description',
+    referenceType: 'reference_type',
+    referenceId: 'reference_id',
+    createdBy: 'created_by',
+    createdAt: 'created_at',
+  },
+  // companies table
+  companies: {
+    id: 'id',
+    name: 'name',
+    slug: 'slug',
+    logoUrl: 'logo_url',
+    isActive: 'is_active',
+    createdAt: 'created_at',
+  },
 };
 
 // Helper: Convert Prisma-style camelCase fields to snake_case for Supabase
