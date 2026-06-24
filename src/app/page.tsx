@@ -456,7 +456,9 @@ export default function KCobranzasDashboard() {
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="flex items-center justify-between h-14 px-4">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="KC Cobranzas" className="w-8 h-8 rounded-lg object-cover" />
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-sm">
+              <ShieldCheck className="w-4 h-4 text-white" />
+            </div>
             <div>
               <h1 className="text-sm font-bold text-slate-900 dark:text-slate-100">KC Cobranzas</h1>
               <p className="text-[10px] text-slate-400 -mt-0.5">{getActiveLabel()}</p>
@@ -469,10 +471,9 @@ export default function KCobranzasDashboard() {
                 {unreadCount>0&&<span className="absolute -top-0.5 -right-0.5 h-3.5 min-w-[14px] px-0.5 rounded-full bg-red-500 text-[9px] text-white flex items-center justify-center font-bold">{unreadCount>9?'9+':unreadCount}</span>}
               </button>
             </div>
-            <Badge variant="outline" className={`${roleBadge.color} text-[10px]`}>
-              <User className="h-2.5 w-2.5 mr-0.5" />
-              {roleBadge.label}
-            </Badge>
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-[10px] font-bold">
+              {user.name?.charAt(0)?.toUpperCase() || 'U'}
+            </div>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -490,32 +491,32 @@ export default function KCobranzasDashboard() {
         <div className="lg:hidden fixed inset-0 z-[10000]">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={() => setMobileMenuOpen(false)} />
           <div className="absolute right-0 top-0 bottom-0 w-72 bg-white dark:bg-slate-900 shadow-2xl flex flex-col animate-[slideInRight_200ms_ease-out]">
-            <div className="flex items-center justify-between px-5 h-16 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <img src="/logo.png" alt="KC Cobranzas" className="w-8 h-8 rounded-lg object-cover" />
-                <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">Menú</h2>
+            {/* Header with gradient */}
+            <div className="bg-gradient-to-br from-emerald-600 to-teal-600 px-5 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <ShieldCheck className="w-7 h-7 text-white" />
+                  <h2 className="text-sm font-bold text-white">KC Cobranzas</h2>
+                </div>
+                <button onClick={() => setMobileMenuOpen(false)} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
+                  <X className="h-4 w-4 text-white" />
+                </button>
               </div>
-              <button onClick={() => setMobileMenuOpen(false)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
-                <X className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-              </button>
-            </div>
-
-            <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-sm font-bold shadow-sm">
+              <div className="flex items-center gap-3 mt-4">
+                <div className="w-9 h-9 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white text-sm font-bold shrink-0">
                   {user.name?.charAt(0)?.toUpperCase() || 'U'}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{user.name}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user.email}</p>
-                  <Badge variant="outline" className={`text-[9px] px-1.5 py-0 mt-0.5 ${roleBadge.color}`}>
+                  <p className="text-sm font-medium text-white truncate">{user.name}</p>
+                  <Badge variant="outline" className={`text-[9px] px-1.5 py-0 bg-white/10 border-white/20 text-white`}>
                     {roleBadge.label}
                   </Badge>
                 </div>
               </div>
             </div>
 
-            <nav className="flex-1 py-3 px-3 overflow-y-auto">
+            <nav className="flex-1 py-4 px-3 overflow-y-auto">
+              <p className="px-3 mb-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Menú Principal</p>
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.value;
@@ -523,7 +524,7 @@ export default function KCobranzasDashboard() {
                   <button
                     key={item.value}
                     onClick={() => handleTabChange(item.value)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 mb-1 ${isActive
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 mb-0.5 ${isActive
                       ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
                       }`}
@@ -534,35 +535,19 @@ export default function KCobranzasDashboard() {
                 );
               })}
             </nav>
-            <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
-              <Button
-                variant="outline"
-                onClick={() => { setMobileMenuOpen(false); setShowDataTools(true); }}
-                className="w-full justify-center text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Exportar / Importar
+            <div className="px-3 py-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+              <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); setShowReports(true); }} className="w-full justify-start text-slate-600 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950">
+                <BarChart3 className="h-4 w-4 mr-2" /> Reportes
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => { setMobileMenuOpen(false); setShowChangePassword(true); }}
-                className="w-full justify-center text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
-              >
-                <KeyRound className="h-4 w-4 mr-2" />
-                Cambiar Contraseña
+              <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); setShowDataTools(true); }} className="w-full justify-start text-slate-600 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950">
+                <Download className="h-4 w-4 mr-2" /> Exportar / Importar
               </Button>
-              <Button
-                variant="outline"
-                onClick={handleLogout}
-                className="w-full justify-center text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Cerrar Sesión
+              <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); setShowChangePassword(true); }} className="w-full justify-start text-slate-600 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950">
+                <KeyRound className="h-4 w-4 mr-2" /> Cambiar Contraseña
               </Button>
-              <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-[10px] w-full justify-center">
-                <Activity className="h-3 w-3 mr-1" />
-                Sistema en línea
-              </Badge>
+              <Button variant="ghost" onClick={handleLogout} className="w-full justify-start text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950">
+                <LogOut className="h-4 w-4 mr-2" /> Cerrar Sesión
+              </Button>
             </div>
           </div>
         </div>
