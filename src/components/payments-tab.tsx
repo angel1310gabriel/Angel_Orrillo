@@ -210,9 +210,8 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
 
-  // Date state — range
-  const [dateStart, setDateStart] = useState<Date>(new Date());
-  const [dateEnd, setDateEnd] = useState<Date>(new Date());
+  // Date state
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Loans for daily collection
@@ -265,9 +264,8 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
   // Data Fetching
   // ============================================================
 
-  const dateStartStr = dateStart.toISOString().split('T')[0];
-  const dateEndStr = dateEnd.toISOString().split('T')[0];
-  const isToday = dateStartStr === getTodayStr() && dateEndStr === getTodayStr();
+  const dateString = selectedDate.toISOString().split('T')[0];
+  const isToday = dateString === getTodayStr();
 
   const fetchLoans = useCallback(async () => {
     setLoadingLoans(true);
@@ -324,8 +322,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
     setLoadingPayments(true);
     try {
       const params = new URLSearchParams({
-        startDate: dateStartStr,
-        endDate: dateEndStr,
+        date: dateString,
         page: historyPage.toString(),
         limit: '20',
       });
@@ -341,7 +338,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
     } finally {
       setLoadingPayments(false);
     }
-  }, [dateStartStr, dateEndStr, historyPage, toast]);
+  }, [dateString, historyPage, toast]);
 
   const fetchCollectors = useCallback(async () => {
     try {
@@ -598,9 +595,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
   const dateLabel = isToday
     ? 'Hoy'
-    : dateStartStr === dateEndStr
-    ? formatDate(dateStart.toISOString())
-    : `${formatDate(dateStart.toISOString())} - ${formatDate(dateEnd.toISOString())}`;
+    : formatDate(selectedDate.toISOString());
 
   return (
     <div className="space-y-6">
@@ -661,7 +656,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
       {/* TOOLBAR */}
       {/* ============================================================ */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -673,37 +668,26 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
-              <div className="p-3 space-y-3">
-                <div>
-                  <label className="text-xs text-slate-500 mb-1 block">Desde</label>
-                  <Input type="date" value={dateStartStr} onChange={(e)=>{const d=new Date(e.target.value+'T00:00:00');setDateStart(d);setHistoryPage(1)}} className="text-sm"/>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-500 mb-1 block">Hasta</label>
-                  <Input type="date" value={dateEndStr} onChange={(e)=>{const d=new Date(e.target.value+'T00:00:00');setDateEnd(d);setHistoryPage(1)}} className="text-sm"/>
-                </div>
-              </div>
+              <CalendarComponent
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => {
+                  if (date) {
+                    setSelectedDate(date);
+                    setCalendarOpen(false);
+                  }
+                }}
+                initialFocus
+              />
             </PopoverContent>
           </Popover>
-
-          <div className="flex gap-1">
-            {[
-              {label:'Hoy',fn:()=>{const n=new Date();setDateStart(n);setDateEnd(n);setHistoryPage(1)}},
-              {label:'Ayer',fn:()=>{const n=new Date();n.setDate(n.getDate()-1);setDateStart(n);setDateEnd(n);setHistoryPage(1)}},
-              {label:'Semana',fn:()=>{const n=new Date(),w=new Date();w.setDate(w.getDate()-w.getDay()+1);setDateStart(w);setDateEnd(n);setHistoryPage(1)}},
-              {label:'Mes',fn:()=>{const n=new Date(),m=new Date(n.getFullYear(),n.getMonth(),1);setDateStart(m);setDateEnd(n);setHistoryPage(1)}},
-              {label:'Todos',fn:()=>{const n=new Date(2020,0,1),h=new Date();setDateStart(n);setDateEnd(h);setHistoryPage(1)}},
-            ].map(q=>
-              <Button key={q.label} variant="outline" size="sm" onClick={q.fn} className="text-xs border-slate-200 hover:bg-emerald-50 hover:text-emerald-600">{q.label}</Button>
-            )}
-          </div>
 
           {!isToday && (
             <Button
               variant="outline"
               size="sm"
               className="border-emerald-200 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
-              onClick={() => {const n=new Date();setDateStart(n);setDateEnd(n)}}
+              onClick={() => setSelectedDate(new Date())}
             >
               Ir a Hoy
             </Button>

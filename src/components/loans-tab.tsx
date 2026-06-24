@@ -506,12 +506,12 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       return d2;
     };
 
-    if (paymentFrequency === 'weekly') {
-      // Semanal: primera cuota a los 7 días
-      let cursor = new Date(startDate);
-      cursor.setDate(cursor.getDate() + 7);
-      cursor = nextBusinessDay(cursor);
+    // First payment: weekly = +7 days, daily = +1 day
+    let cursor = new Date(startDate);
+    cursor.setDate(cursor.getDate() + (paymentFrequency === 'weekly' ? 7 : 1));
+    cursor = nextBusinessDay(cursor);
 
+    if (paymentFrequency === 'weekly') {
       if (weeklyHasRest) {
         for (let w = 0; w < weeklyWeeks; w++) {
           num++;
@@ -549,11 +549,6 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
         }
       }
     } else {
-      // Diario: primera cuota al día siguiente
-      let cursor = new Date(startDate);
-      cursor.setDate(cursor.getDate() + 1);
-      cursor = nextBusinessDay(cursor);
-
       for (let i = 0; i < totalDays; i++) {
         num++;
         schedule.push({
@@ -2232,17 +2227,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       {/* ============================================================ */}
       {/* PAYMENT LINKS PANEL */}
       {/* ============================================================ */}
-      <Dialog open={linksOpen} onOpenChange={setLinksOpen}>
-        <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Link2 className="h-5 w-5 text-emerald-600" />
-              Links de Pago
-            </DialogTitle>
-          </DialogHeader>
-          <PaymentLinksPanel loanId={selectedLoanId} clientId={detailLoan?.clientId || null} />
-        </DialogContent>
-      </Dialog>
+      <PaymentLinksPanel loanId={selectedLoanId} clientId={detailLoan?.clientId || null} />
 
       {/* ============================================================ */}
       {/* REFINANCE DIALOG */}
@@ -2401,7 +2386,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
             <div>
               <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Seleccionar Cuota(s)</Label>
               <p className="text-xs text-slate-400 mt-0.5 mb-1">Seleccione una o más cuotas a cancelar</p>
-              <ScrollArea className="max-h-64 mt-1">
+              <ScrollArea className="max-h-48 mt-1">
                 <div className="space-y-1.5">
                   {detailLoan?.schedule?.filter(s => s.status === 'pending').map(s => {
                     const selected = paySelectedInstallments.includes(s.id);

@@ -264,25 +264,12 @@ export async function POST(request: NextRequest) {
         // Generate payment schedule
         schedule: {
           create: (() => {
-            const restSet = new Set<number>(
-              restDays
-                ? (Array.isArray(restDays) ? restDays.map(Number) : String(restDays).split(',').map(Number))
-                : []
-            );
-            const isWeekly = paymentFrequency === 'weekly';
-            const offset = isWeekly ? 7 : 1;
-            const step = isWeekly ? 7 : 1;
+            const restSet = new Set((restDays ? String(restDays).split(',').map(Number) : []).filter(n => !isNaN(n)));
+            const nextBiz = (d: Date) => { const d2 = new Date(d); while (restSet.has(d2.getDay())) d2.setDate(d2.getDate() + 1); return d2; };
             return Array.from({ length: numCuotas }, (_, i) => {
-              let dueDate = new Date(loanStartDate.getTime() + (offset + i * step) * 86400000);
-              while (restSet.has(dueDate.getDay())) {
-                dueDate.setDate(dueDate.getDate() + 1);
-              }
-              return {
-                installmentNumber: i + 1,
-                amount: dailyPayment,
-                dueDate,
-                status: 'pending',
-              };
+              const offset = paymentFrequency === 'weekly' ? (i + 1) * 7 : (i + 1);
+              const dueDate = nextBiz(new Date(loanStartDate.getTime() + offset * 86400000));
+              return { installmentNumber: i + 1, amount: dailyPayment, dueDate, status: 'pending' };
             });
           })(),
         },
