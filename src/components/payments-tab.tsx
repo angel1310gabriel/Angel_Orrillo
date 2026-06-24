@@ -968,14 +968,14 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
               <div className="hidden md:block">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Hora</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Monto</TableHead>
-                      <TableHead>Método</TableHead>
-                      <TableHead>Cobrador</TableHead>
-                      <TableHead>Obs.</TableHead>
-                      {isAdmin && <TableHead className="w-12"></TableHead>}
+                    <TableRow className="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300">
+                      <TableHead className="px-3 py-2">Hora</TableHead>
+                      <TableHead className="px-3 py-2">Cliente</TableHead>
+                      <TableHead className="px-3 py-2 text-right">Monto</TableHead>
+                      <TableHead className="px-3 py-2">Método</TableHead>
+                      <TableHead className="px-3 py-2">Cobrador</TableHead>
+                      <TableHead className="px-3 py-2">Obs.</TableHead>
+                      {isAdmin && <TableHead className="w-12 px-3 py-2"></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -983,11 +983,11 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                       const MethodIcon = getMethodIcon(payment.paymentMethod);
                       const methodColor = getMethodColor(payment.paymentMethod);
                       return (
-                        <TableRow key={payment.id}>
-                          <TableCell className="text-sm text-slate-600 dark:text-slate-400">
+                        <TableRow key={payment.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                          <TableCell className="text-sm text-slate-600 dark:text-slate-400 px-3 py-2">
                             {formatDateTime(payment.paymentDate)}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="px-3 py-2">
                             <div>
                               <p className="font-medium text-sm text-slate-900 dark:text-slate-100">
                                 {payment.loan?.client?.name || '—'}
@@ -997,10 +997,10 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                               </p>
                             </div>
                           </TableCell>
-                          <TableCell className="font-bold text-emerald-600 dark:text-emerald-300">
+                          <TableCell className="font-bold text-emerald-600 dark:text-emerald-300 px-3 py-2 text-right">
                             {formatCurrency(payment.amount)}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="px-3 py-2">
                             <div className="flex items-center gap-1.5">
                               <MethodIcon className={`h-4 w-4 ${methodColor}`} />
                               <span className="text-sm">
@@ -1008,14 +1008,14 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                               </span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-sm text-slate-600 dark:text-slate-400">
+                          <TableCell className="text-sm text-slate-600 dark:text-slate-400 px-3 py-2">
                             {payment.collector?.name || '—'}
                           </TableCell>
-                          <TableCell className="text-xs text-slate-500 dark:text-slate-400 max-w-32 truncate">
+                          <TableCell className="text-xs text-slate-500 dark:text-slate-400 max-w-32 truncate px-3 py-2">
                             {payment.observation || '—'}
                           </TableCell>
                           {isAdmin && (
-                            <TableCell>
+                            <TableCell className="px-3 py-2">
                               <Button
                                 variant="ghost"
                                 size="icon"

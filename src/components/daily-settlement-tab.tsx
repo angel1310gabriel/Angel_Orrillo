@@ -357,26 +357,26 @@ function CollectorView({ user, toast }: { user: { id: string; name: string }; to
           <CardContent className="p-0">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Esperado</TableHead>
-                  <TableHead>Recaudado</TableHead>
-                  <TableHead>Dif.</TableHead>
-                  <TableHead>Estado</TableHead>
+                <TableRow className="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300">
+                  <TableHead className="px-3 py-2">Fecha</TableHead>
+                  <TableHead className="px-3 py-2 text-right">Esperado</TableHead>
+                  <TableHead className="px-3 py-2 text-right">Recaudado</TableHead>
+                  <TableHead className="px-3 py-2 text-right">Dif.</TableHead>
+                  <TableHead className="px-3 py-2">Estado</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {recentSettlements.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell className="text-sm">{new Date(s.date).toLocaleDateString('es-PE')}</TableCell>
-                    <TableCell>{formatCurrency(s.expectedAmount)}</TableCell>
-                    <TableCell>{formatCurrency(s.collectedAmount)}</TableCell>
-                    <TableCell>
+                  <TableRow key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                    <TableCell className="text-sm px-3 py-2">{new Date(s.date).toLocaleDateString('es-PE')}</TableCell>
+                    <TableCell className="px-3 py-2 text-right">{formatCurrency(s.expectedAmount)}</TableCell>
+                    <TableCell className="px-3 py-2 text-right">{formatCurrency(s.collectedAmount)}</TableCell>
+                    <TableCell className="px-3 py-2 text-right">
                       <span className={s.difference >= 0 ? 'text-emerald-600' : 'text-red-600'}>
                         {s.difference >= 0 ? '+' : ''}{formatCurrency(s.difference)}
                       </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-3 py-2">
                       <Badge variant="outline" className={`text-xs ${STATUS_BADGE[s.status]?.class}`}>
                         {STATUS_ICON[s.status]}
                         <span className="ml-1">{STATUS_BADGE[s.status]?.label}</span>
@@ -554,41 +554,41 @@ function AdminView({ user, toast }: { user: { id: string; name: string }; toast:
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Cobrador</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Esperado</TableHead>
-                  <TableHead>Recaudado</TableHead>
-                  <TableHead>Dif.</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
+                <TableRow className="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300">
+                  <TableHead className="px-3 py-2">Cobrador</TableHead>
+                  <TableHead className="px-3 py-2">Fecha</TableHead>
+                  <TableHead className="px-3 py-2 text-right">Esperado</TableHead>
+                  <TableHead className="px-3 py-2 text-right">Recaudado</TableHead>
+                  <TableHead className="px-3 py-2 text-right">Dif.</TableHead>
+                  <TableHead className="px-3 py-2">Estado</TableHead>
+                  <TableHead className="px-3 py-2 text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {settlements.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell className="font-medium">{s.collectorName || '—'}</TableCell>
-                    <TableCell>{new Date(s.date).toLocaleDateString('es-PE')}</TableCell>
-                    <TableCell>{formatCurrency(s.expectedAmount)}</TableCell>
-                    <TableCell>{formatCurrency(s.collectedAmount)}</TableCell>
-                    <TableCell>
+                  <TableRow key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                    <TableCell className="font-medium px-3 py-2">{s.collectorName || '—'}</TableCell>
+                    <TableCell className="px-3 py-2">{new Date(s.date).toLocaleDateString('es-PE')}</TableCell>
+                    <TableCell className="px-3 py-2 text-right">{formatCurrency(s.expectedAmount)}</TableCell>
+                    <TableCell className="px-3 py-2 text-right">{formatCurrency(s.collectedAmount)}</TableCell>
+                    <TableCell className="px-3 py-2 text-right">
                       <span className={s.difference >= 0 ? 'text-emerald-600' : 'text-red-600'}>
                         {s.difference >= 0 ? '+' : ''}{formatCurrency(s.difference)}
                       </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-3 py-2">
                       <Badge variant="outline" className={`text-xs ${STATUS_BADGE[s.status]?.class}`}>
                         {STATUS_ICON[s.status]}
                         <span className="ml-1">{STATUS_BADGE[s.status]?.label}</span>
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="px-3 py-2 text-right">
                       {s.status === 'pending' && (
                         <div className="flex items-center justify-end gap-2">
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 text-xs h-8"
+                            className="text-emerald-700 border-emerald-200 dark:border-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-xs h-8"
                             onClick={() => handleApprove(s.id)}
                           >
                             <CheckCircle2 className="h-3.5 w-3.5 mr-1" />

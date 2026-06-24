@@ -264,28 +264,28 @@ export default function CajaTab() {
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-24">Fecha</TableHead>
-                    <TableHead>Categoría</TableHead>
-                    <TableHead>Descripción</TableHead>
-                    <TableHead className="w-20">Tipo</TableHead>
-                    <TableHead className="w-28 text-right">Monto</TableHead>
+                  <TableRow className="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300">
+                    <TableHead className="w-24 px-3 py-2">Fecha</TableHead>
+                    <TableHead className="px-3 py-2">Categoría</TableHead>
+                    <TableHead className="px-3 py-2">Descripción</TableHead>
+                    <TableHead className="w-20 px-3 py-2">Tipo</TableHead>
+                    <TableHead className="w-28 px-3 py-2 text-right">Monto</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {movements.map((m) => (
-                    <TableRow key={m.id}>
-                      <TableCell className="text-xs text-slate-500">{formatDateShort(m.createdAt)}</TableCell>
-                      <TableCell>
+                    <TableRow key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                      <TableCell className="text-xs text-slate-500 px-3 py-2">{formatDateShort(m.createdAt)}</TableCell>
+                      <TableCell className="px-3 py-2">
                         <div className="flex items-center gap-1.5">
                           <Tag className="h-3.5 w-3.5 text-slate-400" />
                           <span className="text-sm">{CATEGORY_LABEL[m.category] || m.category}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm text-slate-600 dark:text-slate-400 max-w-[200px] truncate">
+                      <TableCell className="text-sm text-slate-600 dark:text-slate-400 max-w-[200px] truncate px-3 py-2">
                         {m.description || '-'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-3 py-2">
                         <Badge
                           variant="outline"
                           className={
@@ -302,7 +302,7 @@ export default function CajaTab() {
                           {m.type === 'income' ? 'Ingreso' : 'Egreso'}
                         </Badge>
                       </TableCell>
-                      <TableCell className={`text-sm font-medium text-right ${m.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                      <TableCell className={`text-sm font-medium text-right px-3 py-2 ${m.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                         {m.type === 'income' ? '+' : '-'}{formatCurrency(m.amount)}
                       </TableCell>
                     </TableRow>

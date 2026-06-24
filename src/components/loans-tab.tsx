@@ -1991,20 +1991,20 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                     <ScrollArea className="max-h-64">
                       <Table>
                         <TableHeader>
-                          <TableRow>
-                            <TableHead className="text-xs">#</TableHead>
-                            <TableHead className="text-xs">Fecha</TableHead>
-                            <TableHead className="text-xs">Monto</TableHead>
-                            <TableHead className="text-xs">Estado</TableHead>
+                          <TableRow className="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300">
+                            <TableHead className="text-xs px-3 py-2">#</TableHead>
+                            <TableHead className="text-xs px-3 py-2">Fecha</TableHead>
+                            <TableHead className="text-xs px-3 py-2 text-right">Monto</TableHead>
+                            <TableHead className="text-xs px-3 py-2">Estado</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {detailLoan.schedule.map((s) => (
-                            <TableRow key={s.id}>
-                              <TableCell className="text-xs font-medium">{s.installmentNumber}</TableCell>
-                              <TableCell className="text-xs">{formatDate(s.dueDate)}</TableCell>
-                              <TableCell className="text-xs font-semibold">{formatCurrency(s.amount)}</TableCell>
-                              <TableCell>
+                            <TableRow key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                              <TableCell className="text-xs font-medium px-3 py-2">{s.installmentNumber}</TableCell>
+                              <TableCell className="text-xs px-3 py-2">{formatDate(s.dueDate)}</TableCell>
+                              <TableCell className="text-xs font-semibold px-3 py-2 text-right">{formatCurrency(s.amount)}</TableCell>
+                              <TableCell className="px-3 py-2">
                                 {(() => {
                                   const isOverdue = s.status === 'pending' && new Date(s.dueDate) < new Date(new Date().toDateString());
                                   return (
@@ -2037,24 +2037,24 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                     <ScrollArea className="max-h-64">
                       <Table>
                         <TableHeader>
-                          <TableRow>
-                            <TableHead className="text-xs">Fecha</TableHead>
-                            <TableHead className="text-xs">Monto</TableHead>
-                            <TableHead className="text-xs">Método</TableHead>
-                            <TableHead className="text-xs">Cobrador</TableHead>
+                          <TableRow className="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300">
+                            <TableHead className="text-xs px-3 py-2">Fecha</TableHead>
+                            <TableHead className="text-xs px-3 py-2 text-right">Monto</TableHead>
+                            <TableHead className="text-xs px-3 py-2">Método</TableHead>
+                            <TableHead className="text-xs px-3 py-2">Cobrador</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {detailLoan.payments.map((p) => (
-                            <TableRow key={p.id}>
-                              <TableCell className="text-xs whitespace-nowrap">{formatDateTime(p.paymentDate)}</TableCell>
-                              <TableCell className="text-xs font-semibold">{formatCurrency(p.amount)}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="text-xs bg-slate-50 dark:bg-slate-800/50">
+                            <TableRow key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                              <TableCell className="text-xs whitespace-nowrap px-3 py-2">{formatDateTime(p.paymentDate)}</TableCell>
+                              <TableCell className="text-xs font-semibold px-3 py-2 text-right">{formatCurrency(p.amount)}</TableCell>
+                              <TableCell className="px-3 py-2">
+                                <Badge variant="outline" className="text-xs bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200">
                                   {PAYMENT_METHOD_LABELS[p.paymentMethod] || p.paymentMethod}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-xs text-slate-500 dark:text-slate-400">
+                              <TableCell className="text-xs text-slate-500 dark:text-slate-400 px-3 py-2">
                                 {p.collector?.name || '—'}
                               </TableCell>
                             </TableRow>
