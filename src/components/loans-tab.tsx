@@ -506,12 +506,12 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       return d2;
     };
 
-    // First payment = next day after start date (no same-day payment)
-    let cursor = new Date(startDate);
-    cursor.setDate(cursor.getDate() + 1);
-    cursor = nextBusinessDay(cursor);
-
     if (paymentFrequency === 'weekly') {
+      // Semanal: primera cuota a los 7 días
+      let cursor = new Date(startDate);
+      cursor.setDate(cursor.getDate() + 7);
+      cursor = nextBusinessDay(cursor);
+
       if (weeklyHasRest) {
         for (let w = 0; w < weeklyWeeks; w++) {
           num++;
@@ -549,6 +549,11 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
         }
       }
     } else {
+      // Diario: primera cuota al día siguiente
+      let cursor = new Date(startDate);
+      cursor.setDate(cursor.getDate() + 1);
+      cursor = nextBusinessDay(cursor);
+
       for (let i = 0; i < totalDays; i++) {
         num++;
         schedule.push({

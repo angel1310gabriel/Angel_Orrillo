@@ -263,15 +263,28 @@ export async function POST(request: NextRequest) {
         createdBy: collectorId || null,
         // Generate payment schedule
         schedule: {
-          create: Array.from({ length: numCuotas }, (_, i) => {
-            const dueDate = new Date(loanStartDate.getTime() + (i + 1) * 86400000);
-            return {
-              installmentNumber: i + 1,
-              amount: dailyPayment,
-              dueDate,
-              status: 'pending',
-            };
-          }),
+          create: (() => {
+            const restSet = new Set<number>(
+              restDays
+                ? (Array.isArray(restDays) ? restDays.map(Number) : String(restDays).split(',').map(Number))
+                : []
+            );
+            const isWeekly = paymentFrequency === 'weekly';
+            const offset = isWeekly ? 7 : 1;
+            const step = isWeekly ? 7 : 1;
+            return Array.from({ length: numCuotas }, (_, i) => {
+              let dueDate = new Date(loanStartDate.getTime() + (offset + i * step) * 86400000);
+              while (restSet.has(dueDate.getDay())) {
+                dueDate.setDate(dueDate.getDate() + 1);
+              }
+              return {
+                installmentNumber: i + 1,
+                amount: dailyPayment,
+                dueDate,
+                status: 'pending',
+              };
+            });
+          })(),
         },
       },
       include: {

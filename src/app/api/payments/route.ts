@@ -9,6 +9,8 @@ export async function GET(request: NextRequest) {
     const clientId = searchParams.get('clientId');
     const collectorId = searchParams.get('collectorId');
     const date = searchParams.get('date');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
 
@@ -23,6 +25,8 @@ export async function GET(request: NextRequest) {
               clientId: clientId || undefined,
               collectorId: collectorId || undefined,
               date: date || undefined,
+              startDate: startDate || undefined,
+              endDate: endDate || undefined,
               page,
               limit,
             }),
@@ -57,6 +61,19 @@ export async function GET(request: NextRequest) {
       dateObj.setHours(0, 0, 0, 0);
       const nextDay = new Date(dateObj.getTime() + 86400000);
       where.paymentDate = { gte: dateObj, lt: nextDay };
+    } else if (startDate || endDate) {
+      const dateFilter: Record<string, Date> = {};
+      if (startDate) {
+        const s = new Date(startDate);
+        s.setHours(0, 0, 0, 0);
+        dateFilter.gte = s;
+      }
+      if (endDate) {
+        const e = new Date(endDate);
+        e.setHours(23, 59, 59, 999);
+        dateFilter.lte = e;
+      }
+      where.paymentDate = dateFilter;
     }
 
     const [payments, total] = await Promise.all([

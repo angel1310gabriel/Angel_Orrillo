@@ -1583,13 +1583,25 @@ export async function createLoan(data: {
   if (loanErr) throw new Error(loanErr.message);
 
   // Create payment schedule entries
-  const scheduleEntries = Array.from({ length: numCuotas }, (_, i) => ({
-    loan_id: newLoan.id,
-    installment_number: i + 1,
-    amount: dailyPayment,
-    due_date: new Date(loanStartDate.getTime() + (i + 1) * 86400000).toISOString().split('T')[0],
-    status: 'pending',
-  }));
+  const restDaySet = new Set<number>(
+    data.restDays ? String(data.restDays).split(',').map(Number) : []
+  );
+  const isWeekly = data.paymentFrequency === 'weekly';
+  const offset = isWeekly ? 7 : 1;
+  const step = isWeekly ? 7 : 1;
+  const scheduleEntries = Array.from({ length: numCuotas }, (_, i) => {
+    let dueDate = new Date(loanStartDate.getTime() + (offset + i * step) * 86400000);
+    while (restDaySet.has(dueDate.getDay())) {
+      dueDate.setDate(dueDate.getDate() + 1);
+    }
+    return {
+      loan_id: newLoan.id,
+      installment_number: i + 1,
+      amount: dailyPayment,
+      due_date: dueDate.toISOString().split('T')[0],
+      status: 'pending',
+    };
+  });
 
   const { error: scheduleErr } = await sb.from('payment_schedule').insert(scheduleEntries);
   if (scheduleErr) {
@@ -1764,6 +1776,8 @@ export async function getPayments(options: {
   clientId?: string;
   collectorId?: string;
   date?: string;
+  startDate?: string;
+  endDate?: string;
   page?: number;
   limit?: number;
 }): Promise<{ payments: Payment[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> {
@@ -1786,6 +1800,9 @@ export async function getPayments(options: {
   if (options.clientId) query = query.eq('client_id', options.clientId);
   if (options.date) {
     query = query.eq('payment_date', options.date);
+  } else if (options.startDate || options.endDate) {
+    if (options.startDate) query = query.gte('payment_date', options.startDate);
+    if (options.endDate) query = query.lte('payment_date', options.endDate);
   }
 
   query = query.order('payment_date', { ascending: false }).range(offset, offset + limit - 1);
