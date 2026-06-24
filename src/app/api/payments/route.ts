@@ -133,9 +133,6 @@ export async function POST(request: NextRequest) {
           }
         } catch (error) {
           if (error instanceof Error) {
-            if (error.message.includes('no encontrado')) {
-              return NextResponse.json({ error: 'Préstamo no encontrado' }, { status: 404 });
-            }
             if (error.message.includes('no está activo')) {
               return NextResponse.json({ error: 'El préstamo no está activo' }, { status: 400 });
             }

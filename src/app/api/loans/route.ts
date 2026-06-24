@@ -177,11 +177,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(loan, { status: 201 });
           }
         } catch (error) {
-          // Map known errors to HTTP responses
+          // Map known errors to HTTP responses (only if not a data mismatch issue)
           if (error instanceof Error) {
-            if (error.message.includes('no encontrado')) {
-              return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 });
-            }
             if (error.message.includes('préstamo activo')) {
               return NextResponse.json(
                 { error: 'El cliente ya tiene un préstamo activo. Debe completar o cancelar el préstamo anterior.' },
