@@ -856,7 +856,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-emerald-100 text-xs font-medium">Capital Disponible</p>
+                <p className="text-emerald-100 text-xs font-medium">Total Prestado</p>
                 <p className="text-lg sm:text-xl md:text-2xl font-bold mt-1">{formatCurrency(capital)}</p>
               </div>
               <DollarSign className="h-8 w-8 text-emerald-200" />

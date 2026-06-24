@@ -62,7 +62,7 @@ export default function DashboardTab() {
     : 0;
 
   const kpis = [
-    { label: 'Total Prestado', value: o?.totalLoaned ?? 0, icon: DollarSign, color: 'from-emerald-500 to-emerald-600', prefix: 'S/ ' },
+    { label: 'Capital', value: o?.totalLoaned ?? 0, icon: DollarSign, color: 'from-emerald-500 to-emerald-600', prefix: 'S/ ' },
     { label: 'Total Cobrado', value: o?.totalCollected ?? 0, icon: Wallet, color: 'from-teal-500 to-teal-600', prefix: 'S/ ' },
     { label: 'En Mora', value: o?.moraLoans ?? 0, icon: AlertTriangle, color: 'from-amber-500 to-orange-500', prefix: '' },
     { label: 'Tasa Eficiencia', value: efficiency, icon: TrendingUp, color: 'from-blue-500 to-blue-600', suffix: '%', prefix: '' },
