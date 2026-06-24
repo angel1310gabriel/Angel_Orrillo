@@ -339,18 +339,22 @@ export default function KCobranzasDashboard() {
     <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950">
       <InactivityTracker />
       {/* SIDEBAR - Desktop */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shadow-sm fixed inset-y-0 left-0 z-30">
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-5 h-16 border-b border-slate-100 dark:border-slate-800">
-          <img src="/logo.png" alt="KC Cobranzas" className="w-9 h-9 rounded-xl object-cover shadow-lg shadow-emerald-500/20" />
-          <div>
-            <h1 className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">KC Cobranzas</h1>
-            <p className="text-[10px] text-slate-400 -mt-0.5">Panel de Administración</p>
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 fixed inset-y-0 left-0 z-30">
+        {/* Logo - gradient header */}
+        <div className="bg-gradient-to-br from-emerald-600 to-teal-600 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 flex items-center justify-center shadow-lg">
+              <ShieldCheck className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-white tracking-tight">KC Cobranzas</h1>
+              <p className="text-[10px] text-emerald-100/80">Panel de Administración</p>
+            </div>
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-3 px-3 overflow-y-auto">
+        <nav className="flex-1 py-4 px-3 overflow-y-auto">
           <p className="px-3 mb-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Menú Principal</p>
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -372,9 +376,9 @@ export default function KCobranzasDashboard() {
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="px-3 py-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+        <div className="px-3 py-3 border-t border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-3 px-2 py-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold shadow-sm shrink-0">
               {user.name?.charAt(0)?.toUpperCase() || 'U'}
             </div>
             <div className="flex-1 min-w-0">
@@ -383,52 +387,21 @@ export default function KCobranzasDashboard() {
                 {roleBadge.label}
               </Badge>
             </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => { setProfileName(user.name || ''); setProfileEmail(user.email || ''); setShowProfile(true); }}
-                className="h-8 w-8 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50"
-                title="Perfil"
-              >
-                <User className="h-4 w-4" />
+            <div className="flex items-center gap-0.5">
+              <Button variant="ghost" size="icon" onClick={() => { setProfileName(user.name || ''); setProfileEmail(user.email || ''); setShowProfile(true); }} className="h-7 w-7 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50" title="Perfil">
+                <User className="h-3.5 w-3.5" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowChangePassword(true)}
-                className="h-8 w-8 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50"
-                title="Cambiar contraseña"
-              >
-                <KeyRound className="h-4 w-4" />
+              <Button variant="ghost" size="icon" onClick={() => setShowChangePassword(true)} className="h-7 w-7 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50" title="Cambiar contraseña">
+                <KeyRound className="h-3.5 w-3.5" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  const isDark = document.documentElement.classList.toggle('dark');
-                  localStorage.setItem('kc-dark-mode', isDark ? 'dark' : 'light');
-                }}
-                className="h-8 w-8 text-slate-400 hover:text-amber-500 hover:bg-amber-50"
-                title="Modo oscuro/claro"
-              >
-                {typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              <Button variant="ghost" size="icon" onClick={() => { const isDark = document.documentElement.classList.toggle('dark'); localStorage.setItem('kc-dark-mode', isDark ? 'dark' : 'light'); }} className="h-7 w-7 text-slate-400 hover:text-amber-500 hover:bg-amber-50" title="Modo oscuro/claro">
+                {typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleLogout}
-                className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
-                title="Cerrar sesión"
-              >
-                <LogOut className="h-4 w-4" />
+              <Button variant="ghost" size="icon" onClick={handleLogout} className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-red-50" title="Cerrar sesión">
+                <LogOut className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
-          <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-[10px] w-full justify-center">
-            <Activity className="h-3 w-3 mr-1" />
-            Sistema en línea
-          </Badge>
         </div>
       </aside>
 
@@ -598,30 +571,16 @@ export default function KCobranzasDashboard() {
       {/* MAIN CONTENT */}
       <main className="flex-1 lg:ml-64 min-h-screen flex flex-col">
         {/* Desktop top bar */}
-        <header className="hidden lg:flex items-center justify-between h-14 px-6 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-          <div>
+        <header className="hidden lg:flex items-center justify-between h-14 px-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-b border-slate-100 dark:border-slate-800 sticky top-0 z-20">
+          <div className="flex items-center gap-4">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{getActiveLabel()}</h2>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <CompanySelector />
-            <Badge variant="outline" className={`text-xs ${roleBadge.color}`}>
-              <User className="h-3 w-3 mr-1" />
-              {user.name} — {roleBadge.label}
-            </Badge>
-            <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-xs">
-              <Activity className="h-3 w-3 mr-1" />
-              En línea
-            </Badge>
-            {process.env.NEXT_PUBLIC_SUPABASE_URL && (
-              <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 text-xs">
-                <Wifi className="h-3 w-3 mr-1" />
-                Realtime
-              </Badge>
-            )}
             <div className="relative" ref={notifRef}>
-              <Button variant="ghost" size="icon" onClick={()=>{setNotifOpen(!notifOpen);if(!notifOpen)markRead(notifications.filter(n=>!n.isRead).map(n=>n.id))}} className="relative text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Notificaciones">
-                {unreadCount>0?<BellRing className="h-5 w-5 text-emerald-500"/>:<Bell className="h-5 w-5"/>}
-                {unreadCount>0&&<span className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 rounded-full bg-red-500 text-[10px] text-white flex items-center justify-center font-bold">{unreadCount>9?'9+':unreadCount}</span>}
+              <Button variant="ghost" size="icon" onClick={()=>{setNotifOpen(!notifOpen);if(!notifOpen)markRead(notifications.filter(n=>!n.isRead).map(n=>n.id))}} className="relative h-8 w-8 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Notificaciones">
+                {unreadCount>0?<BellRing className="h-4 w-4 text-emerald-500"/>:<Bell className="h-4 w-4"/>}
+                {unreadCount>0&&<span className="absolute -top-0.5 -right-0.5 h-3.5 min-w-[14px] px-1 rounded-full bg-red-500 text-[9px] text-white flex items-center justify-center font-bold">{unreadCount>9?'9+':unreadCount}</span>}
               </Button>
               {notifOpen&&<div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
@@ -635,7 +594,7 @@ export default function KCobranzasDashboard() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm ${!n.isRead?'font-semibold text-slate-800 dark:text-slate-200':'text-slate-600 dark:text-slate-400'}`}>{n.title}</p>
-                      {n.body&&<p className="text-xs text-slate-500 dark:text-slate-500 mt-0.5 line-clamp-2">{n.body}</p>}
+                      {n.body&&<p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{n.body}</p>}
                       <p className="text-[10px] text-slate-400 mt-1">{new Date(n.createdAt).toLocaleDateString('es-PE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</p>
                     </div>
                     <button onClick={()=>delNotif(n.id)} className="shrink-0 p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-red-500 transition-colors"><Trash2 className="h-3.5 w-3.5"/></button>
@@ -643,27 +602,22 @@ export default function KCobranzasDashboard() {
                 </div>
               </div>}
             </div>
-            <Button variant="ghost" size="sm" onClick={()=>setShowReports(true)} className="text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Ver Reportes">
-              <BarChart3 className="h-4 w-4 mr-1"/>Reportes
+            <Button variant="ghost" size="sm" onClick={()=>setShowReports(true)} className="h-8 text-xs text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Ver Reportes">
+              <BarChart3 className="h-3.5 w-3.5 mr-1"/>Reportes
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowDataTools(true)}
-              className="text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950"
-              title="Exportar / Importar"
-            >
-              <Download className="h-4 w-4 mr-1" />
+            <Button variant="ghost" size="sm" onClick={() => setShowDataTools(true)} className="h-8 text-xs text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Exportar / Importar">
+              <Download className="h-3.5 w-3.5 mr-1" />
               Datos
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              className="text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
-            >
-              <LogOut className="h-4 w-4 mr-1" />
-              Salir
+            <span className="w-px h-5 bg-slate-200 dark:bg-slate-700" />
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-[10px] font-bold shadow-sm">
+                {user.name?.charAt(0)?.toUpperCase() || 'U'}
+              </div>
+              <span className="text-xs text-slate-500 dark:text-slate-400">{user.name}</span>
+            </div>
+            <Button variant="ghost" size="icon" onClick={handleLogout} className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950" title="Cerrar sesión">
+              <LogOut className="h-3.5 w-3.5" />
             </Button>
           </div>
         </header>
