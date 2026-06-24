@@ -577,37 +577,39 @@ function calculateLoanDerived(loan: Loan): void {
 /**
  * Get analytics overview data matching the existing /api/analytics?type=overview response
  */
+async function safeQuery<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
+  try { return await fn(); } catch { return fallback; }
+}
+
 export async function getAnalyticsOverview(): Promise<OverviewData | null> {
   const sb = getSupabaseServerClient();
   if (!sb) return null;
 
-  try {
-    const today = new Date();
-    const thirtyDaysAgo = new Date(today.getTime() - 30 * 86400000);
-    const sevenDaysAgo = new Date(today.getTime() - 7 * 86400000);
+  const today = new Date();
+  const thirtyDaysAgo = new Date(today.getTime() - 30 * 86400000);
+  const sevenDaysAgo = new Date(today.getTime() - 7 * 86400000);
+  const todayStr = today.toISOString().split('T')[0];
+  const sevenStr = sevenDaysAgo.toISOString().split('T')[0];
+  const thirtyStr = thirtyDaysAgo.toISOString().split('T')[0];
 
-    // --- Loan counts by status ---
-    const [allLoans, activeLoans, moraLoans, completedLoans, cancelledLoans] = await Promise.all([
-      sb.from('loans').select('id', { count: 'exact', head: true }),
-      sb.from('loans').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-      sb.from('loans').select('id', { count: 'exact', head: true }).eq('status', 'mora'),
-      sb.from('loans').select('id', { count: 'exact', head: true }).eq('status', 'completed'),
-      sb.from('loans').select('id', { count: 'exact', head: true }).eq('status', 'cancelled'),
-    ]);
+  // --- Loan counts by status ---
+  const [allLoans, activeLoans, moraLoans, completedLoans, cancelledLoans] = await Promise.all([
+    safeQuery(() => sb.from('loans').select('id', { count: 'exact', head: true }), { count: 0, data: null, error: null }),
+    safeQuery(() => sb.from('loans').select('id', { count: 'exact', head: true }).eq('status', 'active'), { count: 0, data: null, error: null }),
+    safeQuery(() => sb.from('loans').select('id', { count: 'exact', head: true }).eq('status', 'mora'), { count: 0, data: null, error: null }),
+    safeQuery(() => sb.from('loans').select('id', { count: 'exact', head: true }).eq('status', 'completed'), { count: 0, data: null, error: null }),
+    safeQuery(() => sb.from('loans').select('id', { count: 'exact', head: true }).eq('status', 'cancelled'), { count: 0, data: null, error: null }),
+  ]);
+  const totalLoans = allLoans.count || 0;
+  const activeCount = activeLoans.count || 0;
+  const moraCount = moraLoans.count || 0;
+  const completedCount = completedLoans.count || 0;
+  const cancelledCount = cancelledLoans.count || 0;
 
-    const totalLoans = allLoans.count || 0;
-    const activeCount = activeLoans.count || 0;
-    const moraCount = moraLoans.count || 0;
-    const completedCount = completedLoans.count || 0;
-    const cancelledCount = cancelledLoans.count || 0;
-
-    // --- Financial stats (non-cancelled loans) ---
-    const { data: nonCancelledLoans } = await sb
-      .from('loans')
-      .select('amount, total_amount, amount_paid, interest')
-      .neq('status', 'cancelled');
-
-    const loanFinancials = (nonCancelledLoans || []).reduce(
+  // --- Financial stats (non-cancelled loans) ---
+  const loanFinancials = await safeQuery(async () => {
+    const { data: loans } = await sb.from('loans').select('amount, total_amount, amount_paid, interest').neq('status', 'cancelled');
+    return (loans || []).reduce(
       (acc, l) => ({
         totalLoaned: acc.totalLoaned + (Number(l.amount) || 0),
         totalExpected: acc.totalExpected + (Number(l.total_amount) || 0),
@@ -616,206 +618,142 @@ export async function getAnalyticsOverview(): Promise<OverviewData | null> {
       }),
       { totalLoaned: 0, totalExpected: 0, totalCollected: 0, totalInterest: 0 }
     );
+  }, { totalLoaned: 0, totalExpected: 0, totalCollected: 0, totalInterest: 0 });
 
-    // --- Mora financials ---
-    const { data: moraLoansData } = await sb
-      .from('loans')
-      .select('amount, total_amount, amount_paid')
-      .eq('status', 'mora');
+  // --- Payment stats ---
+  const amountLast30Days = await safeQuery(async () => {
+    const { data: p30 } = await sb.from('payments').select('amount').eq('status', 'completed').gte('payment_date', thirtyStr);
+    return (p30 || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  }, 0);
 
-    const moraOutstanding = (moraLoansData || []).reduce(
-      (sum, l) => sum + (Number(l.total_amount) || 0) - (Number(l.amount_paid) || 0),
-      0
-    );
+  // --- Client stats ---
+  const [totalClients, clientsWithActive, clientsInMora] = await Promise.all([
+    safeQuery(async () => (await sb.from('clients').select('id', { count: 'exact', head: true })).count || 0, 0),
+    safeQuery(async () => {
+      const { data: loanIds } = await sb.from('loans').select('client_id').in('status', ['active']);
+      if (!loanIds || loanIds.length === 0) return 0;
+      const ids = loanIds.map(l => l.client_id);
+      const { data: c } = await sb.from('clients').select('id').in('id', ids);
+      return new Set((c || []).map(x => x.id)).size;
+    }, 0),
+    safeQuery(async () => {
+      const { data: loanIds } = await sb.from('loans').select('client_id').eq('status', 'mora');
+      if (!loanIds || loanIds.length === 0) return 0;
+      const ids = loanIds.map(l => l.client_id);
+      const { data: c } = await sb.from('clients').select('id').in('id', ids);
+      return new Set((c || []).map(x => x.id)).size;
+    }, 0),
+  ]);
 
-    // --- Payment stats ---
-    const [totalPaymentsRes, payments7dRes, payments30dRes] = await Promise.all([
-      sb.from('payments').select('id', { count: 'exact', head: true }).eq('status', 'completed'),
-      sb.from('payments').select('id', { count: 'exact', head: true }).eq('status', 'completed').gte('payment_date', sevenDaysAgo.toISOString().split('T')[0]),
-      sb.from('payments').select('id', { count: 'exact', head: true }).eq('status', 'completed').gte('payment_date', thirtyDaysAgo.toISOString().split('T')[0]),
-    ]);
+  // --- Avg credit score ---
+  const avgCreditScore = await safeQuery(async () => {
+    const { data: all } = await sb.from('clients').select('credit_score');
+    if (!all || all.length === 0) return 0;
+    return all.reduce((s, c) => s + (Number(c.credit_score) || 0), 0) / all.length;
+  }, 0);
 
-    const { data: payments30dAmounts } = await sb
-      .from('payments')
-      .select('amount')
-      .eq('status', 'completed')
-      .gte('payment_date', thirtyDaysAgo.toISOString().split('T')[0]);
-
-    const amountLast30Days = (payments30dAmounts || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
-
-    // --- Client stats ---
-    const [totalClientsRes, clientsWithActiveRes, clientsInMoraRes] = await Promise.all([
-      sb.from('clients').select('id', { count: 'exact', head: true }),
-      sb.from('clients').select('id').in(
-        'id',
-        ((await sb.from('loans').select('client_id').in('status', ['active'])).data || []).map((l) => l.client_id)
-      ),
-      sb.from('clients').select('id').in(
-        'id',
-        ((await sb.from('loans').select('client_id').eq('status', 'mora')).data || []).map((l) => l.client_id)
-      ),
-    ]);
-
-    const totalClients = totalClientsRes.count || 0;
-    const clientsWithActive = new Set((clientsWithActiveRes.data || []).map((c) => c.id)).size;
-    const clientsInMora = new Set((clientsInMoraRes.data || []).map((c) => c.id)).size;
-
-    // --- Avg credit score ---
-    const { data: allClients } = await sb.from('clients').select('credit_score');
-    const avgCreditScore = (allClients || []).length > 0
-      ? allClients!.reduce((s, c) => s + (Number(c.credit_score) || 0), 0) / allClients!.length
-      : 0;
-
-    // --- Late fees ---
-    const [pendingFeesData, paidFeesData, waivedFeesData] = await Promise.all([
+  // --- Late fees (may not exist) ---
+  const lateFees = await safeQuery(async () => {
+    const [p, pd, w] = await Promise.all([
       sb.from('late_fees').select('amount').eq('status', 'pending'),
       sb.from('late_fees').select('amount').eq('status', 'paid'),
       sb.from('late_fees').select('amount').eq('status', 'waived'),
     ]);
+    return {
+      pending: (p.data || []).reduce((s, f) => s + (Number(f.amount) || 0), 0),
+      paid: (pd.data || []).reduce((s, f) => s + (Number(f.amount) || 0), 0),
+      waived: (w.data || []).reduce((s, f) => s + (Number(f.amount) || 0), 0),
+    };
+  }, { pending: 0, paid: 0, waived: 0 });
 
-    const pendingFees = (pendingFeesData.data || []).reduce((s, f) => s + (Number(f.amount) || 0), 0);
-    const paidFees = (paidFeesData.data || []).reduce((s, f) => s + (Number(f.amount) || 0), 0);
-    const waivedFees = (waivedFeesData.data || []).reduce((s, f) => s + (Number(f.amount) || 0), 0);
+  // --- Capital (settings or capital_movements may not exist) ---
+  const currentCapital = await safeQuery(async () => {
+    const { data: sd } = await sb.from('settings').select('capital').limit(1);
+    if (sd && sd.length > 0) return Number(sd[0].capital) || 0;
+    const { data: mv } = await sb.from('capital_movements').select('new_capital').order('created_at', { ascending: false }).limit(1);
+    if (mv && mv.length > 0) return Number(mv[0].new_capital) || 0;
+    return 0;
+  }, 0);
 
-    // --- Capital ---
-    let currentCapital = 0;
-    const { data: settingsData } = await sb.from('settings').select('capital').limit(1);
-    if (settingsData && settingsData.length > 0) {
-      currentCapital = Number(settingsData[0].capital) || 0;
-    } else {
-      // Fallback: get from last capital movement
-      const { data: lastMov } = await sb
-        .from('capital_movements')
-        .select('new_capital')
-        .order('created_at', { ascending: false })
-        .limit(1);
-      currentCapital = lastMov && lastMov.length > 0 ? Number(lastMov[0].new_capital) : 0;
-    }
+  // --- Rates ---
+  const moraRate = activeCount + moraCount > 0 ? (moraCount / (activeCount + moraCount)) * 100 : 0;
+  const dailyExpected = await safeQuery(async () => {
+    const { data: loans } = await sb.from('loans').select('daily_payment').in('status', ['active', 'mora']);
+    return (loans || []).reduce((s, l) => s + (Number(l.daily_payment) || 0), 0);
+  }, 0);
+  const expected30Days = dailyExpected * 30;
+  const collectionEfficiency = expected30Days > 0 ? (amountLast30Days / expected30Days) * 100 : 0;
 
-    // --- Rates ---
-    const moraRate = activeCount + moraCount > 0 ? (moraCount / (activeCount + moraCount)) * 100 : 0;
-
-    // Collection efficiency (last 30 days)
-    const { data: activeOrMoraLoans } = await sb
-      .from('loans')
-      .select('daily_payment')
-      .in('status', ['active', 'mora']);
-
-    const dailyExpected = (activeOrMoraLoans || []).reduce((s, l) => s + (Number(l.daily_payment) || 0), 0);
-    const expected30Days = dailyExpected * 30;
-    const collectionEfficiency = expected30Days > 0 ? (amountLast30Days / expected30Days) * 100 : 0;
-
-    // --- Recent payments (last 7 days) ---
-    const recentPayments: { date: string; amount: number }[] = [];
+  // --- Recent payments (last 7 days) ---
+  const recentPayments: { date: string; amount: number }[] = await safeQuery(async () => {
+    const results: { date: string; amount: number }[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today.getTime() - i * 86400000);
       const ds = d.toISOString().split('T')[0];
       const next = new Date(d.getTime() + 86400000).toISOString().split('T')[0];
-      const { data: dayData } = await sb
-        .from('payments')
-        .select('amount')
-        .eq('status', 'completed')
-        .gte('payment_date', ds)
-        .lt('payment_date', next);
-      const amount = (dayData || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
-      recentPayments.push({ date: ds, amount });
+      const { data: dayData } = await sb.from('payments').select('amount').eq('status', 'completed').gte('payment_date', ds).lt('payment_date', next);
+      results.push({ date: ds, amount: (dayData || []).reduce((s, p) => s + (Number(p.amount) || 0), 0) });
     }
+    return results;
+  }, []);
 
-    // --- Payment methods breakdown ---
-    const { data: allPaymentMethods } = await sb
-      .from('payments')
-      .select('payment_method, amount')
-      .eq('status', 'completed');
-    const methodMap = new Map<string, { amount: number; count: number }>();
-    (allPaymentMethods || []).forEach(p => {
+  // --- Payment methods ---
+  const paymentMethods = await safeQuery(async () => {
+    const { data: all } = await sb.from('payments').select('payment_method, amount').eq('status', 'completed');
+    const map = new Map<string, { amount: number; count: number }>();
+    (all || []).forEach(p => {
       const m = p.payment_method || 'efectivo';
-      const e = methodMap.get(m) || { amount: 0, count: 0 };
+      const e = map.get(m) || { amount: 0, count: 0 };
       e.amount += Number(p.amount) || 0;
       e.count++;
-      methodMap.set(m, e);
+      map.set(m, e);
     });
-    const paymentMethods = Array.from(methodMap.entries()).map(([method, v]) => ({ method, amount: v.amount, count: v.count }));
+    return Array.from(map.entries()).map(([method, v]) => ({ method, amount: v.amount, count: v.count }));
+  }, []);
 
-    // --- Top clients ---
-    const { data: topLoans } = await sb
-      .from('loans')
-      .select('client_id, amount, amount_paid')
-      .neq('status', 'cancelled')
-      .order('amount', { ascending: false })
-      .limit(50);
+  // --- Top clients ---
+  const topClients = await safeQuery(async () => {
+    const { data: topLoans } = await sb.from('loans').select('client_id, amount, amount_paid').neq('status', 'cancelled').order('amount', { ascending: false }).limit(50);
     const clientAgg = new Map<string, { totalLoaned: number; totalPaid: number }>();
     (topLoans || []).forEach(l => {
-      const cId = l.client_id;
-      const e = clientAgg.get(cId) || { totalLoaned: 0, totalPaid: 0 };
+      const e = clientAgg.get(l.client_id) || { totalLoaned: 0, totalPaid: 0 };
       e.totalLoaned += Number(l.amount) || 0;
       e.totalPaid += Number(l.amount_paid) || 0;
-      clientAgg.set(cId, e);
+      clientAgg.set(l.client_id, e);
     });
-    const topClientIds = Array.from(clientAgg.entries())
-      .sort((a, b) => b[1].totalLoaned - a[1].totalLoaned)
-      .slice(0, 5)
-      .map(([id]) => id);
-    const topClientNames: Record<string, string> = {};
-    if (topClientIds.length > 0) {
-      const { data: topClientsData } = await sb.from('clients').select('id, name').in('id', topClientIds);
-      (topClientsData || []).forEach(c => { topClientNames[c.id] = c.name; });
+    const ids = Array.from(clientAgg.entries()).sort((a, b) => b[1].totalLoaned - a[1].totalLoaned).slice(0, 5).map(([id]) => id);
+    const nameMap: Record<string, string> = {};
+    if (ids.length > 0) {
+      const { data: cl } = await sb.from('clients').select('id, name').in('id', ids);
+      (cl || []).forEach(c => { nameMap[c.id] = c.name; });
     }
-    const topClients = Array.from(clientAgg.entries())
-      .sort((a, b) => b[1].totalLoaned - a[1].totalLoaned)
-      .slice(0, 5)
-      .map(([id, v]) => ({
-        name: topClientNames[id] || '—',
-        totalLoaned: v.totalLoaned,
-        totalPaid: v.totalPaid,
-      }));
+    return Array.from(clientAgg.entries()).sort((a, b) => b[1].totalLoaned - a[1].totalLoaned).slice(0, 5).map(([id, v]) => ({
+      name: nameMap[id] || '—',
+      totalLoaned: v.totalLoaned,
+      totalPaid: v.totalPaid,
+    }));
+  }, []);
 
-    return {
-      overview: {
-        totalLoaned: loanFinancials.totalLoaned,
-        totalCollected: loanFinancials.totalCollected,
-        totalInterest: loanFinancials.totalInterest,
-        activeLoans: activeCount,
-        moraLoans: moraCount,
-        completedLoans: completedCount,
-      },
-      loans: {
-        total: totalLoans,
-        active: activeCount,
-        mora: moraCount,
-        completed: completedCount,
-        cancelled: cancelledCount,
-      },
-      financials: loanFinancials,
-      payments: {
-        total: totalPaymentsRes.count || 0,
-        last7Days: payments7dRes.count || 0,
-        last30Days: payments30dRes.count || 0,
-        amountLast30Days,
-      },
-      clients: {
-        total: totalClients,
-        withActiveLoans: clientsWithActive,
-        inMora: clientsInMora,
-        avgCreditScore: Math.round(avgCreditScore * 100) / 100,
-      },
-      lateFees: {
-        pending: pendingFees,
-        paid: paidFees,
-        waived: waivedFees,
-      },
-      capital: { current: currentCapital },
-      rates: {
-        moraRate: Math.round(moraRate * 100) / 100,
-        collectionEfficiency: Math.round(collectionEfficiency * 100) / 100,
-      },
-      recentPayments,
-      paymentMethods,
-      topClients,
-    };
-  } catch (err) {
-    console.error('Error in getAnalyticsOverview:', err);
-    return null;
-  }
+  return {
+    overview: {
+      totalLoaned: loanFinancials.totalLoaned,
+      totalCollected: loanFinancials.totalCollected,
+      totalInterest: loanFinancials.totalInterest,
+      activeLoans: activeCount,
+      moraLoans: moraCount,
+      completedLoans: completedCount,
+    },
+    loans: { total: totalLoans, active: activeCount, mora: moraCount, completed: completedCount, cancelled: cancelledCount },
+    financials: loanFinancials,
+    payments: { total: 0, last7Days: 0, last30Days: 0, amountLast30Days },
+    clients: { total: totalClients, withActiveLoans: clientsWithActive, inMora: clientsInMora, avgCreditScore: Math.round(avgCreditScore * 100) / 100 },
+    lateFees,
+    capital: { current: currentCapital },
+    rates: { moraRate: Math.round(moraRate * 100) / 100, collectionEfficiency: Math.round(collectionEfficiency * 100) / 100 },
+    recentPayments,
+    paymentMethods,
+    topClients,
+  };
 }
 
 /**
