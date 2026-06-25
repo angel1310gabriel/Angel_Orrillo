@@ -38,6 +38,10 @@ import {
   Send,
   Mail,
   Download,
+  Save,
+  MoreHorizontal,
+  Star,
+  Trash,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,6 +59,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import BulkActions, { useBulkSelection } from '@/components/bulk-actions';
+import FilterManager from '@/components/filter-manager';
 import {
   Table,
   TableBody,
@@ -955,6 +960,13 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
           >
             <RefreshCw className="h-4 w-4" />
           </Button>
+          <FilterManager
+            tab="loans"
+            currentFilters={{ status: statusFilter, search: searchQuery }}
+            onFiltersChange={(f) => { if (f.status) setStatusFilter(f.status); if (f.search !== undefined) setSearchQuery(f.search); setPage(1); }}
+            showSaveButton
+            showClearButton
+          />
           <Button
             className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all"
             onClick={() => {
