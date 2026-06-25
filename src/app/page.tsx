@@ -391,18 +391,19 @@ export default function KCobranzasDashboard() {
                 {roleBadge.label}
               </Badge>
             </div>
-            <div className="flex items-center gap-0.5">
-              <Button variant="ghost" size="icon" onClick={() => { setProfileName(user.name || ''); setProfileEmail(user.email || ''); setShowProfile(true); }} className="h-7 w-7 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50" title="Perfil">
-                <User className="h-3.5 w-3.5" />
+            <span className="w-px h-8 bg-slate-200 dark:bg-slate-700 shrink-0" />
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" onClick={() => { setProfileName(user.name || ''); setProfileEmail(user.email || ''); setShowProfile(true); }} className="h-8 w-8 rounded-xl text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:shadow-sm transition-all" title="Perfil">
+                <User className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => setShowChangePassword(true)} className="h-7 w-7 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50" title="Cambiar contraseña">
-                <KeyRound className="h-3.5 w-3.5" />
+              <Button variant="ghost" size="icon" onClick={() => setShowChangePassword(true)} className="h-8 w-8 rounded-xl text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:shadow-sm transition-all" title="Cambiar contraseña">
+                <KeyRound className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => { const isDark = document.documentElement.classList.toggle('dark'); localStorage.setItem('kc-dark-mode', isDark ? 'dark' : 'light'); }} className="h-7 w-7 text-slate-400 hover:text-amber-500 hover:bg-amber-50" title="Modo oscuro/claro">
-                {typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+              <Button variant="ghost" size="icon" onClick={() => { const isDark = document.documentElement.classList.toggle('dark'); localStorage.setItem('kc-dark-mode', isDark ? 'dark' : 'light'); }} className="h-8 w-8 rounded-xl text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/50 hover:shadow-sm transition-all" title="Modo oscuro/claro">
+                {typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
-              <Button variant="ghost" size="icon" onClick={handleLogout} className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-red-50" title="Cerrar sesión">
-                <LogOut className="h-3.5 w-3.5" />
+              <Button variant="ghost" size="icon" onClick={handleLogout} className="h-8 w-8 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/50 hover:shadow-sm transition-all" title="Cerrar sesión">
+                <LogOut className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -539,19 +540,24 @@ export default function KCobranzasDashboard() {
                 );
               })}
             </nav>
-            <div className="px-3 py-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
-              <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); setShowReports(true); }} className="w-full justify-start text-slate-600 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950">
-                <BarChart3 className="h-4 w-4 mr-2" /> Reportes
-              </Button>
-              <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); setShowDataTools(true); }} className="w-full justify-start text-slate-600 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950">
-                <Download className="h-4 w-4 mr-2" /> Exportar / Importar
-              </Button>
-              <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); setShowChangePassword(true); }} className="w-full justify-start text-slate-600 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950">
-                <KeyRound className="h-4 w-4 mr-2" /> Cambiar Contraseña
-              </Button>
-              <Button variant="ghost" onClick={handleLogout} className="w-full justify-start text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950">
-                <LogOut className="h-4 w-4 mr-2" /> Cerrar Sesión
-              </Button>
+            <div className="px-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <p className="px-3 mb-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Acciones</p>
+              <div className="space-y-0.5">
+                <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); setShowReports(true); }} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
+                  <BarChart3 className="h-4 w-4 mr-2.5" /> Reportes
+                </Button>
+                <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); setShowDataTools(true); }} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
+                  <Download className="h-4 w-4 mr-2.5" /> Exportar / Importar
+                </Button>
+                <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); setShowChangePassword(true); }} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
+                  <KeyRound className="h-4 w-4 mr-2.5" /> Cambiar Contraseña
+                </Button>
+              </div>
+              <div className="mt-1 pt-2 border-t border-slate-100 dark:border-slate-800/50">
+                <Button variant="ghost" onClick={handleLogout} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50">
+                  <LogOut className="h-4 w-4 mr-2.5" /> Cerrar Sesión
+                </Button>
+              </div>
             </div>
           </div>
         </div>

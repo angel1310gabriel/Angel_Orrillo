@@ -45,10 +45,25 @@ async function getOverview() {
           new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), 5000)),
         ]);
         if (data === null) throw new Error('Supabase timeout');
-        // Return Supabase data even if it's empty (0 counts are valid)
         // Only fall through to Prisma if Supabase returns an error or null
         if (data) {
-          return NextResponse.json(data);
+          // Add dashboard-specific fields (overview wrapper, recentPayments, etc.)
+          // Derive overview from the detailed Supabase data
+          const overview = {
+            totalLoaned: data.financials.totalLoaned,
+            totalCollected: data.financials.totalCollected,
+            totalInterest: data.financials.totalInterest,
+            activeLoans: data.loans.active,
+            moraLoans: data.loans.mora,
+            completedLoans: data.loans.completed,
+          };
+          return NextResponse.json({
+            ...data,
+            overview,
+            recentPayments: [],
+            paymentMethods: [],
+            topClients: [],
+          });
         }
       } catch (error) {
         console.error('Supabase getAnalyticsOverview failed, falling back to Prisma:', error);
@@ -161,7 +176,78 @@ async function getOverview() {
     _avg: { creditScore: true },
   });
 
+  // --- DashboardTab expects: overview, recentPayments, paymentMethods, topClients ---
+
+  // Recent payments (last 7 days, grouped by date)
+  const rawPayments7d = await db.payment.findMany({
+    where: {
+      status: 'completed',
+      paymentDate: { gte: sevenDaysAgo },
+    },
+    select: { amount: true, paymentDate: true },
+    orderBy: { paymentDate: 'asc' },
+  });
+
+  const paymentsByDate: Record<string, number> = {};
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today.getTime() - (6 - i) * 86400000);
+    const key = d.toISOString().split('T')[0];
+    paymentsByDate[key] = 0;
+  }
+  rawPayments7d.forEach((p) => {
+    const key = p.paymentDate instanceof Date
+      ? p.paymentDate.toISOString().split('T')[0]
+      : new Date(p.paymentDate).toISOString().split('T')[0];
+    if (paymentsByDate[key] !== undefined) {
+      paymentsByDate[key] += p.amount;
+    }
+  });
+  const recentPayments = Object.entries(paymentsByDate).map(([date, amount]) => ({ date, amount }));
+
+  // Payment methods distribution
+  const methodAgg = await db.payment.groupBy({
+    by: ['paymentMethod'],
+    _sum: { amount: true },
+    _count: { paymentMethod: true },
+    where: { status: 'completed' },
+  });
+  const paymentMethods = methodAgg.map((m) => ({
+    method: m.paymentMethod,
+    amount: m._sum.amount || 0,
+    count: m._count.paymentMethod,
+  }));
+
+  // Top clients by total loaned
+  const topClientsRaw = await db.client.findMany({
+    select: {
+      name: true,
+      loans: {
+        select: { amount: true, amountPaid: true },
+      },
+    },
+    orderBy: { loans: { _count: 'desc' } },
+    take: 5,
+  });
+  const topClients = topClientsRaw.map((c) => ({
+    name: c.name,
+    totalLoaned: c.loans.reduce((s, l) => s + l.amount, 0),
+    totalPaid: c.loans.reduce((s, l) => s + l.amountPaid, 0),
+  }));
+  topClients.sort((a, b) => b.totalLoaned - a.totalLoaned);
+
   return NextResponse.json({
+    overview: {
+      totalLoaned: loanFinancials._sum.amount || 0,
+      totalCollected: loanFinancials._sum.amountPaid || 0,
+      totalInterest: loanFinancials._sum.interest || 0,
+      activeLoans,
+      moraLoans,
+      completedLoans,
+    },
+    recentPayments,
+    paymentMethods,
+    topClients,
+    // Keep original detailed keys for backward compatibility
     loans: {
       total: totalLoans,
       active: activeLoans,
