@@ -25,6 +25,7 @@ export interface AuthState {
   isLoading: boolean;
   error: string | null;
   lastActivity: number;
+  _hasHydrated: boolean;
 
   // Actions
   login: (username: string, password: string) => Promise<boolean>;
@@ -121,6 +122,7 @@ export const useAuth = create<AuthState>()(
       isLoading: false,
       error: null,
       lastActivity: initialStored.lastActivity,
+      _hasHydrated: typeof window === 'undefined' ? true : false,
 
       login: async (username: string, password: string) => {
         set({ isLoading: true, error: null });

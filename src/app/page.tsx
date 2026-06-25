@@ -126,25 +126,12 @@ export default function KCobranzasDashboard() {
     return 'dashboard';
   });
   const [refreshKey, setRefreshKey] = useState(0);
+  const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<{id:string;title:string;body:string|null;type:string|null;isRead:boolean;createdAt:string;referenceType:string|null;referenceId:string|null}[]>([]);
   const notifRef = useRef<HTMLDivElement>(null);
   const unreadCount = notifications.filter(n=>!n.isRead).length;
-  const [isHydrated, setIsHydrated] = useState(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('kc-cobranzas-auth-v3');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed?.state?.isAuthenticated && parsed?.state?.user) {
-            return true;
-          }
-        }
-      } catch {}
-    }
-    return false;
-  });
   const hasCheckedSession = useRef(false);
 
   // Location tracking state + refs — must be before early returns to satisfy React's rules of hooks
@@ -153,11 +140,11 @@ export default function KCobranzasDashboard() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSentRef = useRef<{latitude: number; longitude: number; accuracy: number | null; speed: number | null} | null>(null);
 
-  // Background role refresh on first load
+  // Track mounted state (browser-side) and refresh role on first load
   useEffect(() => {
+    setMounted(true);
     if (!hasCheckedSession.current) {
       hasCheckedSession.current = true;
-      setIsHydrated(true);
       refreshRole();
     }
   }, [refreshRole]);
@@ -317,8 +304,8 @@ export default function KCobranzasDashboard() {
 
   const getActiveLabel = () => navItems.find(n => n.value === activeTab)?.label || 'Dashboard';
 
-  // Show loading state during hydration
-  if (!isHydrated) {
+  // Show loading until component mounts in browser (SSR guard)
+  if (!mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="flex items-center gap-3">
