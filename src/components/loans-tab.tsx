@@ -36,6 +36,8 @@ import {
   ArrowRightLeft,
   Link2,
   Send,
+  Mail,
+  Download,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,6 +54,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import BulkActions, { useBulkSelection } from '@/components/bulk-actions';
 import {
   Table,
   TableBody,
@@ -271,6 +274,19 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [capital, setCapital] = useState(0);
+
+  // Bulk selection
+  const {
+    selectedIds,
+    setSelectedIds,
+    toggle,
+    toggleAll,
+    clear,
+    isSelected,
+    isAllSelected,
+    isIndeterminate,
+    count,
+  } = useBulkSelection(loans);
 
   // Create loan dialog state
   const [createOpen, setCreateOpen] = useState(false);
@@ -1006,16 +1022,34 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
           {loans.map((loan) => {
             const statusBadge = getStatusBadge(loan.status);
             const progressColor = getProgressColor(loan.progressPercent, loan.status);
+            const checked = isSelected(loan.id);
             return (
               <Card
                 key={loan.id}
-                className={`border-0 shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer ${
+                className={`border-0 shadow-md hover:shadow-lg transition-all duration-200 ${checked ? 'ring-2 ring-emerald-500 bg-emerald-50/30' : 'cursor-pointer'} ${
                   loan.status === 'mora' ? 'border-l-4 border-l-red-500' : ''
                 }`}
-                onClick={() => { setDetailLoan(loan); setDetailOpen(true); }}
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest('label')) return;
+                  setDetailLoan(loan); setDetailOpen(true);
+                }}
               >
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    {/* Selection checkbox */}
+                    <label className="inline-flex items-center cursor-pointer shrink-0 ml-1">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => { e.stopPropagation(); toggle(loan.id); }}
+                        className="sr-only"
+                      />
+                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+                        checked ? 'bg-emerald-600 border-emerald-600' : 'border-slate-300 dark:border-slate-600'
+                      }`}>
+                        {checked && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                    </label>
                     {/* Client Info */}
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
@@ -1183,6 +1217,64 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
+          )}
+
+          {/* Bulk Actions */}
+          {count > 0 && (
+            <BulkActions
+              selectedIds={selectedIds}
+              onSelectionChange={setSelectedIds}
+              actions={[
+                {
+                  label: 'Recordar pago',
+                  icon: <Bell className="h-4 w-4" />,
+                  action: async (ids) => {
+                    await fetch('/api/bulk/loans', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'remind', loanIds: ids }),
+                    });
+                    toast({ title: 'Recordatorios enviados', description: `${ids.length} recordatorios` });
+                  },
+                },
+                {
+                  label: 'Enviar link de pago',
+                  icon: <Mail className="h-4 w-4" />,
+                  action: async (ids) => {
+                    await fetch('/api/bulk/loans', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'send_link', loanIds: ids }),
+                    });
+                    toast({ title: 'Links generados', description: `${ids.length} links de pago` });
+                  },
+                },
+                {
+                  label: 'Exportar seleccionados',
+                  icon: <Download className="h-4 w-4" />,
+                  action: async (ids) => {
+                    const url = `/api/export?type=loans&ids=${ids.join(',')}`;
+                    window.open(url, '_blank');
+                  },
+                  variant: 'outline',
+                },
+                {
+                  label: 'Cancelar préstamos',
+                  icon: <AlertTriangle className="h-4 w-4" />,
+                  action: async (ids) => {
+                    if (!confirm(`¿Cancelar ${ids.length} préstamos?`)) return;
+                    await fetch('/api/bulk/loans', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'cancel', loanIds: ids }),
+                    });
+                    toast({ title: 'Cancelados', description: `${ids.length} préstamos cancelados` });
+                  },
+                  variant: 'destructive',
+                },
+              ]}
+              allIds={loans.map(l => l.id)}
+            />
           )}
         </div>
       )}
