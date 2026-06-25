@@ -18,6 +18,7 @@ import ReportsDialog from '@/components/reports-dialog';
 import CompanySelector from '@/components/company-selector';
 import { useSupabaseRealtime } from '@/hooks/use-supabase-realtime';
 import { useAuth, ROLE_PERMISSIONS } from '@/hooks/use-auth';
+import { usePush } from '@/hooks/use-push';
 
 import ChangePassword from '@/components/change-password';
 import { InactivityTracker } from '@/components/inactivity-tracker';
@@ -334,6 +335,9 @@ export default function KCobranzasDashboard() {
   }
 
   const roleBadge = ROLE_BADGE[user.role] || ROLE_BADGE.collector;
+
+  // Initialize push notifications
+  usePush();
 
   return (
     <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950">
