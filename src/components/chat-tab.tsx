@@ -35,7 +35,7 @@ const ROLE_LABELS: Record<string, string> = {
 const ROLE_COLORS: Record<string, string> = {
   admin: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   supervisor: 'bg-amber-100 text-amber-700 border-amber-200',
-  collector: 'bg-slate-100 text-slate-700 border-slate-200',
+  collector: 'bg-background/70 text-foreground/80 border-input',
 };
 
 export default function ChatTab() {
@@ -215,7 +215,7 @@ export default function ChatTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="text-slate-500">Cargando mensajes...</div>
+        <div className="text-muted-foreground">Cargando mensajes...</div>
       </div>
     );
   }
@@ -225,11 +225,11 @@ export default function ChatTab() {
   const roleColor = ROLE_COLORS[user.role] || ROLE_COLORS.collector;
 
   return (
-    <div className="flex h-[calc(100vh-12rem)] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+    <div className="flex h-[calc(100vh-12rem)] bg-white dark:bg-[#05060b]/80 rounded-2xl border border-input dark:border-emerald-500/10 overflow-hidden shadow-sm">
       {/* Contacts Panel */}
-      <div className={`w-full md:w-80 lg:w-96 border-r border-slate-200 dark:border-slate-800 flex flex-col ${selectedContact ? 'hidden md:flex' : 'flex'}`}>
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800 space-y-2">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+      <div className={`w-full md:w-80 lg:w-96 border-r border-input dark:border-emerald-500/10 flex flex-col ${selectedContact ? 'hidden md:flex' : 'flex'}`}>
+        <div className="p-4 border-b border-input/50 dark:border-emerald-500/10 space-y-2">
+          <h3 className="text-sm font-semibold text-foreground dark:text-foreground flex items-center gap-2">
             <MessageCircle className="h-4 w-4 text-emerald-500" />
             Mensajes
           </h3>
@@ -238,15 +238,15 @@ export default function ChatTab() {
             {showStaffList ? 'Cerrar contactos' : 'Nuevo chat'}
           </Button>
           {showStaffList && (
-            <ScrollArea className="max-h-48 border border-slate-200 dark:border-slate-700 rounded-lg">
+            <ScrollArea className="max-h-48 border border-input dark:border-emerald-500/5 rounded-lg">
               {allStaff.length === 0 ? (
-                <p className="text-xs text-slate-400 p-3">No hay personal disponible</p>
+                <p className="text-xs text-muted-foreground p-3">No hay personal disponible</p>
               ) : (
                 allStaff.map((staff) => (
                   <button
                     key={staff.id}
                     onClick={() => { setSelectedContact(staff); setShowStaffList(false); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors border-b border-slate-50 dark:border-slate-800/50 last:border-0"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors border-b border-slate-50 dark:border-emerald-500/10/50 last:border-0"
                   >
                     <Avatar className="h-6 w-6 flex-shrink-0">
                       <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-[10px] font-medium">
@@ -268,16 +268,16 @@ export default function ChatTab() {
         <ScrollArea className="flex-1">
           {contacts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-              <MessageCircle className="h-10 w-10 text-slate-300 dark:text-slate-600 mb-3" />
-              <p className="text-sm text-slate-500 dark:text-slate-400">No hay conversaciones</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Seleccione un contacto del panel para iniciar</p>
+              <MessageCircle className="h-10 w-10 text-slate-300 dark:text-foreground/70 mb-3" />
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">No hay conversaciones</p>
+              <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">Seleccione un contacto del panel para iniciar</p>
             </div>
           ) : (
             contacts.map((contact) => (
               <button
                 key={contact.id}
                 onClick={() => setSelectedContact(contact)}
-                className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 border-b border-slate-50 dark:border-slate-800/50 ${selectedContact?.id === contact.id ? 'bg-emerald-50 dark:bg-emerald-900/20' : ''}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-background/50 dark:hover:bg-white/10/50 border-b border-slate-50 dark:border-emerald-500/10/50 ${selectedContact?.id === contact.id ? 'bg-emerald-50 dark:bg-emerald-900/20' : ''}`}
               >
                 <Avatar className="h-10 w-10 flex-shrink-0">
                   <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-sm font-medium">
@@ -286,11 +286,11 @@ export default function ChatTab() {
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                    <span className="text-sm font-medium text-foreground dark:text-foreground truncate">
                       {contact.name}
                     </span>
                     {contact.lastMessage && (
-                      <span className="text-[10px] text-slate-400 flex-shrink-0">
+                      <span className="text-[10px] text-muted-foreground flex-shrink-0">
                         {formatTime(contact.lastMessage.createdAt)}
                       </span>
                     )}
@@ -304,7 +304,7 @@ export default function ChatTab() {
                     )}
                   </div>
                   {contact.lastMessage && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-1">
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground truncate mt-1">
                       {contact.lastMessage.senderId === user.id && 'Tú: '}
                       {contact.lastMessage.message}
                     </p>
@@ -326,7 +326,7 @@ export default function ChatTab() {
         {selectedContact ? (
           <>
             {/* Chat Header */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-input dark:border-emerald-500/10 bg-background/50/50 dark:bg-[#05060b]/70">
               <Button
                 variant="ghost"
                 size="icon"
@@ -341,7 +341,7 @@ export default function ChatTab() {
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                <p className="text-sm font-medium text-foreground dark:text-foreground truncate">
                   {selectedContact.name}
                 </p>
                 <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${ROLE_COLORS[selectedContact.role] || ROLE_COLORS.collector}`}>
@@ -351,7 +351,7 @@ export default function ChatTab() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
                 onClick={handleDeleteChat}
                 title="Eliminar conversación"
               >
@@ -362,7 +362,7 @@ export default function ChatTab() {
             {/* Messages */}
             <ScrollArea className="flex-1 p-4">
               {messages.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-sm text-slate-400">
+                <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
                   No hay mensajes aún. Envíe un mensaje para iniciar la conversación.
                 </div>
               ) : (
@@ -375,12 +375,12 @@ export default function ChatTab() {
                           className={`max-w-[75%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${
                             isSent
                               ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-br-md'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-bl-md'
+                              : 'bg-background/70 dark:bg-[#05060b]/70 text-foreground dark:text-foreground rounded-bl-md'
                           }`}
                         >
                           <p>{msg.message}</p>
                           <div className={`flex items-center gap-1 mt-1 ${isSent ? 'justify-end' : 'justify-start'}`}>
-                            <span className={`text-[10px] ${isSent ? 'text-emerald-100' : 'text-slate-400'}`}>
+                            <span className={`text-[10px] ${isSent ? 'text-emerald-100' : 'text-muted-foreground'}`}>
                               {formatTime(msg.createdAt)}
                             </span>
                             {isSent && (
@@ -399,14 +399,14 @@ export default function ChatTab() {
             </ScrollArea>
 
             {/* Input */}
-            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+            <div className="p-4 border-t border-input dark:border-emerald-500/10 bg-background/50/50 dark:bg-[#05060b]/70">
               <div className="flex items-center gap-2">
                 <Input
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Escriba un mensaje..."
-                  className="flex-1 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus-visible:ring-emerald-500"
+                  className="flex-1 bg-white dark:bg-[#05060b]/80 border-input dark:border-emerald-500/5 focus-visible:ring-emerald-500"
                   disabled={sending}
                 />
                 <Button
@@ -423,9 +423,9 @@ export default function ChatTab() {
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <MessageCircle className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
-              <p className="text-sm text-slate-500 dark:text-slate-400">Seleccione un contacto para iniciar un chat</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+              <MessageCircle className="h-12 w-12 text-slate-300 dark:text-foreground/70 mx-auto mb-4" />
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">Seleccione un contacto para iniciar un chat</p>
+              <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
                 Los mensajes se sincronizan con la app móvil
               </p>
             </div>

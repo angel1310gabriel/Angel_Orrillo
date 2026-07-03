@@ -74,8 +74,8 @@ export default function DailySettlementTab() {
           <Wallet className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Cierre de Caja</h2>
-          <p className="text-sm text-slate-500">
+          <h2 className="text-xl font-bold text-foreground dark:text-foreground">Cierre de Caja</h2>
+          <p className="text-sm text-muted-foreground">
             {isAdmin ? 'Administración de cierres de cobradores' : 'Registra tu cierre diario'}
           </p>
         </div>
@@ -254,23 +254,23 @@ function CollectorView({ user, toast }: { user: { id: string; name: string }; to
 
           {/* Expected */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
+            <div className="p-4 rounded-xl bg-background/50 dark:bg-[#05060b]/80 border border-input dark:border-emerald-500/10">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                 <DollarSign className="h-4 w-4" />
                 Esperado
               </div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(expectedAmount)}</p>
-              <p className="text-xs text-slate-400">{expectedCount} cobro{expectedCount !== 1 ? 's' : ''} pendiente{expectedCount !== 1 ? 's' : ''}</p>
+              <p className="text-2xl font-bold text-foreground dark:text-foreground">{formatCurrency(expectedAmount)}</p>
+              <p className="text-xs text-muted-foreground">{expectedCount} cobro{expectedCount !== 1 ? 's' : ''} pendiente{expectedCount !== 1 ? 's' : ''}</p>
             </div>
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
+            <div className="p-4 rounded-xl bg-background/50 dark:bg-[#05060b]/80 border border-input dark:border-emerald-500/10">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                 <Wallet className="h-4 w-4" />
                 Recaudado
               </div>
               <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                 {collectedAmount ? formatCurrency(parseFloat(collectedAmount)) : formatCurrency(0)}
               </p>
-              <p className="text-xs text-slate-400">{collectedCount || '0'} cobro{parseInt(collectedCount || '0') !== 1 ? 's' : ''}</p>
+              <p className="text-xs text-muted-foreground">{collectedCount || '0'} cobro{parseInt(collectedCount || '0') !== 1 ? 's' : ''}</p>
             </div>
           </div>
 
@@ -287,7 +287,7 @@ function CollectorView({ user, toast }: { user: { id: string; name: string }; to
 
           {/* Payment Method Breakdown */}
           <div>
-            <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Desglose por método de pago</h4>
+            <h4 className="text-sm font-medium text-foreground/80 dark:text-foreground/80 mb-3">Desglose por método de pago</h4>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {Object.entries(PAYMENT_METHOD_CONFIG).map(([key, config]) => {
                 const data = paymentBreakdown[key];
@@ -367,7 +367,7 @@ function CollectorView({ user, toast }: { user: { id: string; name: string }; to
               </TableHeader>
               <TableBody>
                 {recentSettlements.map((s) => (
-                  <TableRow key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                  <TableRow key={s.id} className="hover:bg-background/50 dark:hover:bg-white/10/30 transition-colors">
                     <TableCell className="text-sm px-3 py-2">{new Date(s.date).toLocaleDateString('es-PE')}</TableCell>
                     <TableCell className="px-3 py-2 text-right">{formatCurrency(s.expectedAmount)}</TableCell>
                     <TableCell className="px-3 py-2 text-right">{formatCurrency(s.collectedAmount)}</TableCell>
@@ -473,19 +473,19 @@ function AdminView({ user, toast }: { user: { id: string; name: string }; toast:
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-slate-500">Total Esperado</p>
-            <p className="text-lg font-bold text-slate-900 dark:text-slate-100">{formatCurrency(totalExpected)}</p>
+            <p className="text-xs text-muted-foreground">Total Esperado</p>
+            <p className="text-lg font-bold text-foreground dark:text-foreground">{formatCurrency(totalExpected)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-slate-500">Total Recaudado</p>
+            <p className="text-xs text-muted-foreground">Total Recaudado</p>
             <p className="text-lg font-bold text-emerald-600">{formatCurrency(totalCollected)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-slate-500">Diferencia</p>
+            <p className="text-xs text-muted-foreground">Diferencia</p>
             <p className={`text-lg font-bold ${totalDiff >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
               {totalDiff >= 0 ? '+' : ''}{formatCurrency(totalDiff)}
             </p>
@@ -493,7 +493,7 @@ function AdminView({ user, toast }: { user: { id: string; name: string }; toast:
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-slate-500">Pendientes</p>
+            <p className="text-xs text-muted-foreground">Pendientes</p>
             <p className="text-lg font-bold text-amber-600">{pendingCount}</p>
           </CardContent>
         </Card>
@@ -547,7 +547,7 @@ function AdminView({ user, toast }: { user: { id: string; name: string }; toast:
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500" />
             </div>
           ) : settlements.length === 0 ? (
-            <div className="text-center py-20 text-slate-400">
+            <div className="text-center py-20 text-muted-foreground">
               <Wallet className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>No hay cierres de caja registrados</p>
             </div>
@@ -566,7 +566,7 @@ function AdminView({ user, toast }: { user: { id: string; name: string }; toast:
               </TableHeader>
               <TableBody>
                 {settlements.map((s) => (
-                  <TableRow key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                  <TableRow key={s.id} className="hover:bg-background/50 dark:hover:bg-white/10/30 transition-colors">
                     <TableCell className="font-medium px-3 py-2">{s.collectorName || '—'}</TableCell>
                     <TableCell className="px-3 py-2">{new Date(s.date).toLocaleDateString('es-PE')}</TableCell>
                     <TableCell className="px-3 py-2 text-right">{formatCurrency(s.expectedAmount)}</TableCell>

@@ -11,16 +11,17 @@ import CollectorsTab from '@/components/collectors-tab';
 import DailySettlementTab from '@/components/daily-settlement-tab';
 import CajaTab from '@/components/caja-tab';
 import ChatTab from '@/components/chat-tab';
+import DashboardTab from '@/components/dashboard-tab';
 import LoginScreen from '@/components/login-screen';
 import { ErrorBoundary } from '@/components/error-boundary';
 import DataToolsDialog from '@/components/data-tools';
 import ReportsDialog from '@/components/reports-dialog';
-import CompanySelector from '@/components/company-selector';
 import { useSupabaseRealtime } from '@/hooks/use-supabase-realtime';
 import { useAuth, ROLE_PERMISSIONS } from '@/hooks/use-auth';
 import { usePush } from '@/hooks/use-push';
 
 import ChangePassword from '@/components/change-password';
+import StarfieldBg from '@/components/starfield-bg';
 import { InactivityTracker } from '@/components/inactivity-tracker';
 import {
   ShieldCheck,
@@ -49,29 +50,29 @@ import {
   CheckCheck,
   Trash2,
   ExternalLink,
-  Sun,
-  Moon,
+  AlertTriangle,
 } from 'lucide-react';
+import { Camera, Target, MessageSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
 
 // Dynamic imports for heavy components (recharts) — lazy loaded, no SSR
-const DashboardTab = dynamic(() => import('@/components/dashboard-tab'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center py-20">
-      <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-      <span className="ml-3 text-slate-500">Cargando dashboard...</span>
-    </div>
-  ),
-});
-
 const AuditTab = dynamic(() => import('@/components/audit-tab'), {
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center py-20">
       <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-      <span className="ml-3 text-slate-500">Cargando auditoría...</span>
+      <span className="ml-3 text-muted-foreground">Cargando auditoría...</span>
     </div>
   ),
 });
@@ -81,7 +82,7 @@ const LateFeeTab = dynamic(() => import('@/components/late-fee-tab'), {
   loading: () => (
     <div className="flex items-center justify-center py-20">
       <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-      <span className="ml-3 text-slate-500">Cargando sistema de mora...</span>
+      <span className="ml-3 text-muted-foreground">Cargando sistema de mora...</span>
     </div>
   ),
 });
@@ -91,7 +92,7 @@ const MapTab = dynamic(() => import('@/components/map-tab'), {
   loading: () => (
     <div className="flex items-center justify-center py-20">
       <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-      <span className="ml-3 text-slate-500">Cargando mapa...</span>
+      <span className="ml-3 text-muted-foreground">Cargando mapa...</span>
     </div>
   ),
 });
@@ -103,7 +104,7 @@ const MapTab = dynamic(() => import('@/components/map-tab'), {
 const ROLE_BADGE: Record<string, { label: string; color: string }> = {
   admin: { label: 'Administrador', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   supervisor: { label: 'Supervisor', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-  collector: { label: 'Cobrador', color: 'bg-slate-50 text-slate-700 border-slate-200' },
+  collector: { label: 'Cobrador', color: 'bg-background/50 text-foreground/80 border-input' },
 };
 
 // ============================================================
@@ -148,6 +149,9 @@ export default function KCobranzasDashboard() {
       refreshRole();
     }
   }, [refreshRole]);
+
+  // Initialize push notifications (must be before early returns for hook consistency)
+  usePush();
 
   // Location tracking effect — must be before early returns
   useEffect(() => {
@@ -264,9 +268,16 @@ export default function KCobranzasDashboard() {
     setMobileMenuOpen(false);
   };
 
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
   const handleLogout = () => {
-    logout();
+    setShowLogoutConfirm(true);
     setMobileMenuOpen(false);
+  };
+
+  const confirmLogout = () => {
+    setShowLogoutConfirm(false);
+    logout();
   };
 
   // All navigation items
@@ -307,10 +318,10 @@ export default function KCobranzasDashboard() {
   // Show loading until component mounts in browser (SSR guard)
   if (!mounted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center bg-background/50">
         <div className="flex items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-          <span className="text-slate-500">Cargando...</span>
+          <span className="text-muted-foreground">Cargando...</span>
         </div>
       </div>
     );
@@ -323,30 +334,30 @@ export default function KCobranzasDashboard() {
 
   const roleBadge = ROLE_BADGE[user.role] || ROLE_BADGE.collector;
 
-  // Initialize push notifications
-  usePush();
-
   return (
-    <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950">
+    <ErrorBoundary>
+    <div className="min-h-screen flex relative bg-[#05060b] overflow-hidden">
+      <StarfieldBg />
+      {/* Ambient glows */}
+      <div className="fixed top-[-200px] left-[-200px] w-[600px] h-[600px] bg-emerald-500/4 rounded-full blur-[120px] pointer-events-none z-0" />
+      <div className="fixed bottom-[-200px] right-[-200px] w-[600px] h-[600px] bg-emerald-500/3 rounded-full blur-[120px] pointer-events-none z-0" />
       <InactivityTracker />
-      {/* SIDEBAR - Desktop */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 fixed inset-y-0 left-0 z-30">
-        {/* Logo - gradient header */}
-        <div className="bg-gradient-to-br from-emerald-600 to-teal-600 px-5 py-4">
+{/* SIDEBAR - Desktop */}
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 backdrop-blur-2xl border-r border-emerald-500/10 shadow-[2px_0_20px_rgba(16,185,129,0.06)] fixed inset-y-0 left-0 z-30 bg-transparent">
+        {/* Logo - premium header */}
+        <div className="h-14 px-5 flex items-center border-b border-emerald-500/20 shadow-[inset_0_-1px_20px_rgba(16,185,129,0.08)] bg-transparent">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 flex items-center justify-center shadow-lg">
-              <ShieldCheck className="w-5 h-5 text-white" />
-            </div>
+            <img src="/logo.png" alt="KC Cobranzas" className="w-10 h-10 rounded-lg shadow-lg shadow-black/30" />
             <div>
               <h1 className="text-base font-bold text-white tracking-tight">KC Cobranzas</h1>
-              <p className="text-[10px] text-emerald-100/80">Panel de Administración</p>
+              <p className="text-[10px] text-muted-foreground font-medium">Panel de Administración</p>
             </div>
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-4 px-3 overflow-y-auto">
-          <p className="px-3 mb-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Menú Principal</p>
+        <nav className="flex-1 py-4 px-3 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent hover:scrollbar-thumb-slate-600 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-track]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-slate-600 bg-transparent">
+          <p className="px-3 mb-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Menú Principal</p>
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.value;
@@ -354,45 +365,40 @@ export default function KCobranzasDashboard() {
               <button
                 key={item.value}
                 onClick={() => setActiveTab(item.value)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 mb-0.5 ${isActive
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
-                  }`}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 mb-0.5 group ${isActive
+                  ? 'bg-emerald-500/20 text-emerald-100 shadow-lg shadow-emerald-500/10'
+                  : 'text-muted-foreground hover:bg-white/5 hover:text-white'
+                }`}
               >
-                <Icon className={`h-4.5 w-4.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                <Icon className={`h-4.5 w-4.5 ${isActive ? 'text-emerald-200' : 'text-muted-foreground group-hover:scale-110'} transition-transform duration-300`} />
                 <span>{item.label}</span>
               </button>
             );
           })}
         </nav>
 
-        {/* Sidebar Footer */}
-        <div className="px-3 py-3 border-t border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-3 px-2 py-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold shadow-sm shrink-0">
-              {user.name?.charAt(0)?.toUpperCase() || 'U'}
+        {/* Sidebar Footer - User Section */}
+        <div className="border-t border-emerald-500/20 shadow-[inset_0_1px_20px_rgba(16,185,129,0.08)] px-4 pt-4 pb-3">
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <div className="relative shrink-0">
+              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full blur-lg animate-pulse" />
+              <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 via-teal-400 to-emerald-500 flex items-center justify-center text-white text-base font-bold shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-500/40">
+                {user.name?.charAt(0)?.toUpperCase() || 'U'}
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-slate-900 dark:text-slate-100 truncate">{user.name}</p>
-              <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${roleBadge.color}`}>
+            <div className="text-left">
+              <p className="text-sm font-bold text-white truncate max-w-[150px]">{user.name}</p>
+              <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full mt-0.5 ${roleBadge.color}`}>
                 {roleBadge.label}
-              </Badge>
+              </span>
             </div>
-            <span className="w-px h-8 bg-slate-200 dark:bg-slate-700 shrink-0" />
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" onClick={() => { setProfileName(user.name || ''); setProfileEmail(user.email || ''); setShowProfile(true); }} className="h-8 w-8 rounded-xl text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:shadow-sm transition-all" title="Perfil">
-                <User className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={() => setShowChangePassword(true)} className="h-8 w-8 rounded-xl text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:shadow-sm transition-all" title="Cambiar contraseña">
-                <KeyRound className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={() => { const isDark = document.documentElement.classList.toggle('dark'); localStorage.setItem('kc-dark-mode', isDark ? 'dark' : 'light'); }} className="h-8 w-8 rounded-xl text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/50 hover:shadow-sm transition-all" title="Modo oscuro/claro">
-                {typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              </Button>
-              <Button variant="ghost" size="icon" onClick={handleLogout} className="h-8 w-8 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/50 hover:shadow-sm transition-all" title="Cerrar sesión">
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
+          </div>
+          <div className="flex items-center justify-center gap-1.5">
+            <button onClick={() => { setProfileName(user.name || ''); setProfileEmail(user.email || ''); setShowProfile(true); }} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-white hover:bg-white/10 hover:shadow-[0_0_20px_rgba(255,255,255,0.05)] transition-all duration-200" title="Perfil"><User className="h-3.5 w-3.5" />Perfil</button>
+            <span className="w-px h-4 bg-emerald-500/20" />
+            <button onClick={() => setShowChangePassword(true)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-amber-400 hover:bg-amber-500/10 hover:shadow-[0_0_20px_rgba(251,191,36,0.1)] transition-all duration-200" title="Cambiar Contraseña"><KeyRound className="h-3.5 w-3.5" />Clave</button>
+            <span className="w-px h-4 bg-emerald-500/20" />
+            <button onClick={handleLogout} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-red-400 hover:bg-red-500/10 hover:shadow-[0_0_20px_rgba(239,68,68,0.1)] transition-all duration-200" title="Cerrar sesión"><LogOut className="h-3.5 w-3.5" />Salir</button>
           </div>
         </div>
       </aside>
@@ -400,16 +406,56 @@ export default function KCobranzasDashboard() {
       {/* Profile Dialog */}
       {showProfile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm mx-4 border border-slate-100 dark:border-slate-800 p-6">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Editar Perfil</h3>
+          <div className="bg-white dark:bg-[#05060b]/90 rounded-2xl shadow-2xl w-full max-w-sm mx-4 border border-input/50 dark:border-emerald-500/10 p-6">
+            <h3 className="text-lg font-semibold text-foreground dark:text-foreground mb-4">Editar Perfil</h3>
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre</label>
-                <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              {/* Photo Upload */}
+              <div className="flex flex-col items-center gap-3">
+                <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-emerald-400 via-teal-400 to-emerald-500 flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-500/40 overflow-hidden">
+                  {user.photoUrl ? (
+                    <img src={user.photoUrl} alt={user.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-2xl font-bold">{user.name?.charAt(0)?.toUpperCase() || 'U'}</span>
+                  )}
+                </div>
+                <label className="cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-sm font-medium transition-colors">
+                  <Camera className="h-4 w-4" />
+                  <span>Cambiar foto</span>
+<input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = async (e) => {
+                          const base64 = e.target?.result as string;
+                          try {
+                            const res = await fetch('/api/collectors', {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ id: user.id, photoUrl: base64 })
+                            });
+                            if (res.ok) {
+                              refreshRole();
+                            }
+                          } catch {}
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
-                <input type="email" value={profileEmail} onChange={e => setProfileEmail(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                <label className="block text-sm font-medium text-foreground/80 dark:text-foreground/80 mb-1">Nombre</label>
+                <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-input dark:border-emerald-500/5 bg-white dark:bg-[#05060b]/70 text-foreground dark:text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground/80 dark:text-foreground/80 mb-1">Email</label>
+                <input type="email" value={profileEmail} onChange={e => setProfileEmail(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-input dark:border-emerald-500/5 bg-white dark:bg-[#05060b]/70 text-foreground dark:text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setShowProfile(false)}>Cancelar</Button>
@@ -436,30 +482,54 @@ export default function KCobranzasDashboard() {
       {/* Change Password Dialog */}
       {showChangePassword && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm mx-4 border border-slate-100 dark:border-slate-800">
+          <div className="bg-white dark:bg-[#05060b]/90 rounded-2xl shadow-2xl w-full max-w-sm mx-4 border border-input/50 dark:border-emerald-500/10">
             <ChangePassword onClose={() => setShowChangePassword(false)} />
           </div>
         </div>
       )}
+      {/* Logout Confirmation */}
+      <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-lg shadow-red-500/20">
+                <LogOut className="h-5 w-5 text-white" />
+              </div>
+              <span>Cerrar Sesión</span>
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground dark:text-muted-foreground pt-2 text-sm">
+              ¿Estás seguro de que deseas cerrar sesión?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="border-input dark:border-emerald-500/5">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmLogout}
+              className="bg-gradient-to-r from-red-500 to-rose-600 text-white hover:from-red-600 hover:to-rose-700 shadow-lg shadow-red-500/20 border-0"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Cerrar Sesión
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <DataToolsDialog open={showDataTools} onClose={() => setShowDataTools(false)} />
       <ReportsDialog open={showReports} onOpenChange={setShowReports} />
 
       {/* MOBILE HEADER */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800 shadow-sm">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 backdrop-blur-2xl border-b border-emerald-500/20 shadow-[inset_0_-1px_20px_rgba(16,185,129,0.08)]">
         <div className="flex items-center justify-between h-14 px-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-sm">
-              <ShieldCheck className="w-4 h-4 text-white" />
-            </div>
+            <img src="/logo.png" alt="KC Cobranzas" className="w-7 h-7 rounded-md" />
             <div>
-              <h1 className="text-sm font-bold text-slate-900 dark:text-slate-100">KC Cobranzas</h1>
-              <p className="text-[10px] text-slate-400 -mt-0.5">{getActiveLabel()}</p>
+              <h1 className="text-sm font-bold text-foreground dark:text-foreground">KC Cobranzas</h1>
+              <p className="text-[10px] text-muted-foreground -mt-0.5">{getActiveLabel()}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <div className="relative">
-              <button onClick={()=>{setNotifOpen(!notifOpen);if(!notifOpen)markRead(notifications.filter(n=>!n.isRead).map(n=>n.id))}} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors relative" aria-label="Notificaciones">
-                {unreadCount>0?<BellRing className="h-5 w-5 text-emerald-500"/>:<Bell className="h-5 w-5 text-slate-600 dark:text-slate-400"/>}
+              <button onClick={()=>{setNotifOpen(!notifOpen);if(!notifOpen)markRead(notifications.filter(n=>!n.isRead).map(n=>n.id))}} className="p-1.5 rounded-lg hover:bg-background/70 dark:hover:bg-white/10 transition-colors relative" aria-label="Notificaciones">
+                {unreadCount>0?<BellRing className="h-5 w-5 text-emerald-500"/>:<Bell className="h-5 w-5 text-foreground/70 dark:text-muted-foreground"/>}
                 {unreadCount>0&&<span className="absolute -top-0.5 -right-0.5 h-3.5 min-w-[14px] px-0.5 rounded-full bg-red-500 text-[9px] text-white flex items-center justify-center font-bold">{unreadCount>9?'9+':unreadCount}</span>}
               </button>
             </div>
@@ -468,10 +538,10 @@ export default function KCobranzasDashboard() {
             </div>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="p-2 rounded-lg hover:bg-background/70 dark:hover:bg-white/10 transition-colors"
               aria-label="Menú de navegación"
             >
-              {mobileMenuOpen ? <X className="h-5 w-5 text-slate-600 dark:text-slate-400" /> : <Menu className="h-5 w-5 text-slate-600 dark:text-slate-400" />}
+              {mobileMenuOpen ? <X className="h-5 w-5 text-foreground/70 dark:text-muted-foreground" /> : <Menu className="h-5 w-5 text-foreground/70 dark:text-muted-foreground" />}
             </button>
           </div>
         </div>
@@ -482,12 +552,12 @@ export default function KCobranzasDashboard() {
       {mobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-[10000]">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={() => setMobileMenuOpen(false)} />
-          <div className="absolute right-0 top-0 bottom-0 w-72 bg-white dark:bg-slate-900 shadow-2xl flex flex-col animate-[slideInRight_200ms_ease-out]">
+          <div className="absolute right-0 top-0 bottom-0 w-72 backdrop-blur-2xl shadow-2xl flex flex-col animate-[slideInRight_200ms_ease-out]">
             {/* Header with gradient */}
-            <div className="bg-gradient-to-br from-emerald-600 to-teal-600 px-5 py-4">
+            <div className="px-5 py-4 border-b border-emerald-500/20">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <ShieldCheck className="w-7 h-7 text-white" />
+                  <img src="/logo.png" alt="KC Cobranzas" className="w-8 h-8 rounded-lg shadow-lg shadow-black/30" />
                   <h2 className="text-sm font-bold text-white">KC Cobranzas</h2>
                 </div>
                 <button onClick={() => setMobileMenuOpen(false)} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
@@ -508,7 +578,7 @@ export default function KCobranzasDashboard() {
             </div>
 
             <nav className="flex-1 py-4 px-3 overflow-y-auto">
-              <p className="px-3 mb-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Menú Principal</p>
+              <p className="px-3 mb-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Menú Principal</p>
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.value;
@@ -518,29 +588,29 @@ export default function KCobranzasDashboard() {
                     onClick={() => handleTabChange(item.value)}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 mb-0.5 ${isActive
                       ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
+                      : 'text-foreground/70 dark:text-muted-foreground hover:bg-background/50 dark:hover:bg-white/10 hover:text-foreground dark:hover:text-slate-100'
                       }`}
                   >
-                    <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                    <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
                     <span>{item.label}</span>
                   </button>
                 );
               })}
             </nav>
-            <div className="px-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <p className="px-3 mb-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Acciones</p>
+            <div className="px-3 pt-3 border-t border-emerald-500/20">
+              <p className="px-3 mb-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Acciones</p>
               <div className="space-y-0.5">
-                <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); setShowReports(true); }} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
+                <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); setShowReports(true); }} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-foreground/70 dark:text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
                   <BarChart3 className="h-4 w-4 mr-2.5" /> Reportes
                 </Button>
-                <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); setShowDataTools(true); }} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
+                <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); setShowDataTools(true); }} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-foreground/70 dark:text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
                   <Download className="h-4 w-4 mr-2.5" /> Exportar / Importar
                 </Button>
-                <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); setShowChangePassword(true); }} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
+                <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); setShowChangePassword(true); }} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-foreground/70 dark:text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
                   <KeyRound className="h-4 w-4 mr-2.5" /> Cambiar Contraseña
                 </Button>
               </div>
-              <div className="mt-1 pt-2 border-t border-slate-100 dark:border-slate-800/50">
+              <div className="mt-1 pt-2 border-t border-emerald-500/10">
                 <Button variant="ghost" onClick={handleLogout} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50">
                   <LogOut className="h-4 w-4 mr-2.5" /> Cerrar Sesión
                 </Button>
@@ -551,54 +621,57 @@ export default function KCobranzasDashboard() {
       )}
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 lg:ml-64 min-h-screen flex flex-col">
+      <main className="flex-1 lg:ml-64 min-h-screen flex flex-col relative z-10">
         {/* Desktop top bar */}
-        <header className="hidden lg:flex items-center justify-between h-14 px-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-b border-slate-100 dark:border-slate-800 sticky top-0 z-20">
+<header className="hidden lg:flex items-center justify-between h-14 px-6 backdrop-blur-2xl border-b border-emerald-500/20 shadow-[inset_0_-1px_20px_rgba(16,185,129,0.08)] sticky top-0 z-20">
           <div className="flex items-center gap-4">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{getActiveLabel()}</h2>
+            <h2 className="text-lg font-semibold text-foreground dark:text-foreground">{getActiveLabel()}</h2>
           </div>
           <div className="flex items-center gap-2">
-            <CompanySelector />
+            <Button variant="ghost" size="icon" onClick={()=>setActiveTab('chat')} className="relative h-8 w-8 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Mensajes">
+              <MessageSquare className="h-4 w-4" />
+            </Button>
             <div className="relative" ref={notifRef}>
-              <Button variant="ghost" size="icon" onClick={()=>{setNotifOpen(!notifOpen);if(!notifOpen)markRead(notifications.filter(n=>!n.isRead).map(n=>n.id))}} className="relative h-8 w-8 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Notificaciones">
+              <Button variant="ghost" size="icon" onClick={()=>{setNotifOpen(!notifOpen);if(!notifOpen)markRead(notifications.filter(n=>!n.isRead).map(n=>n.id))}} className="relative h-8 w-8 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Notificaciones">
                 {unreadCount>0?<BellRing className="h-4 w-4 text-emerald-500"/>:<Bell className="h-4 w-4"/>}
                 {unreadCount>0&&<span className="absolute -top-0.5 -right-0.5 h-3.5 min-w-[14px] px-1 rounded-full bg-red-500 text-[9px] text-white flex items-center justify-center font-bold">{unreadCount>9?'9+':unreadCount}</span>}
               </Button>
-              {notifOpen&&<div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Notificaciones</span>
+              {notifOpen&&<div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-[#05060b]/90 rounded-xl shadow-2xl border border-input dark:border-emerald-500/5 overflow-hidden z-50">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-input/50 dark:border-emerald-500/10">
+                  <span className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">Notificaciones</span>
                   {unreadCount>0&&<Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 text-xs">{unreadCount} sin leer</Badge>}
                 </div>
                 <div className="max-h-[400px] overflow-y-auto">
-                  {notifications.length===0?<div className="p-8 text-center text-slate-400"><Bell className="h-8 w-8 mx-auto mb-2 opacity-50"/><p className="text-sm">Sin notificaciones</p></div>:notifications.map(n=><div key={n.id} className={`flex items-start gap-3 p-3 border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors ${!n.isRead?'bg-emerald-50/50 dark:bg-emerald-950/20':''}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${n.type==='warning'?'bg-amber-100 dark:bg-amber-900/50':n.type==='error'?'bg-red-100 dark:bg-red-900/50':'bg-blue-100 dark:bg-blue-900/50'}`}>
-                      {n.type==='warning'?<Activity className="h-4 w-4 text-amber-600 dark:text-amber-300"/>:n.type==='error'?<ShieldCheck className="h-4 w-4 text-red-600 dark:text-red-300"/>:<Bell className="h-4 w-4 text-blue-600 dark:text-blue-300"/>}
+{notifications.length===0?<div className="p-8 text-center text-muted-foreground"><Bell className="h-8 w-8 mx-auto mb-2 opacity-50"/><p className="text-sm">Sin notificaciones</p></div>:notifications.map(n=><div key={n.id} className={`flex items-start gap-3 p-3 border-b border-slate-50 dark:border-emerald-500/10/50 hover:bg-background/50 dark:hover:bg-white/10/30 transition-colors ${!n.isRead?'bg-emerald-50/50 dark:bg-emerald-950/20':''}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${n.type==='overdue'?'bg-red-100 dark:bg-red-900/50':n.type==='upcoming'?'bg-amber-100 dark:bg-amber-900/50':n.type==='payment_received'?'bg-emerald-100 dark:bg-emerald-900/50':n.type==='goal_achieved'?'bg-emerald-100 dark:bg-emerald-900/50':n.type==='inactive'?'bg-amber-100 dark:bg-amber-900/50':'bg-blue-100 dark:bg-blue-900/50'}`}>
+                      {n.type==='overdue'?<Activity className="h-4 w-4 text-red-600 dark:text-red-300"/>:n.type==='upcoming'?<Activity className="h-4 w-4 text-amber-600 dark:text-amber-300"/>:n.type==='payment_received'?<DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-300"/>:n.type==='goal_achieved'?<Target className="h-4 w-4 text-emerald-600 dark:text-emerald-300"/>:n.type==='inactive'?<Activity className="h-4 w-4 text-amber-600 dark:text-amber-300"/>:<Bell className="h-4 w-4 text-blue-600 dark:text-blue-300"/>}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${!n.isRead?'font-semibold text-slate-800 dark:text-slate-200':'text-slate-600 dark:text-slate-400'}`}>{n.title}</p>
-                      {n.body&&<p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{n.body}</p>}
-                      <p className="text-[10px] text-slate-400 mt-1">{new Date(n.createdAt).toLocaleDateString('es-PE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</p>
+                      <p className={`text-sm ${!n.isRead?'font-semibold text-slate-800 dark:text-foreground':'text-foreground/70 dark:text-muted-foreground'}`}>{n.title}</p>
+                      {n.body&&<p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>}
+                      <p className="text-[10px] text-muted-foreground mt-1">{new Date(n.createdAt).toLocaleDateString('es-PE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</p>
                     </div>
-                    <button onClick={()=>delNotif(n.id)} className="shrink-0 p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-red-500 transition-colors"><Trash2 className="h-3.5 w-3.5"/></button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {!n.isRead && <button onClick={()=>markRead([n.id])} className="px-2 py-1 text-xs rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors" title="Marcar como leída">Leída</button>}
+                      {(n.referenceType==='loan' || n.referenceType==='payment') && <button onClick={()=>{setActiveTab(n.referenceType==='loan'?'loans':'payments');setNotifOpen(false);}} className="px-2 py-1 text-xs rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors" title={`Ver ${n.referenceType==='loan'?'préstamo':'pago'}`}>Ver</button>}
+                      <button onClick={()=>delNotif(n.id)} className="shrink-0 p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-muted-foreground hover:text-red-500 transition-colors" title="Eliminar"><Trash2 className="h-3.5 w-3.5"/></button>
+                    </div>
                   </div>)}
                 </div>
               </div>}
             </div>
-            <Button variant="ghost" size="sm" onClick={()=>setShowReports(true)} className="h-8 text-xs text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Ver Reportes">
+<Button variant="ghost" size="sm" onClick={()=>setShowReports(true)} className="h-8 text-xs text-muted-foreground hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Ver Reportes">
               <BarChart3 className="h-3.5 w-3.5 mr-1"/>Reportes
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setShowDataTools(true)} className="h-8 text-xs text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Exportar / Importar">
+            <Button variant="ghost" size="sm" onClick={() => setShowDataTools(true)} className="h-8 text-xs text-muted-foreground hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Exportar / Importar">
               <Download className="h-3.5 w-3.5 mr-1" />
               Datos
             </Button>
-            <span className="w-px h-5 bg-slate-200 dark:bg-slate-700" />
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-[10px] font-bold shadow-sm">
-                {user.name?.charAt(0)?.toUpperCase() || 'U'}
-              </div>
-              <span className="text-xs text-slate-500 dark:text-slate-400">{user.name}</span>
-            </div>
-            <Button variant="ghost" size="icon" onClick={handleLogout} className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950" title="Cerrar sesión">
+          <span className="w-px h-5 bg-slate-200 dark:bg-[#05060b]/70" />
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-[10px] font-bold shadow-sm">
+            {user.name?.charAt(0)?.toUpperCase() || 'U'}
+          </div>
+<Button variant="ghost" size="icon" onClick={handleLogout} className="h-7 w-7 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950" title="Cerrar sesión">
               <LogOut className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -606,31 +679,33 @@ export default function KCobranzasDashboard() {
 
         {/* Content */}
         <div className="flex-1 px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pt-16 lg:pt-6">
-          {activeTab === 'dashboard' && <ErrorBoundary><DashboardTab key={`dashboard-${refreshKey}`} /></ErrorBoundary>}
-          {activeTab === 'loans' && <LoansTab key={`loans-${refreshKey}`} />}
-          {activeTab === 'clients' && <ClientsTab key={`clients-${refreshKey}`} />}
-          {activeTab === 'payments' && <PaymentsTab key={`payments-${refreshKey}`} />}
-          {activeTab === 'collectors' && <CollectorsTab key={`collectors-${refreshKey}`} />}
-          {activeTab === 'audit' && <ErrorBoundary><AuditTab key={`audit-${refreshKey}`} /></ErrorBoundary>}
-          {activeTab === 'capital' && <CapitalTab key={`capital-${refreshKey}`} />}
-          {activeTab === 'chat' && <ChatTab key={`chat-${refreshKey}`} />}
-          {activeTab === 'late-fee' && <ErrorBoundary><LateFeeTab key={`latefee-${refreshKey}`} /></ErrorBoundary>}
-          {activeTab === 'daily-settlement' && <DailySettlementTab key={`daily-settlement-${refreshKey}`} />}
-          {activeTab === 'caja' && <CajaTab key={`caja-${refreshKey}`} />}
-          {activeTab === 'map' && <ErrorBoundary><MapTab key={`map-${refreshKey}`} /></ErrorBoundary>}
-          {activeTab === 'config' && <ConfigTab key={`config-${refreshKey}`} />}
+          <div key={activeTab} style={{animation:'pageIn 0.35s ease-out both'}}>
+            {activeTab === 'dashboard' && <ErrorBoundary><DashboardTab key={`dashboard-${refreshKey}`} /></ErrorBoundary>}
+            {activeTab === 'loans' && <LoansTab key={`loans-${refreshKey}`} />}
+            {activeTab === 'clients' && <ClientsTab key={`clients-${refreshKey}`} />}
+            {activeTab === 'payments' && <PaymentsTab key={`payments-${refreshKey}`} />}
+            {activeTab === 'collectors' && <CollectorsTab key={`collectors-${refreshKey}`} />}
+            {activeTab === 'audit' && <ErrorBoundary><AuditTab key={`audit-${refreshKey}`} /></ErrorBoundary>}
+            {activeTab === 'capital' && <CapitalTab key={`capital-${refreshKey}`} />}
+            {activeTab === 'chat' && <ChatTab key={`chat-${refreshKey}`} />}
+            {activeTab === 'late-fee' && <ErrorBoundary><LateFeeTab key={`latefee-${refreshKey}`} /></ErrorBoundary>}
+            {activeTab === 'daily-settlement' && <DailySettlementTab key={`daily-settlement-${refreshKey}`} />}
+            {activeTab === 'caja' && <CajaTab key={`caja-${refreshKey}`} />}
+            {activeTab === 'map' && <ErrorBoundary><MapTab key={`map-${refreshKey}`} /></ErrorBoundary>}
+            {activeTab === 'config' && <ConfigTab key={`config-${refreshKey}`} />}
+          </div>
         </div>
 
         {/* Footer */}
-        <footer className="bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 py-3 mt-auto">
+        <footer className="backdrop-blur-2xl border-t border-emerald-500/20 shadow-[inset_0_1px_20px_rgba(16,185,129,0.08)] py-3 mt-auto">
           <div className="px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
-            <p className="text-[10px] text-slate-400">© 2025 KC Cobranzas - Sistema de Gestión de Cobranzas</p>
+            <p className="text-[10px] text-muted-foreground">© 2025 KC Cobranzas - Sistema de Gestión de Cobranzas</p>
             <div className="flex items-center gap-4">
-              <span className="text-[10px] text-slate-400 flex items-center gap-1">
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                 <ShieldCheck className="h-2.5 w-2.5 text-emerald-500" />
                 Auditoría activa
               </span>
-              <span className="text-[10px] text-slate-400 flex items-center gap-1">
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                 <Clock className="h-2.5 w-2.5 text-emerald-500" />
                 Mora automática
               </span>
@@ -639,5 +714,12 @@ export default function KCobranzasDashboard() {
         </footer>
       </main>
     </div>
+    <style>{`
+      @keyframes pageIn {
+        from { opacity: 0; transform: translateY(12px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    `}</style>
+    </ErrorBoundary>
   );
 }

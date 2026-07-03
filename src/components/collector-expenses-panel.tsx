@@ -201,8 +201,8 @@ export default function CollectorExpensesPanel({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl max-h-[85vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800">
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <Wallet className="h-5 w-5 text-emerald-600 dark:text-emerald-300" />
+          <DialogTitle className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/25 flex items-center justify-center"><Wallet className="h-4 w-4 text-white" /></div>
             Gastos de {collectorName}
           </DialogTitle>
         </DialogHeader>
@@ -295,8 +295,8 @@ export default function CollectorExpensesPanel({
             </div>
           ) : expenses.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
-                <Wallet className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+              <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center mb-3">
+                <Wallet className="h-6 w-6 text-emerald-400" />
               </div>
               <p className="text-sm text-slate-500 dark:text-slate-400">Sin gastos registrados</p>
             </div>

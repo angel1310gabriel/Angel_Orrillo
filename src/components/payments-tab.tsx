@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -198,7 +198,7 @@ const getMethodIcon = (method: string) => {
 
 const getMethodColor = (method: string) => {
   const found = PAYMENT_METHODS.find((m) => m.value === method);
-  return found ? found.color : 'text-slate-600 dark:text-slate-400';
+  return found ? found.color : 'text-foreground/70 dark:text-muted-foreground';
 };
 
 // ============================================================
@@ -661,7 +661,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className="border-slate-200 gap-2 bg-white dark:bg-slate-900"
+                className="border-input gap-2 bg-white dark:bg-[#05060b]/80"
               >
                 <Calendar className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
                 <span>{dateLabel}</span>
@@ -698,7 +698,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
           <Button
             variant="outline"
             size="icon"
-            className="border-slate-200 bg-white dark:bg-slate-900"
+            className="border-input bg-white dark:bg-[#05060b]/80"
             onClick={() => {
               fetchLoans();
               fetchTodayPayments();
@@ -721,10 +721,10 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
       {/* Collection Progress Bar */}
       {isToday && activeLoans.length > 0 && (
-        <Card className="border-0 shadow-md bg-white dark:bg-slate-900">
+        <Card className="border-0 shadow-md bg-white dark:bg-[#05060b]/80">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              <span className="text-sm font-medium text-foreground/80 dark:text-foreground/80">
                 Progreso de Cobranza {dateLabel}
               </span>
               <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-300">
@@ -735,7 +735,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
               value={totalExpected > 0 ? (totalCollected / totalExpected) * 100 : 0}
               className="h-3 [&>div]:bg-gradient-to-r [&>div]:from-emerald-400 [&>div]:to-teal-500"
             />
-            <div className="flex items-center justify-between mt-2 text-xs text-slate-500 dark:text-slate-400">
+            <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground dark:text-muted-foreground">
               <span className="flex items-center gap-1">
                 <CheckCircle2 className="h-3 w-3 text-emerald-500" />
                 {paidCount} cobrados
@@ -757,15 +757,15 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
       {/* ============================================================ */}
       {/* DAILY COLLECTION CHECKLIST */}
       {/* ============================================================ */}
-      <Card className="border-0 shadow-md bg-white dark:bg-slate-900">
+      <Card className="border-0 shadow-md bg-white dark:bg-[#05060b]/80">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg flex items-center gap-2 text-slate-900 dark:text-slate-100">
+              <CardTitle className="text-lg flex items-center gap-2 text-foreground dark:text-foreground">
                 <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-300" />
                 Cobranza del Día — {dateLabel}
               </CardTitle>
-              <CardDescription className="text-slate-500 dark:text-slate-400">
+              <CardDescription className="text-muted-foreground dark:text-muted-foreground">
                 {activeLoans.length} préstamos ({paidCount} pagados, {pendingCount} pendientes)
               </CardDescription>
             </div>
@@ -801,11 +801,11 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
             </div>
           ) : activeLoans.length === 0 ? (
             <div className="text-center py-12">
-              <div                 className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="h-8 w-8 text-slate-400 dark:text-slate-500" />
+              <div                 className="w-16 h-16 rounded-full bg-background/70 dark:bg-[#05060b]/70 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 className="h-8 w-8 text-muted-foreground dark:text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">Sin cobranzas pendientes</h3>
-              <p className="text-slate-500 dark:text-slate-400">No hay préstamos activos para cobrar</p>
+              <h3 className="text-lg font-semibold text-foreground/80 dark:text-foreground/80 mb-2">Sin cobranzas pendientes</h3>
+              <p className="text-muted-foreground dark:text-muted-foreground">No hay préstamos activos para cobrar</p>
             </div>
           ) : (
             <ScrollArea className="max-h-[500px]">
@@ -857,7 +857,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                         {/* Client Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <h4 className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">
+                            <h4 className="font-semibold text-sm text-foreground dark:text-foreground truncate">
                               {loan.client.name}
                             </h4>
                             {isMora && (
@@ -871,7 +871,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                               </Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground dark:text-muted-foreground mt-0.5">
                             <span className="flex items-center gap-1">
                               <PhoneIcon className="h-3 w-3" />
                               {loan.client.phone}
@@ -887,7 +887,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
                         {/* Amount */}
                         <div className="text-right shrink-0">
-                          <p className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                          <p className="font-bold text-sm text-foreground dark:text-foreground">
                             {formatCurrency(loan.dailyPayment)}
                           </p>
                           {isPaid && totalPaidForLoan !== loan.dailyPayment && (
@@ -896,7 +896,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                             </p>
                           )}
                           {!isPaid && loan.remaining > 0 && (
-                            <p className="text-xs text-slate-400 dark:text-slate-500">
+                            <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                               Restante: {formatCurrency(loan.remaining)}
                             </p>
                           )}
@@ -931,15 +931,15 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
       {/* ============================================================ */}
       {/* PAYMENT HISTORY TABLE */}
       {/* ============================================================ */}
-      <Card className="border-0 shadow-md bg-white dark:bg-slate-900">
+      <Card className="border-0 shadow-md bg-white dark:bg-[#05060b]/80">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg flex items-center gap-2 text-slate-900 dark:text-slate-100">
+              <CardTitle className="text-lg flex items-center gap-2 text-foreground dark:text-foreground">
                 <CreditCard className="h-5 w-5 text-teal-600 dark:text-teal-300" />
                 Historial de Cobros — {dateLabel}
               </CardTitle>
-              <CardDescription className="text-slate-500 dark:text-slate-400">
+              <CardDescription className="text-muted-foreground dark:text-muted-foreground">
                 {todayPayments.length} pago{todayPayments.length !== 1 ? 's' : ''} registrado{todayPayments.length !== 1 ? 's' : ''}
               </CardDescription>
             </div>
@@ -960,7 +960,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
           ) : todayPayments.length === 0 ? (
             <div className="text-center py-8">
               <CreditCard className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-500 dark:text-slate-400 text-sm">No hay cobros registrados para {dateLabel}</p>
+              <p className="text-muted-foreground dark:text-muted-foreground text-sm">No hay cobros registrados para {dateLabel}</p>
             </div>
           ) : (
             <>
@@ -983,16 +983,16 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                       const MethodIcon = getMethodIcon(payment.paymentMethod);
                       const methodColor = getMethodColor(payment.paymentMethod);
                       return (
-                        <TableRow key={payment.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                          <TableCell className="text-sm text-slate-600 dark:text-slate-400 px-3 py-2">
+                        <TableRow key={payment.id} className="hover:bg-background/50 dark:hover:bg-white/10/30 transition-colors">
+                          <TableCell className="text-sm text-foreground/70 dark:text-muted-foreground px-3 py-2">
                             {formatDateTime(payment.paymentDate)}
                           </TableCell>
                           <TableCell className="px-3 py-2">
                             <div>
-                              <p className="font-medium text-sm text-slate-900 dark:text-slate-100">
+                              <p className="font-medium text-sm text-foreground dark:text-foreground">
                                 {payment.loan?.client?.name || '—'}
                               </p>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">
+                              <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                                 {payment.loan?.client?.documentNumber || ''}
                               </p>
                             </div>
@@ -1008,10 +1008,10 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                               </span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-sm text-slate-600 dark:text-slate-400 px-3 py-2">
+                          <TableCell className="text-sm text-foreground/70 dark:text-muted-foreground px-3 py-2">
                             {payment.collector?.name || '—'}
                           </TableCell>
-                          <TableCell className="text-xs text-slate-500 dark:text-slate-400 max-w-32 truncate px-3 py-2">
+                          <TableCell className="text-xs text-muted-foreground dark:text-muted-foreground max-w-32 truncate px-3 py-2">
                             {payment.observation || '—'}
                           </TableCell>
                           {isAdmin && (
@@ -1019,7 +1019,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 text-slate-400 hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/50"
+                                className="h-7 w-7 text-muted-foreground hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/50"
                                 onClick={() => setDeletePaymentId(payment.id)}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -1041,10 +1041,10 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                   return (
                     <div
                       key={payment.id}
-                      className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50"
+                      className="p-3 rounded-xl border border-input/50 dark:border-emerald-500/10 bg-background/50/50 dark:bg-[#05060b]/70"
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <p className="font-semibold text-sm text-slate-900 dark:text-slate-100">
+                        <p className="font-semibold text-sm text-foreground dark:text-foreground">
                           {payment.loan?.client?.name || '—'}
                         </p>
                         <div className="flex items-center gap-2">
@@ -1055,7 +1055,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-slate-400 hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/50"
+                              className="h-7 w-7 text-muted-foreground hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/50"
                               onClick={() => setDeletePaymentId(payment.id)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -1063,7 +1063,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground dark:text-muted-foreground">
                         <div className="flex items-center gap-2">
                           <MethodIcon className={`h-3.5 w-3.5 ${methodColor}`} />
                           <span>{PAYMENT_METHOD_LABELS[payment.paymentMethod] || payment.paymentMethod}</span>
@@ -1088,7 +1088,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <span className="text-sm text-slate-600 dark:text-slate-400">
+                  <span className="text-sm text-foreground/70 dark:text-muted-foreground">
                     Página {historyPage} de {historyTotalPages}
                   </span>
                   <Button
@@ -1117,7 +1117,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
         }}
       >
         <DialogContent className="max-w-lg max-h-[90dvh] flex flex-col p-0">
-          <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-input/50 dark:border-emerald-500/10 shrink-0">
             <DialogTitle className="flex items-center gap-2 text-xl">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
                 <DollarSign className="h-4 w-4 text-white" />
@@ -1134,11 +1134,11 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
               {/* Loan Selection */}
               {!selectedLoanId ? (
                 <div className="space-y-3">
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">
                     Seleccionar Préstamo
                   </Label>
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Buscar por nombre, DNI o teléfono..."
                       value={loanSearch}
@@ -1149,7 +1149,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                   <ScrollArea className="max-h-64">
                     <div className="space-y-1.5 pr-2">
                       {filteredLoans.length === 0 ? (
-                        <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
+                        <p className="text-sm text-muted-foreground dark:text-muted-foreground text-center py-4">
                           No se encontraron préstamos
                         </p>
                       ) : (
@@ -1164,7 +1164,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                                   ? 'border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/30 opacity-60'
                                   : isMora
                                   ? 'border-red-200 bg-red-50/50 dark:bg-red-950/30 hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-950/50'
-                                  : 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30'
+                                  : 'border-input hover:border-emerald-300 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30'
                               }`}
                               onClick={() => !isPaid && handleSelectLoan(loan.id)}
                               disabled={isPaid}
@@ -1172,7 +1172,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                               <div className="flex items-center justify-between">
                                 <div>
                                   <div className="flex items-center gap-2">
-                                    <p className="font-medium text-sm text-slate-900 dark:text-slate-100">
+                                    <p className="font-medium text-sm text-foreground dark:text-foreground">
                                       {loan.client.name}
                                     </p>
                                     {isPaid && (
@@ -1186,7 +1186,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                                       </Badge>
                                     )}
                                   </div>
-                                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                  <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-0.5">
                                     {getDocumentLabel(loan.client.documentType)}: {loan.client.documentNumber} | Tel: {loan.client.phone}
                                   </p>
                                 </div>
@@ -1194,7 +1194,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                                   <p className="font-bold text-sm text-emerald-600 dark:text-emerald-300">
                                     {formatCurrency(loan.dailyPayment)}
                                   </p>
-                                  <p className="text-xs text-slate-400 dark:text-slate-500">
+                                  <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                                     Restante: {formatCurrency(loan.remaining)}
                                   </p>
                                 </div>
@@ -1236,20 +1236,20 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
                   {/* Loan Details */}
                     <div className="grid grid-cols-3 gap-3">
-                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-center">
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Monto</p>
-                      <p className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                    <div className="p-3 rounded-lg bg-background/50 dark:bg-[#05060b]/70 text-center">
+                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Monto</p>
+                      <p className="font-bold text-sm text-foreground dark:text-foreground">
                         {formatCurrency(selectedLoan?.amount || 0)}
                       </p>
                     </div>
-                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-center">
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Cuota Diaria</p>
+                    <div className="p-3 rounded-lg bg-background/50 dark:bg-[#05060b]/70 text-center">
+                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Cuota Diaria</p>
                       <p className="font-bold text-sm text-emerald-600 dark:text-emerald-300">
                         {formatCurrency(selectedLoan?.dailyPayment || 0)}
                       </p>
                     </div>
-                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-center">
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Restante</p>
+                    <div className="p-3 rounded-lg bg-background/50 dark:bg-[#05060b]/70 text-center">
+                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Restante</p>
                       <p className="font-bold text-sm text-amber-600 dark:text-amber-300">
                         {formatCurrency(selectedLoan?.remaining || 0)}
                       </p>
@@ -1259,7 +1259,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                   {/* Progress */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-slate-500 dark:text-slate-400">Progreso del préstamo</span>
+                      <span className="text-xs text-muted-foreground dark:text-muted-foreground">Progreso del préstamo</span>
                       <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-300">
                         {selectedLoan?.progressPercent.toFixed(1)}%
                       </span>
@@ -1269,10 +1269,10 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                       className="h-2 [&>div]:bg-gradient-to-r [&>div]:from-emerald-400 [&>div]:to-teal-500"
                     />
                     <div className="flex items-center justify-between mt-1">
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-muted-foreground">
                         {formatCurrency(selectedLoan?.amountPaid || 0)}
                       </span>
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-muted-foreground">
                         {formatCurrency(selectedLoan?.totalAmount || 0)}
                       </span>
                     </div>
@@ -1282,14 +1282,14 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
                   {/* Installment Selection */}
                   <div>
-                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                    <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 mb-2 block">
                       Seleccionar Cuota a Cancelar
                     </Label>
                     {(() => {
                       const pending = (selectedLoan?.schedule || []).filter(s => s.status === 'pending');
                       if (pending.length === 0) {
                         return (
-                          <div className="text-sm text-slate-500 dark:text-slate-400 text-center py-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                          <div className="text-sm text-muted-foreground dark:text-muted-foreground text-center py-4 bg-background/50 dark:bg-[#05060b]/70 rounded-lg">
                             No hay cuotas pendientes
                           </div>
                         );
@@ -1309,27 +1309,27 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                                 className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all text-left ${
                                   isSelected
                                     ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 ring-2 ring-emerald-500/20'
-                                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-emerald-300 hover:bg-emerald-50/50'
+                                    : 'border-input dark:border-emerald-500/5 bg-white dark:bg-[#05060b]/80 hover:border-emerald-300 hover:bg-emerald-50/50'
                                 }`}
                               >
                                 <div className="flex items-center gap-3">
                                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                                     isSelected
                                       ? 'bg-emerald-500 text-white'
-                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                      : 'bg-background/70 dark:bg-[#05060b]/70 text-foreground/70 dark:text-muted-foreground'
                                   }`}>
                                     {s.installmentNumber}
                                   </div>
                                   <div>
-                                    <p className={`text-sm font-semibold ${isSelected ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-700 dark:text-slate-300'}`}>
+                                    <p className={`text-sm font-semibold ${isSelected ? 'text-emerald-700 dark:text-emerald-300' : 'text-foreground/80 dark:text-foreground/80'}`}>
                                       Cuota #{s.installmentNumber}
                                     </p>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                                       {new Date(s.dueDate).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })}
                                     </p>
                                   </div>
                                 </div>
-                                <p className={`text-base font-bold ${isSelected ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-900 dark:text-slate-100'}`}>
+                                <p className={`text-base font-bold ${isSelected ? 'text-emerald-700 dark:text-emerald-300' : 'text-foreground dark:text-foreground'}`}>
                                   {formatCurrency(s.amount)}
                                 </p>
                               </button>
@@ -1348,7 +1348,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
                   {/* Payment Method */}
                   <div>
-                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 block">
+                    <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 mb-3 block">
                       Método de Pago
                     </Label>
                     <RadioGroup
@@ -1364,7 +1364,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                             className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${
                               paymentMethod === method.value
                                 ? method.bg + ' ring-2 ring-offset-1 ring-emerald-400'
-                                : 'border-slate-200 hover:border-slate-300'
+                                : 'border-input hover:border-slate-300'
                             }`}
                           >
                             <RadioGroupItem value={method.value} />
@@ -1383,7 +1383,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                         Monto Recibido en Efectivo
                       </Label>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 text-sm font-medium">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-muted-foreground text-sm font-medium">
                           S/
                         </span>
                         <Input
@@ -1392,12 +1392,12 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                           min="0"
                           value={cashReceived}
                           onChange={(e) => setCashReceived(e.target.value)}
-                          className="pl-9 bg-white dark:bg-slate-900 border-amber-200"
+                          className="pl-9 bg-white dark:bg-[#05060b]/80 border-amber-200"
                           placeholder="0.00"
                         />
                       </div>
                       {vueltoAmount > 0 && (
-                        <div className="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-slate-900 border border-amber-200">
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-[#05060b]/80 border border-amber-200">
                           <span className="text-sm font-medium text-amber-700 dark:text-amber-300">Vuelto</span>
                           <span className="text-lg font-bold text-emerald-600 dark:text-emerald-300">
                             {formatCurrency(vueltoAmount)}
@@ -1414,7 +1414,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                           Subir Comprobante (opcional)
                         </Label>
                         <div className="mt-1.5 flex items-center gap-3">
-                          <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-amber-200 bg-white dark:bg-slate-900 cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-950/50 text-xs text-amber-700 dark:text-amber-300">
+                          <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-amber-200 bg-white dark:bg-[#05060b]/80 cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-950/50 text-xs text-amber-700 dark:text-amber-300">
                             <Upload className="h-4 w-4" />
                             {proofPreview ? 'Cambiar foto' : 'Tomar foto'}
                             <input
@@ -1439,7 +1439,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                             <img
                               src={proofPreview}
                               alt="Comprobante"
-                              className="w-full max-h-40 object-contain rounded-lg border border-amber-200 bg-white dark:bg-slate-900"
+                              className="w-full max-h-40 object-contain rounded-lg border border-amber-200 bg-white dark:bg-[#05060b]/80"
                             />
                           </div>
                         )}
@@ -1454,13 +1454,13 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                           <img
                             src={paymentSettings.payment_qr_plin}
                             alt="QR Plin"
-                            className="w-48 h-48 object-contain rounded-xl bg-white dark:bg-slate-900 p-2 shadow-sm"
+                            className="w-48 h-48 object-contain rounded-xl bg-white dark:bg-[#05060b]/80 p-2 shadow-sm"
                           />
                           <p className="text-xs text-sky-600 dark:text-sky-300 font-medium">
                             Plin - S/{parseFloat(paymentAmount || '0').toFixed(2)}
                           </p>
                           {paymentSettings.payment_phone_plin && (
-                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                            <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                               Número: <a href={`tel:${paymentSettings.payment_phone_plin}`} className="font-medium text-sky-600 dark:text-sky-300 hover:underline">{paymentSettings.payment_phone_plin}</a> a nombre de <strong>Keysy Otero Cañola</strong>
                             </p>
                           )}
@@ -1486,7 +1486,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                           Subir Comprobante
                         </Label>
                         <div className="mt-1.5 flex items-center gap-3">
-                          <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-sky-200 bg-white dark:bg-slate-900 cursor-pointer hover:bg-sky-50 dark:hover:bg-sky-950/50 text-xs text-sky-700 dark:text-sky-300">
+                          <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-sky-200 bg-white dark:bg-[#05060b]/80 cursor-pointer hover:bg-sky-50 dark:hover:bg-sky-950/50 text-xs text-sky-700 dark:text-sky-300">
                             <Upload className="h-4 w-4" />
                             {proofPreview ? 'Cambiar foto' : 'Tomar foto'}
                             <input
@@ -1511,7 +1511,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                             <img
                               src={proofPreview}
                               alt="Comprobante"
-                              className="w-full max-h-40 object-contain rounded-lg border border-sky-200 bg-white dark:bg-slate-900"
+                              className="w-full max-h-40 object-contain rounded-lg border border-sky-200 bg-white dark:bg-[#05060b]/80"
                             />
                           </div>
                         )}
@@ -1526,15 +1526,15 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                       </Label>
                       <div className="space-y-2">
                         {paymentSettings.payment_bank_name && (
-                          <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-teal-200">
-                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{paymentSettings.payment_bank_name}</p>
+                          <div className="p-2.5 rounded-lg bg-white dark:bg-[#05060b]/80 border border-teal-200">
+                            <p className="text-sm font-semibold text-slate-800 dark:text-foreground">{paymentSettings.payment_bank_name}</p>
                             {paymentSettings.payment_bank_cuenta && (
-                              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">Cuenta Ahorro: <span className="select-all cursor-pointer hover:text-teal-600">{paymentSettings.payment_bank_cuenta}</span></p>
+                              <p className="text-xs text-muted-foreground dark:text-muted-foreground font-mono">Cuenta Ahorro: <span className="select-all cursor-pointer hover:text-teal-600">{paymentSettings.payment_bank_cuenta}</span></p>
                             )}
                             {paymentSettings.payment_bank_cci && (
-                              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">CCI: <span className="select-all cursor-pointer hover:text-teal-600">{paymentSettings.payment_bank_cci}</span></p>
+                              <p className="text-xs text-muted-foreground dark:text-muted-foreground font-mono">CCI: <span className="select-all cursor-pointer hover:text-teal-600">{paymentSettings.payment_bank_cci}</span></p>
                             )}
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">A nombre de <strong>Keysy Otero Cañola</strong></p>
+                            <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">A nombre de <strong>Keysy Otero Cañola</strong></p>
                           </div>
                         )}
                       </div>
@@ -1556,7 +1556,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                           Subir Comprobante
                         </Label>
                         <div className="mt-1.5 flex items-center gap-3">
-                          <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-teal-200 bg-white dark:bg-slate-900 cursor-pointer hover:bg-teal-50 dark:hover:bg-teal-950/50 text-xs text-teal-700 dark:text-teal-300">
+                          <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-teal-200 bg-white dark:bg-[#05060b]/80 cursor-pointer hover:bg-teal-50 dark:hover:bg-teal-950/50 text-xs text-teal-700 dark:text-teal-300">
                             <Upload className="h-4 w-4" />
                             {proofPreview ? 'Cambiar foto' : 'Tomar foto'}
                             <input
@@ -1581,7 +1581,7 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
                             <img
                               src={proofPreview}
                               alt="Comprobante"
-                              className="w-full max-h-40 object-contain rounded-lg border border-teal-200 bg-white dark:bg-slate-900"
+                              className="w-full max-h-40 object-contain rounded-lg border border-teal-200 bg-white dark:bg-[#05060b]/80"
                             />
                           </div>
                         )}
@@ -1591,25 +1591,25 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
                   {/* Collector */}
                   <div>
-                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">
                       Cobrador
                     </Label>
-                    <div className="mt-1.5 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                      <User className="h-4 w-4 text-slate-400" />
+                    <div className="mt-1.5 p-2.5 rounded-lg bg-background/50 dark:bg-[#05060b]/70 border border-input dark:border-emerald-500/5 text-sm font-medium text-foreground/80 dark:text-foreground/80 flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
                       {user?.name || 'Cobrador'}
                     </div>
                   </div>
 
                   {/* Observation */}
                   <div>
-                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">
                       Observación
                     </Label>
                     <Textarea
                       value={paymentObservation}
                       onChange={(e) => setPaymentObservation(e.target.value)}
                       placeholder="Observación opcional..."
-                      className="mt-1.5 bg-white dark:bg-slate-900 border-slate-200 resize-none"
+                      className="mt-1.5 bg-white dark:bg-[#05060b]/80 border-input resize-none"
                       rows={2}
                     />
                   </div>
@@ -1620,10 +1620,10 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
 
           {/* Footer */}
           {selectedLoanId && (
-            <DialogFooter className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
+            <DialogFooter className="px-6 py-4 border-t border-input/50 dark:border-emerald-500/10 bg-background/50/50 dark:bg-[#05060b]/70 shrink-0">
               <div className="flex items-center justify-between w-full gap-4">
                 <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Total a cobrar</p>
+                  <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total a cobrar</p>
                   <p className="text-lg font-bold text-emerald-600 dark:text-emerald-300">
                     {formatCurrency(parseFloat(paymentAmount) || 0)}
                   </p>
@@ -1677,8 +1677,8 @@ export default function PaymentsTab({ refreshTrigger }: PaymentsTabProps) {
               <h2 className="text-2xl font-bold text-emerald-600 dark:text-emerald-300">
                 PRÉSTAMO COMPLETADO
               </h2>
-              <p className="text-slate-500 dark:text-slate-400 mt-2">
-                El préstamo de <span className="font-semibold text-slate-700 dark:text-slate-300">{completedLoanName}</span> ha sido completamente pagado.
+              <p className="text-muted-foreground dark:text-muted-foreground mt-2">
+                El préstamo de <span className="font-semibold text-foreground/80 dark:text-foreground/80">{completedLoanName}</span> ha sido completamente pagado.
               </p>
             </div>
             <div className="w-full p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200">

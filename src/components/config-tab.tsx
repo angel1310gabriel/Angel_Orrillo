@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -367,19 +367,19 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
   // ============================================================
 
   const getStatusIcon = () => {
-    if (loading) return <Loader2 className="h-5 w-5 text-slate-400 animate-spin" />;
-    if (!status?.isConfigured) return <XCircle className="h-5 w-5 text-slate-400" />;
+    if (loading) return <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />;
+    if (!status?.isConfigured) return <XCircle className="h-5 w-5 text-muted-foreground" />;
     if (status.connectionStatus === 'connected') return <CheckCircle2 className="h-5 w-5 text-emerald-500" />;
     if (status.connectionStatus === 'error') return <AlertTriangle className="h-5 w-5 text-red-500" />;
-    return <XCircle className="h-5 w-5 text-slate-400" />;
+    return <XCircle className="h-5 w-5 text-muted-foreground" />;
   };
 
   const getStatusBadge = () => {
-    if (loading) return <Badge variant="outline" className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border-slate-200">Verificando...</Badge>;
-    if (!status?.isConfigured) return <Badge variant="outline" className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200">No configurado</Badge>;
+    if (loading) return <Badge variant="outline" className="bg-background/50 dark:bg-[#05060b]/70 text-muted-foreground dark:text-muted-foreground border-input">Verificando...</Badge>;
+    if (!status?.isConfigured) return <Badge variant="outline" className="bg-background/70 dark:bg-[#05060b]/70 text-foreground/70 dark:text-muted-foreground border-input">No configurado</Badge>;
     if (status.connectionStatus === 'connected') return <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200">Conectado</Badge>;
     if (status.connectionStatus === 'error') return <Badge variant="outline" className="bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-200">Error</Badge>;
-    return <Badge variant="outline" className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200">Desconocido</Badge>;
+    return <Badge variant="outline" className="bg-background/70 dark:bg-[#05060b]/70 text-foreground/70 dark:text-muted-foreground border-input">Desconocido</Badge>;
   };
 
   // ============================================================
@@ -421,7 +421,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
           <div className="flex items-center gap-3 mb-6">
             {getStatusIcon()}
             <div className="flex-1">
-              <p className="font-semibold text-slate-900 dark:text-slate-100">
+              <p className="font-semibold text-foreground dark:text-foreground">
                 {loading ? 'Verificando estado...' :
                  !status?.isConfigured ? 'Sin configurar' :
                  status.connectionStatus === 'connected' ? 'Conectado exitosamente' :
@@ -429,7 +429,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
                  'Estado desconocido'}
               </p>
               {status?.isConfigured && status.connectionStatus === 'connected' && (
-                <p className="text-sm text-slate-500 dark:text-slate-400">
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                   URL: <span className="font-mono text-xs">{status.url}</span>
                   {status.configSource && (
                     <Badge variant="outline" className="ml-2 text-xs bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border-teal-200">
@@ -528,10 +528,10 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
           {/* Tables found */}
           {status?.isConfigured && status.connectionStatus === 'connected' && status.tables.length > 0 && (
             <div className="mb-6">
-              <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Tablas disponibles</h4>
+              <h4 className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 mb-2">Tablas disponibles</h4>
               <div className="flex flex-wrap gap-2">
                 {status.tables.map((table) => (
-                  <Badge key={table} variant="outline" className="bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border-slate-200 font-mono text-xs">
+                  <Badge key={table} variant="outline" className="bg-background/50 dark:bg-[#05060b]/70 text-foreground/80 dark:text-foreground/80 border-input font-mono text-xs">
                     {table}
                   </Badge>
                 ))}
@@ -559,15 +559,15 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-sky-400 to-sky-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
                 <Smartphone className="h-9 w-9 text-white" />
               </div>
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">App Flutter</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">Cobradores</span>
+              <span className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">App Flutter</span>
+              <span className="text-xs text-muted-foreground dark:text-muted-foreground">Cobradores</span>
             </div>
 
             {/* Arrow Right */}
             <div className="flex flex-col items-center gap-1">
               <ArrowRight className="h-6 w-6 text-emerald-500 hidden sm:block" />
               <ArrowDown className="h-6 w-6 text-emerald-500 sm:hidden" />
-              <span className="text-[10px] text-slate-400 font-medium">Sync</span>
+              <span className="text-[10px] text-muted-foreground font-medium">Sync</span>
             </div>
 
             {/* Supabase */}
@@ -580,15 +580,15 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
                   </div>
                 )}
               </div>
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Supabase</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">Base de datos</span>
+              <span className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">Supabase</span>
+              <span className="text-xs text-muted-foreground dark:text-muted-foreground">Base de datos</span>
             </div>
 
             {/* Arrow Right */}
             <div className="flex flex-col items-center gap-1">
               <ArrowRight className="h-6 w-6 text-emerald-500 hidden sm:block" />
               <ArrowDown className="h-6 w-6 text-emerald-500 sm:hidden" />
-              <span className="text-[10px] text-slate-400 font-medium">API</span>
+              <span className="text-[10px] text-muted-foreground font-medium">API</span>
             </div>
 
             {/* Web App */}
@@ -596,13 +596,13 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-teal-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
                 <Globe className="h-9 w-9 text-white" />
               </div>
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Panel Web</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">Administración</span>
+              <span className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">Panel Web</span>
+              <span className="text-xs text-muted-foreground dark:text-muted-foreground">Administración</span>
             </div>
           </div>
 
           {/* Data flow legend */}
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs text-muted-foreground dark:text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <div className="w-3 h-0.5 bg-sky-500" />
               Lectura/Escritura
@@ -633,38 +633,38 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
         <CardContent className="space-y-5">
           {/* Supabase URL */}
           <div className="space-y-2">
-            <Label htmlFor="supabase-url" className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            <Label htmlFor="supabase-url" className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">
               URL del Proyecto <span className="text-red-500">*</span>
             </Label>
             <div className="relative">
-              <Server className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Server className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 id="supabase-url"
                 placeholder="https://your-project.supabase.co"
                 value={supabaseUrl}
                 onChange={(e) => setSupabaseUrl(e.target.value)}
-                className="pl-9 bg-white dark:bg-slate-900 border-slate-200"
+                className="pl-9 bg-white dark:bg-[#05060b]/80 border-input"
               />
             </div>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-muted-foreground">
               Se encuentra en Project Settings → API → Project URL
             </p>
           </div>
 
           {/* Anon Key */}
           <div className="space-y-2">
-            <Label htmlFor="anon-key" className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            <Label htmlFor="anon-key" className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">
               Anon Key <span className="text-red-500">*</span>
             </Label>
             <div className="relative">
-              <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 id="anon-key"
                 type={showAnonKey ? 'text' : 'password'}
                 placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                 value={anonKey}
                 onChange={(e) => setAnonKey(e.target.value)}
-                className="pl-9 pr-20 bg-white dark:bg-slate-900 border-slate-200"
+                className="pl-9 pr-20 bg-white dark:bg-[#05060b]/80 border-input"
               />
               <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
                 <Button
@@ -688,15 +688,15 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
                 </Button>
               </div>
             </div>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-muted-foreground">
               Clave pública del proyecto. Segura para uso en el cliente.
             </p>
           </div>
 
           {/* Service Role Key */}
           <div className="space-y-2">
-            <Label htmlFor="service-key" className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-              Service Role Key <span className="text-slate-400 font-normal">(recomendado)</span>
+            <Label htmlFor="service-key" className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">
+              Service Role Key <span className="text-muted-foreground font-normal">(recomendado)</span>
             </Label>
             <div className="relative">
               <Zap className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500" />
@@ -706,7 +706,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
                 placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                 value={serviceRoleKey}
                 onChange={(e) => setServiceRoleKey(e.target.value)}
-                className="pl-9 pr-20 bg-white dark:bg-slate-900 border-slate-200"
+                className="pl-9 pr-20 bg-white dark:bg-[#05060b]/80 border-input"
               />
               <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
                 <Button
@@ -807,7 +807,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Plin */}
-            <div className="space-y-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100">
+            <div className="space-y-3 p-4 rounded-xl bg-background/50 dark:bg-[#05060b]/70 border border-input/50">
               <div className="flex items-center gap-2">
                 <Smartphone className="h-4 w-4 text-purple-500" />
                 <h4 className="font-semibold text-sm">Plin</h4>
@@ -837,7 +837,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
           </div>
 
           {/* Bank Transfer */}
-          <div className="space-y-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100">
+          <div className="space-y-3 p-4 rounded-xl bg-background/50 dark:bg-[#05060b]/70 border border-input/50">
             <div className="flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-amber-500" />
               <h4 className="font-semibold text-sm">Transferencia Bancaria</h4>
@@ -913,13 +913,13 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
               >
                 {testResult.success ? 'Exitoso' : 'Fallido'}
               </Badge>
-              <span className="text-sm text-slate-600 dark:text-slate-400">{testResult.message}</span>
+              <span className="text-sm text-foreground/70 dark:text-muted-foreground">{testResult.message}</span>
             </div>
 
             {/* Latency */}
             {latency !== null && (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500 dark:text-slate-400">Latencia:</span>
+                <span className="text-xs text-muted-foreground dark:text-muted-foreground">Latencia:</span>
                 <Badge
                   variant="outline"
                   className={
@@ -938,7 +938,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
             {/* Tables Found */}
             {testResult.success && testResult.tables.length > 0 && (
               <div>
-                <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                <h4 className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 mb-2">
                   Tablas encontradas ({testResult.tables.length})
                 </h4>
                 <div className="flex flex-wrap gap-2">
@@ -1007,7 +1007,7 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
               ].map((item) => (
                 <div
                   key={item.step}
-                  className="flex items-start gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100"
+                  className="flex items-start gap-4 p-4 rounded-xl bg-background/50 dark:bg-[#05060b]/70 border border-input/50"
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
                     {item.step}
@@ -1015,9 +1015,9 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       {item.icon}
-                      <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm">{item.title}</span>
+                      <span className="font-semibold text-slate-800 dark:text-foreground text-sm">{item.title}</span>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{item.description}</p>
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">{item.description}</p>
                   </div>
                 </div>
               ))}
@@ -1088,8 +1088,8 @@ export default function ConfigTab({ refreshTrigger }: ConfigTabProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[['mora_rate_per_day','Tasa Mora Diaria (S/)','number','0.5'],['mora_threshold_days','Días para Mora','number','3'],['auto_mora_enabled','Mora Automática','boolean','true'],['daily_goal_default','Meta Diaria Default (S/)','number','100']].map(([key,label,type,def])=>{
               const val=systemSettings[key]??def;
-              return<div key={key} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">{label}</Label>
+              return<div key={key} className="p-3 rounded-lg bg-background/50 dark:bg-[#05060b]/70 border border-input dark:border-emerald-500/5">
+                <Label className="text-sm font-medium text-foreground/80 dark:text-foreground/80">{label}</Label>
                 {type==='boolean'?<Switch checked={val==='true'||val===true} onCheckedChange={async(v)=>{const r=await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,value:String(v)})});if(r.ok){setSystemSettings(s=>({...s,[key]:String(v)}));toast({title:'Guardado'})}else toast({title:'Error',variant:'destructive'})}} className="mt-2 data-[state=checked]:bg-emerald-500"/>:
                 <Input type={type} step="0.1" defaultValue={val} className="mt-1 h-9" onBlur={async(e)=>{const v=e.target.value;const r=await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,value:v})});if(r.ok){setSystemSettings(s=>({...s,[key]:v}));toast({title:'Guardado'})}else toast({title:'Error',variant:'destructive'})}}/>}
               </div>

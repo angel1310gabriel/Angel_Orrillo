@@ -1,0 +1,357 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Profile {
+  id                    String                 @id @default(cuid())
+  email                 String                 @unique
+  name                  String?
+  documentType          String                 @default("dni")
+  documentNumber        String?
+  phone                 String?
+  address               String?
+  role                  String                 @default("collector")
+  photoUrl              String?
+  isActive              Boolean                @default(true)
+  biometricEnabled      Boolean                @default(false)
+  password              String
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  auditLogs             AuditLog[]
+  receivedMessages      ChatMessage[]          @relation("ReceivedMessages")
+  sentMessages          ChatMessage[]          @relation("SentMessages")
+  collectorLocations    CollectorLocation[]
+  collectorZones        CollectorZone[]
+  settlements           DailySettlement[]
+  expenses              Expense[]
+  loans                 Loan[]
+  sentNotifications     Notification[]         @relation("SentNotifications")
+  receivedNotifications Notification[]         @relation("ReceivedNotifications")
+  payments              Payment[]
+  collectorAssignments  SupervisorAssignment[] @relation("CollectorAssignments")
+  supervisorAssignments SupervisorAssignment[]
+}
+
+model Zone {
+  id             String          @id @default(cuid())
+  name           String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  clients        Client[]
+  collectorZones CollectorZone[]
+  loans          Loan[]
+}
+
+model Client {
+  id             String       @id @default(cuid())
+  name           String
+  documentType   String       @default("dni")
+  documentNumber String
+  phone          String
+  address        String?
+  zoneId         String?
+  photoUrl       String?
+  creditScore    Float?
+  latitude       Float?
+  longitude      Float?
+  createdBy      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  zone           Zone?        @relation(fields: [zoneId], references: [id])
+  notes          ClientNote[]
+  guarantors     Guarantor[]
+  loans          Loan[]
+}
+
+model Guarantor {
+  id             String   @id @default(cuid())
+  clientId       String
+  name           String
+  documentType   String   @default("dni")
+  documentNumber String?
+  phone          String?
+  address        String?
+  photoUrl       String?
+  createdAt      DateTime @default(now())
+  client         Client   @relation(fields: [clientId], references: [id])
+}
+
+model ClientNote {
+  id          String   @id @default(cuid())
+  clientId    String
+  createdBy   String?
+  note        String
+  isImportant Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  client      Client   @relation(fields: [clientId], references: [id])
+}
+
+model Loan {
+  id                  String            @id @default(cuid())
+  clientId            String
+  collectorId         String?
+  zoneId              String?
+  amount              Float
+  totalAmount         Float
+  interest            Float
+  days                Int               @default(24)
+  dailyPayment        Float
+  paymentFrequency    String            @default("daily")
+  numCuotas           Int               @default(24)
+  amountPaid          Float             @default(0)
+  startDate           DateTime?
+  endDate             DateTime?
+  status              String            @default("active")
+  creditApproved      Boolean           @default(true)
+  signature           String?
+  notes               String?
+  restDays            String            @default("")
+  cancellationReason  String?
+  cancelledBy         String?
+  cancelledAt         DateTime?
+  completedAt         DateTime?
+  nextPaymentDate     DateTime?
+  chargedOff          Boolean           @default(false)
+  chargedOffAt        DateTime?
+  chargedOffBy        String?
+  recoveryCollectorId String?
+  createdBy           String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  deferredPayments    DeferredPayment[]
+  lateFees            LateFee[]
+  zone                Zone?             @relation(fields: [zoneId], references: [id])
+  collector           Profile?          @relation(fields: [collectorId], references: [id])
+  client              Client            @relation(fields: [clientId], references: [id])
+  payments            Payment[]
+  schedule            PaymentSchedule[]
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  loanId        String
+  collectorId   String?
+  clientId      String?
+  amount        Float
+  interest      Float?
+  paymentMethod String   @default("cash")
+  status        String   @default("completed")
+  observation   String?
+  proofPhoto    String?
+  photoUrl      String?
+  gpsLatitude   Float?
+  gpsLongitude  Float?
+  paymentDate   DateTime @default(now())
+  createdAt     DateTime @default(now())
+  collector     Profile? @relation(fields: [collectorId], references: [id])
+  loan          Loan     @relation(fields: [loanId], references: [id])
+}
+
+model PaymentSchedule {
+  id                String   @id @default(cuid())
+  loanId            String
+  installmentNumber Int
+  amount            Float
+  dueDate           DateTime
+  status            String   @default("pending")
+  createdAt         DateTime @default(now())
+  loan              Loan     @relation(fields: [loanId], references: [id])
+}
+
+model LateFee {
+  id           String    @id @default(cuid())
+  loanId       String
+  daysLate     Int
+  amount       Float
+  ratePerDay   Float     @default(2.0)
+  status       String    @default("pending")
+  waivedBy     String?
+  waivedReason String?
+  waivedAt     DateTime?
+  paidAt       DateTime?
+  generatedAt  DateTime  @default(now())
+  loan         Loan      @relation(fields: [loanId], references: [id])
+}
+
+model DeferredPayment {
+  id             String   @id @default(cuid())
+  loanId         String
+  originalAmount Float
+  surcharge      Float
+  totalDeferred  Float
+  status         String   @default("pending")
+  deferredDate   String
+  createdAt      DateTime @default(now())
+  loan           Loan     @relation(fields: [loanId], references: [id])
+}
+
+model Expense {
+  id           String   @id @default(cuid())
+  collectorId  String
+  amount       Float
+  category     String
+  description  String?
+  expenseDate  String
+  receiptPhoto String?
+  status       String   @default("pending")
+  approvedBy   String?
+  createdAt    DateTime @default(now())
+  collector    Profile  @relation(fields: [collectorId], references: [id])
+}
+
+model DailySettlement {
+  id              String   @id @default(cuid())
+  collectorId     String
+  date            String
+  expectedCount   Int      @default(0)
+  expectedAmount  Float    @default(0)
+  collectedCount  Int      @default(0)
+  collectedAmount Float    @default(0)
+  difference      Float    @default(0)
+  notes           String?
+  status          String   @default("pending")
+  createdAt       DateTime @default(now())
+  collector       Profile  @relation(fields: [collectorId], references: [id])
+}
+
+model CapitalMovement {
+  id              String   @id @default(cuid())
+  type            String
+  amount          Float
+  previousCapital Float
+  newCapital      Float
+  description     String?
+  createdAt       DateTime @default(now())
+}
+
+model CollectorZone {
+  id          String  @id @default(cuid())
+  collectorId String
+  zoneId      String
+  zone        Zone    @relation(fields: [zoneId], references: [id])
+  collector   Profile @relation(fields: [collectorId], references: [id])
+
+  @@unique([collectorId, zoneId])
+}
+
+model SupervisorAssignment {
+  id           String  @id @default(cuid())
+  supervisorId String
+  collectorId  String
+  collector    Profile @relation("CollectorAssignments", fields: [collectorId], references: [id])
+  supervisor   Profile @relation(fields: [supervisorId], references: [id])
+
+  @@unique([supervisorId, collectorId])
+}
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  message    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  receiver   Profile  @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  sender     Profile  @relation("SentMessages", fields: [senderId], references: [id])
+}
+
+model Notification {
+  id            String   @id @default(cuid())
+  userId        String
+  sentById      String?
+  title         String
+  body          String
+  type          String   @default("info")
+  referenceType String?
+  referenceId   String?
+  isRead        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  sentBy        Profile? @relation("SentNotifications", fields: [sentById], references: [id])
+  user          Profile  @relation("ReceivedNotifications", fields: [userId], references: [id])
+}
+
+model CollectorLocation {
+  id          String   @id @default(cuid())
+  collectorId String
+  latitude    Float
+  longitude   Float
+  accuracy    Float?
+  speed       Float?
+  timestamp   DateTime @default(now())
+  createdAt   DateTime @default(now())
+  collector   Profile  @relation(fields: [collectorId], references: [id])
+}
+
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}
+
+model PaymentLink {
+  id          String   @id @default(cuid())
+  loanId      String
+  amount      Float
+  token       String   @unique
+  status      String   @default("pending")
+  description String?
+  expiresAt   DateTime
+  createdBy   String?
+  createdAt   DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  entityName String?
+  changes    String?
+  ipAddress  String?
+  userAgent  String?
+  severity   String   @default("info")
+  notes      String?
+  createdAt  DateTime @default(now())
+  user       Profile? @relation(fields: [userId], references: [id])
+}
+
+model CajaMovement {
+  id            String   @id @default(cuid())
+  type          String
+  amount        Float
+  category      String
+  description   String?
+  referenceType String?
+  referenceId   String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logoUrl   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model LateFeeExecution {
+  id               String   @id @default(cuid())
+  executionDate    DateTime
+  loansProcessed   Int      @default(0)
+  feesGenerated    Int      @default(0)
+  totalFeeAmount   Float    @default(0)
+  loansMovedToMora Int      @default(0)
+  status           String   @default("completed")
+  errorMessage     String?
+  executionTimeMs  Int      @default(0)
+  triggeredBy      String   @default("automatic")
+  createdAt        DateTime @default(now())
+}

@@ -74,7 +74,7 @@ export default function CollectorLocationsMap({ open, onOpenChange, collectorId,
       <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-emerald-600" />
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/25 flex items-center justify-center"><MapPin className="h-4 w-4 text-white" /></div>
             Ubicaciones de {collectorName}
           </DialogTitle>
         </DialogHeader>

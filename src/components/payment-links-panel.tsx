@@ -55,7 +55,8 @@ export default function PaymentLinksPanel({ loanId, clientId }: PaymentLinksPane
   const { toast } = useToast();
   const [links, setLinks] = useState<PaymentLink[]>([]);
   const [loading, setLoading] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [amount, setAmount] = useState('');
   const [sentVia, setSentVia] = useState('yape');
 
@@ -89,7 +90,7 @@ export default function PaymentLinksPanel({ loanId, clientId }: PaymentLinksPane
       toast({ title: 'Monto inválido', description: 'Ingrese un monto válido', variant: 'destructive' });
       return;
     }
-    setCreating(true);
+    setSubmitting(true);
     try {
       const res = await fetch('/api/payment-links', {
         method: 'POST',
@@ -100,6 +101,7 @@ export default function PaymentLinksPanel({ loanId, clientId }: PaymentLinksPane
         toast({ title: 'Link creado', description: 'El link de pago fue generado exitosamente' });
         setAmount('');
         setSentVia('yape');
+        setShowForm(false);
         await fetchLinks();
       } else {
         const data = await res.json();
@@ -108,7 +110,7 @@ export default function PaymentLinksPanel({ loanId, clientId }: PaymentLinksPane
     } catch {
       toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' });
     } finally {
-      setCreating(false);
+      setSubmitting(false);
     }
   };
 
@@ -142,7 +144,7 @@ export default function PaymentLinksPanel({ loanId, clientId }: PaymentLinksPane
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Create Form */}
-        {creating ? (
+        {showForm ? (
           <div className="space-y-3 p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/30">
             <div>
               <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Monto</Label>
@@ -174,16 +176,16 @@ export default function PaymentLinksPanel({ loanId, clientId }: PaymentLinksPane
               <Button
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
                 onClick={handleCreate}
-                disabled={creating}
+                disabled={submitting}
               >
-                {creating ? (
+                {submitting ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
                   <Send className="h-4 w-4 mr-2" />
                 )}
                 Generar Link
               </Button>
-              <Button variant="outline" onClick={() => setCreating(false)}>
+              <Button variant="outline" onClick={() => setShowForm(false)}>
                 Cancelar
               </Button>
             </div>
@@ -191,7 +193,7 @@ export default function PaymentLinksPanel({ loanId, clientId }: PaymentLinksPane
         ) : (
           <Button
             className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-            onClick={() => setCreating(true)}
+            onClick={() => setShowForm(true)}
           >
             <Plus className="h-4 w-4 mr-2" />
             Nuevo Link de Pago
@@ -207,8 +209,8 @@ export default function PaymentLinksPanel({ loanId, clientId }: PaymentLinksPane
           </div>
         ) : links.length === 0 ? (
           <div className="text-center py-8">
-            <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3">
-              <Link2 className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+            <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center mx-auto mb-3">
+              <Link2 className="h-6 w-6 text-emerald-400" />
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400">Sin links de pago</p>
           </div>

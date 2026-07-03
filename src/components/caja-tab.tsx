@@ -12,6 +12,8 @@ import {
   Tag,
   ArrowUp,
   ArrowDown,
+  ArrowUpCircle,
+  ArrowDownCircle,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -317,7 +319,10 @@ export default function CajaTab() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shadow-lg ${formType === 'income' ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/25' : 'bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-500/25'}`}>
+                {formType === 'income' ? <ArrowUpCircle className="h-4 w-4 text-white" /> : <ArrowDownCircle className="h-4 w-4 text-white" />}
+              </div>
               {formType === 'income' ? 'Nuevo Ingreso' : 'Nuevo Egreso'}
             </DialogTitle>
           </DialogHeader>

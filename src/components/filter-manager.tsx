@@ -107,7 +107,7 @@ export default function FilterManager({
           variant="outline"
           size="sm"
           onClick={handleClear}
-          className="border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 gap-1"
+          className="border-input text-foreground/70 hover:bg-background/50 dark:border-emerald-500/5 dark:text-muted-foreground gap-1"
         >
           <FilterX className="h-3.5 w-3.5" />
           Limpiar
@@ -133,7 +133,7 @@ export default function FilterManager({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-64 min-w-[260px]">
           {filters.length === 0 ? (
-            <div className="px-3 py-4 text-center text-slate-500 dark:text-slate-400 text-sm">
+            <div className="px-3 py-4 text-center text-muted-foreground dark:text-muted-foreground text-sm">
               <Filter className="h-6 w-6 mx-auto mb-2 opacity-50" />
               <p>No hay filtros guardados</p>
               <p className="text-xs mt-1">Aplica filtros y haz clic en "Guardar filtro"</p>
@@ -152,7 +152,7 @@ export default function FilterManager({
                       <Check className="h-4 w-4 text-emerald-600 ml-auto" />
                     </div>
                   </DropdownMenuItem>
-                  <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+                  <div className="border-t border-input/50 dark:border-emerald-500/10 my-1" />
                 </>
               )}
               {filters.map((filter) => (
@@ -165,7 +165,7 @@ export default function FilterManager({
                     {filter.isDefault && <Star className="h-3.5 w-3.5 text-amber-500 fill-current" />}
                     <span className="truncate font-medium">{filter.name}</span>
                     {Object.keys(filter.filters).length > 0 && (
-                      <span className="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] text-muted-foreground bg-background/70 dark:bg-[#05060b]/70 px-1.5 py-0.5 rounded">
                         {Object.keys(filter.filters).length} filtros
                       </span>
                     )}
@@ -174,7 +174,7 @@ export default function FilterManager({
                     {!filter.isDefault && (
                       <button
                         onClick={(e) => { e.stopPropagation(); handleSetDefault(filter.id); }}
-                        className="p-1 text-slate-400 hover:text-amber-500"
+                        className="p-1 text-muted-foreground hover:text-amber-500"
                         title={filter.isDefault ? 'Predeterminado' : 'Establecer como predeterminado'}
                       >
                         <Star className={`h-3.5 w-3.5 ${filter.isDefault ? 'fill-current text-amber-500' : ''}`} />
@@ -182,14 +182,14 @@ export default function FilterManager({
                     )}
                     <button
                       onClick={(e) => { e.stopPropagation(); handleEdit(filter); }}
-                      className="p-1 text-slate-400 hover:text-emerald-600"
+                      className="p-1 text-muted-foreground hover:text-emerald-600"
                       title="Renombrar"
                     >
                       <MoreHorizontal className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDelete(filter.id); }}
-                      className="p-1 text-slate-400 hover:text-red-500"
+                      className="p-1 text-muted-foreground hover:text-red-500"
                       title="Eliminar"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -205,11 +205,11 @@ export default function FilterManager({
       {/* Save Dialog */}
       {saveDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Guardar filtro actual</h3>
+          <div className="bg-white dark:bg-[#05060b]/80 rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6">
+            <h3 className="text-lg font-semibold text-foreground dark:text-foreground mb-4">Guardar filtro actual</h3>
             <div className="space-y-4">
               <div>
-                <Label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre del filtro</Label>
+                <Label className="block text-sm font-medium text-foreground/80 dark:text-foreground/80 mb-1">Nombre del filtro</Label>
                 <Input
                   value={saveName}
                   onChange={(e) => setSaveName(e.target.value)}
@@ -224,7 +224,7 @@ export default function FilterManager({
                   onChange={(e) => setMakeDefault(e.target.checked)}
                   className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                 />
-                <span className="text-sm text-slate-700 dark:text-slate-300">Establecer como filtro predeterminado</span>
+                <span className="text-sm text-foreground/80 dark:text-foreground/80">Establecer como filtro predeterminado</span>
               </label>
             </div>
             <div className="flex justify-end gap-2 mt-6">
@@ -238,8 +238,8 @@ export default function FilterManager({
       {/* Edit Dialog */}
       {editingId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Renombrar filtro</h3>
+          <div className="bg-white dark:bg-[#05060b]/80 rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6">
+            <h3 className="text-lg font-semibold text-foreground dark:text-foreground mb-4">Renombrar filtro</h3>
             <Input
               value={editName}
               onChange={(e) => setEditName(e.target.value)}

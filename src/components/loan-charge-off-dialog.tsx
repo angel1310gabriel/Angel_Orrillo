@@ -280,6 +280,7 @@ export default function LoanChargeOffDialog({
           </Button>
           <Button
             variant="destructive"
+            className="shadow-lg shadow-red-600/25 hover:shadow-red-600/40"
             onClick={handleSubmit}
             disabled={saving}
           >

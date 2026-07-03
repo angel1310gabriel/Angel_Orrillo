@@ -109,7 +109,7 @@ export default function ClientNotesDialog({ open, onOpenChange, clientId, client
       <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <StickyNote className="h-5 w-5" />
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/25 flex items-center justify-center"><StickyNote className="h-4 w-4 text-white" /></div>
             Notas de {clientName}
           </DialogTitle>
         </DialogHeader>

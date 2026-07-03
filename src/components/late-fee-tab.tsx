@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -142,7 +142,7 @@ export default function LateFeeTab() {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-        <span className="ml-3 text-slate-500 dark:text-slate-400">Cargando sistema de mora...</span>
+        <span className="ml-3 text-muted-foreground dark:text-muted-foreground">Cargando sistema de mora...</span>
       </div>
     );
   }
@@ -207,15 +207,15 @@ export default function LateFeeTab() {
           </CardHeader>
           <CardContent className="p-6">
             {moraStatus?.lastExecution && (
-              <div className="mb-4 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200">
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Última ejecución:</p>
-                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              <div className="mb-4 p-3 rounded-lg bg-background/50 dark:bg-[#05060b]/70 border border-input">
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground mb-1">Última ejecución:</p>
+                <p className="text-sm font-medium text-foreground/80 dark:text-foreground/80">
                   {formatDateTime(moraStatus.lastExecution.createdAt)}
                 </p>
                 <div className="flex gap-3 mt-2">
-                  <span className="text-xs text-slate-500 dark:text-slate-400">{moraStatus.lastExecution.loansProcessed} procesados</span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">{moraStatus.lastExecution.feesGenerated} moras generadas</span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">{moraStatus.lastExecution.loansMovedToMora} movidos a mora</span>
+                  <span className="text-xs text-muted-foreground dark:text-muted-foreground">{moraStatus.lastExecution.loansProcessed} procesados</span>
+                  <span className="text-xs text-muted-foreground dark:text-muted-foreground">{moraStatus.lastExecution.feesGenerated} moras generadas</span>
+                  <span className="text-xs text-muted-foreground dark:text-muted-foreground">{moraStatus.lastExecution.loansMovedToMora} movidos a mora</span>
                 </div>
               </div>
             )}
@@ -225,19 +225,19 @@ export default function LateFeeTab() {
                 <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200 mb-2">✅ Resultado de la última ejecución:</p>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="text-xs">
-                    <span className="text-slate-500 dark:text-slate-400">Procesados:</span>{' '}
+                    <span className="text-muted-foreground dark:text-muted-foreground">Procesados:</span>{' '}
                     <span className="font-semibold">{(lastRunResult as { loansProcessed: number }).loansProcessed}</span>
                   </div>
                   <div className="text-xs">
-                    <span className="text-slate-500 dark:text-slate-400">Moras generadas:</span>{' '}
+                    <span className="text-muted-foreground dark:text-muted-foreground">Moras generadas:</span>{' '}
                     <span className="font-semibold">{(lastRunResult as { feesGenerated: number }).feesGenerated}</span>
                   </div>
                   <div className="text-xs">
-                    <span className="text-slate-500 dark:text-slate-400">Movidos a mora:</span>{' '}
+                    <span className="text-muted-foreground dark:text-muted-foreground">Movidos a mora:</span>{' '}
                     <span className="font-semibold">{(lastRunResult as { loansMovedToMora: number }).loansMovedToMora}</span>
                   </div>
                   <div className="text-xs">
-                    <span className="text-slate-500 dark:text-slate-400">Monto recargos:</span>{' '}
+                    <span className="text-muted-foreground dark:text-muted-foreground">Monto recargos:</span>{' '}
                     <span className="font-semibold">{formatCurrency((lastRunResult as { totalFeeAmount: number }).totalFeeAmount)}</span>
                   </div>
                 </div>
@@ -277,10 +277,10 @@ export default function LateFeeTab() {
           <CardContent className="space-y-6">
             {lateFeeConfig && (
               <>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-background/50 dark:bg-[#05060b]/70 border border-input">
                   <div>
                     <Label className="text-sm font-medium">Mora Automática</Label>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Ejecutar cálculo automáticamente</p>
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">Ejecutar cálculo automáticamente</p>
                   </div>
                   <Switch
                     checked={lateFeeConfig.autoMoraEnabled}
@@ -288,10 +288,10 @@ export default function LateFeeTab() {
                   />
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-background/50 dark:bg-[#05060b]/70 border border-input">
                   <div>
                     <Label className="text-sm font-medium">Recargos Habilitados</Label>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Generar recargos por mora</p>
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">Generar recargos por mora</p>
                   </div>
                   <Switch
                     checked={lateFeeConfig.lateFeeEnabled}
@@ -299,7 +299,7 @@ export default function LateFeeTab() {
                   />
                 </div>
 
-                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200">
+                <div className="p-3 rounded-lg bg-background/50 dark:bg-[#05060b]/70 border border-input">
                   <div className="flex items-center justify-between mb-2">
                     <Label className="text-sm font-medium">Tasa Diaria de Recargo (S/)</Label>
                     <span className="text-lg font-bold text-emerald-600 dark:text-emerald-300">
@@ -311,10 +311,10 @@ export default function LateFeeTab() {
                     value={lateFeeConfig.lateFeeRatePerDay}
                     onChange={(e) => updateConfig('lateFeeRatePerDay', parseFloat(e.target.value) || 0)}
                   />
-                  <p className="text-xs text-slate-400 mt-1">Monto cobrado por día de atraso por préstamo</p>
+                  <p className="text-xs text-muted-foreground mt-1">Monto cobrado por día de atraso por préstamo</p>
                 </div>
 
-                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200">
+                <div className="p-3 rounded-lg bg-background/50 dark:bg-[#05060b]/70 border border-input">
                   <div className="flex items-center justify-between mb-2">
                     <Label className="text-sm font-medium">Días Umbral para Mora</Label>
                     <span className="text-lg font-bold text-amber-600 dark:text-amber-300">
@@ -326,7 +326,7 @@ export default function LateFeeTab() {
                     value={lateFeeConfig.moraThresholdDays}
                     onChange={(e) => updateConfig('moraThresholdDays', parseInt(e.target.value) || 1)}
                   />
-                  <p className="text-xs text-slate-400 mt-1">Días de atraso antes de considerar mora</p>
+                  <p className="text-xs text-muted-foreground mt-1">Días de atraso antes de considerar mora</p>
                 </div>
               </>
             )}
@@ -391,7 +391,7 @@ export default function LateFeeTab() {
                   </TableRow>
                 )) || (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-slate-400 py-8">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       No hay préstamos en mora
                     </TableCell>
                   </TableRow>
@@ -440,7 +440,7 @@ export default function LateFeeTab() {
                         {exec.loansMovedToMora}
                       </span>
                     </TableCell>
-                    <TableCell className="text-xs text-slate-500 dark:text-slate-400">{exec.executionTimeMs}ms</TableCell>
+                    <TableCell className="text-xs text-muted-foreground dark:text-muted-foreground">{exec.executionTimeMs}ms</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={
                         exec.status === 'completed' ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200' :
@@ -465,15 +465,15 @@ export default function LateFeeTab() {
 
       {/* Waive Dialog */}
       {waiveDialog&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={()=>setWaiveDialog(null)}>
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md mx-4 p-6" onClick={e=>e.stopPropagation()}>
-          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">Condonar Recargos</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Cliente: <strong>{waiveDialog.clientName}</strong></p>
+        <div className="bg-white dark:bg-[#05060b]/80 rounded-xl shadow-2xl border border-input dark:border-emerald-500/5 w-full max-w-md mx-4 p-6" onClick={e=>e.stopPropagation()}>
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-foreground mb-2">Condonar Recargos</h3>
+          <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-4">Cliente: <strong>{waiveDialog.clientName}</strong></p>
           <div className="space-y-2">
             <Label htmlFor="waive-reason" className="text-sm font-medium">Motivo de condonación <span className="text-red-500">*</span></Label>
-            <textarea id="waive-reason" className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-[100px] resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Describa el motivo..." value={waiveReason} onChange={e=>setWaiveReason(e.target.value)}/>
+            <textarea id="waive-reason" className="w-full rounded-lg border border-input dark:border-emerald-500/5 bg-white dark:bg-[#05060b]/70 px-3 py-2 text-sm min-h-[100px] resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Describa el motivo..." value={waiveReason} onChange={e=>setWaiveReason(e.target.value)}/>
           </div>
           <div className="flex justify-end gap-3 mt-6">
-            <Button variant="outline" onClick={()=>{setWaiveDialog(null);setWaiveReason('')}} className="border-slate-200">Cancelar</Button>
+            <Button variant="outline" onClick={()=>{setWaiveDialog(null);setWaiveReason('')}} className="border-input">Cancelar</Button>
             <Button className="bg-amber-600 hover:bg-amber-700 text-white" onClick={waiveFees} disabled={waiving||!waiveReason.trim()}>{waiving?<><Loader2 className="h-4 w-4 mr-2 animate-spin"/>Condonando...</>:'Condonar Recargos'}</Button>
           </div>
         </div>

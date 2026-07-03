@@ -152,7 +152,7 @@ export default function MapTab() {
         </Card>
       ) : (
         <Card className="border-0 shadow-md overflow-hidden">
-          <div className="h-[600px] w-full">
+          <div className="h-[600px] w-full relative z-0">
             <MapContainer
               center={defaultCenter}
               zoom={13}

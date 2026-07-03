@@ -42,7 +42,7 @@ async function getOverview() {
       try {
         const data = await Promise.race([
           getAnalyticsOverview(),
-          new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), 5000)),
+          new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), 2000)),
         ]);
         if (data === null) throw new Error('Supabase timeout');
         // Only fall through to Prisma if Supabase returns an error or null

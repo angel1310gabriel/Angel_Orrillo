@@ -129,19 +129,6 @@ export default function AuditTab() {
 
   return (
     <div className="space-y-6">
-      {/* Help Section */}
-      <Card className="border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/30">
-        <CardContent className="p-4">
-          <div className="flex items-start gap-3">
-            <Info className="h-5 w-5 text-emerald-600 dark:text-emerald-300 mt-0.5 shrink-0" />
-            <div className="text-sm text-slate-700 dark:text-slate-300">
-              <p className="font-medium mb-1">¿Qué es Auditoría?</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Aquí se registra <strong>toda la actividad</strong> del sistema: creaciones, modificaciones, eliminaciones de clientes, préstamos, pagos, cobradores, zonas, etc. Puedes filtrar por tipo de acción, entidad o severidad para encontrar eventos específicos. Los datos se actualizan automáticamente.</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Audit Stats Cards */}
       {auditStats?.byAction ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { db, isVercel } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,8 +31,16 @@ export async function GET(request: NextRequest) {
             total: result.count || 0,
           });
         }
+        console.error('[Caja] Supabase query error:', result.error);
       }
-    } catch {}
+    } catch (e) {
+      console.error('[Caja] Supabase error:', e);
+    }
+
+    // On Vercel, if Supabase failed, return empty (table may not exist yet)
+    if (isVercel) {
+      return NextResponse.json({ movements: [], total: 0 });
+    }
 
     // Fallback: Prisma
     const where: Record<string, unknown> = {};
@@ -91,6 +99,10 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch {}
+
+    if (isVercel) {
+      return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
+    }
 
     // Fallback: Prisma
     const movement = await db.cajaMovement.create({

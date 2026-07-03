@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -226,11 +226,11 @@ const getStatusBadge = (status: string) => {
     case 'completed':
       return { className: 'bg-teal-100 dark:bg-teal-900/50 text-teal-800 dark:text-teal-200 border-teal-200 dark:border-teal-800', label: 'Completado', icon: <CheckCircle2 className="h-3 w-3" /> };
     case 'cancelled':
-      return { className: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700', label: 'Cancelado', icon: <XCircle className="h-3 w-3" /> };
+      return { className: 'bg-background/70 dark:bg-[#05060b]/70 text-foreground/70 dark:text-muted-foreground border-input dark:border-emerald-500/5', label: 'Cancelado', icon: <XCircle className="h-3 w-3" /> };
     case 'refinanced':
       return { className: 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800', label: 'Refinanciado', icon: <RefreshCw className="h-3 w-3" /> };
     default:
-      return { className: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700', label: status, icon: <Info className="h-3 w-3" /> };
+      return { className: 'bg-background/70 dark:bg-[#05060b]/70 text-foreground/70 dark:text-muted-foreground border-input dark:border-emerald-500/5', label: status, icon: <Info className="h-3 w-3" /> };
   }
 };
 
@@ -933,7 +933,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
               className={
                 statusFilter === filter.key
                   ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all'
-                  : 'border-slate-200 dark:border-slate-700 hover:border-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-400 text-slate-600 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+                  : 'border-input dark:border-emerald-500/5 hover:border-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-400 text-foreground/70 dark:text-foreground/80 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
               }
               onClick={() => { setStatusFilter(filter.key); setPage(1); }}
             >
@@ -944,18 +944,18 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:flex-initial">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar cliente, DNI..."
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-              className="pl-9 w-full sm:w-64 bg-white dark:bg-slate-900 border-slate-200"
+              className="pl-9 w-full sm:w-64 bg-white dark:bg-[#05060b]/80 border-input"
             />
           </div>
           <Button
             variant="outline"
             size="icon"
-            className="border-slate-200"
+            className="border-input"
             onClick={() => fetchLoans()}
           >
             <RefreshCw className="h-4 w-4" />
@@ -1005,11 +1005,11 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       ) : loans.length === 0 ? (
         <Card className="border-0 shadow-md">
           <CardContent className="p-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
-              <FileText className="h-8 w-8 text-slate-400 dark:text-slate-500" />
+            <div className="w-16 h-16 rounded-full bg-background/70 dark:bg-[#05060b]/70 flex items-center justify-center mx-auto mb-4">
+              <FileText className="h-8 w-8 text-muted-foreground dark:text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">No hay préstamos</h3>
-            <p className="text-slate-500 dark:text-slate-400 mb-4">
+            <h3 className="text-lg font-semibold text-foreground/80 dark:text-foreground/80 mb-2">No hay préstamos</h3>
+            <p className="text-muted-foreground dark:text-muted-foreground mb-4">
               {statusFilter !== 'all'
                 ? `No se encontraron préstamos con estado "${statusFilters.find(f => f.key === statusFilter)?.label}"`
                 : 'Aún no se han registrado préstamos'}
@@ -1077,13 +1077,13 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <h4 className="font-semibold text-slate-900 dark:text-slate-100 truncate">{loan.client.name}</h4>
+                          <h4 className="font-semibold text-foreground dark:text-foreground truncate">{loan.client.name}</h4>
                           <Badge variant="outline" className={`text-xs shrink-0 ${statusBadge.className}`}>
                             {statusBadge.icon}
                             <span className="ml-1">{statusBadge.label}</span>
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground dark:text-muted-foreground mt-0.5">
                           <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{loan.client.phone}</span>
                           {loan.zone && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{loan.zone.name}</span>}
                           {loan.collector && <span className="flex items-center gap-1"><Users className="h-3 w-3" />{loan.collector.name}</span>}
@@ -1095,24 +1095,24 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                     <div className="flex items-center gap-6 sm:gap-8">
                       <div className="hidden md:flex flex-col items-center gap-3">
                         <div className="text-center">
-                          <p className="text-xs text-slate-500 dark:text-slate-400">Monto</p>
-                          <p className="font-bold text-slate-900 dark:text-slate-100">{formatCurrency(loan.amount)}</p>
+                          <p className="text-xs text-muted-foreground dark:text-muted-foreground">Monto</p>
+                          <p className="font-bold text-foreground dark:text-foreground">{formatCurrency(loan.amount)}</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-xs text-slate-500 dark:text-slate-400">Total</p>
-                          <p className="font-bold text-slate-700 dark:text-slate-300">{formatCurrency(loan.totalAmount)}</p>
+                          <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total</p>
+                          <p className="font-bold text-foreground/80 dark:text-foreground/80">{formatCurrency(loan.totalAmount)}</p>
                         </div>
                       </div>
 
                       <div className="hidden md:flex flex-col items-center">
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Cuota {loan.paymentFrequency === 'daily' ? 'Diaria' : 'Semanal'}</p>
+                        <p className="text-xs text-muted-foreground dark:text-muted-foreground">Cuota {loan.paymentFrequency === 'daily' ? 'Diaria' : 'Semanal'}</p>
                         <p className="font-bold text-emerald-600 dark:text-emerald-300">{formatCurrency(loan.dailyPayment)}</p>
                       </div>
 
                       {/* Progress */}
                       <div className="w-32 sm:w-40">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs text-slate-500 dark:text-slate-400">Progreso</span>
+                          <span className="text-xs text-muted-foreground dark:text-muted-foreground">Progreso</span>
                           <span className={`text-xs font-semibold ${
                             loan.status === 'mora' ? 'text-red-600 dark:text-red-300' :
                             loan.progressPercent >= 75 ? 'text-emerald-600 dark:text-emerald-300' :
@@ -1123,18 +1123,18 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                         </div>
                         <Progress value={loan.progressPercent} className={`h-2 ${progressColor}`} />
                         <div className="flex items-center justify-between mt-1">
-                          <span className="text-xs text-slate-400">{formatCurrency(loan.amountPaid)}</span>
-                          <span className="text-xs text-slate-400">{formatCurrency(loan.totalAmount)}</span>
+                          <span className="text-xs text-muted-foreground">{formatCurrency(loan.amountPaid)}</span>
+                          <span className="text-xs text-muted-foreground">{formatCurrency(loan.totalAmount)}</span>
                         </div>
                       </div>
 
                       {/* Days Remaining */}
                       <div className="hidden lg:flex flex-col items-center">
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Días Rest.</p>
+                        <p className="text-xs text-muted-foreground dark:text-muted-foreground">Días Rest.</p>
                         <p className={`font-bold ${
                           loan.daysRemaining !== null && loan.daysRemaining < 0 ? 'text-red-600 dark:text-red-300' :
                           loan.daysRemaining !== null && loan.daysRemaining < 5 ? 'text-amber-600 dark:text-amber-300' :
-                          'text-slate-700 dark:text-slate-300'
+                          'text-foreground/80 dark:text-foreground/80'
                         }`}>
                           {loan.daysRemaining !== null ? `${loan.daysRemaining}d` : '—'}
                         </p>
@@ -1145,7 +1145,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-slate-400 hover:text-emerald-600 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
+                          className="h-8 w-8 text-muted-foreground hover:text-emerald-600 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
                           onClick={(e) => {
                             e.stopPropagation();
                             setDetailLoan(loan);
@@ -1158,7 +1158,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/50"
+                            className="h-8 w-8 text-muted-foreground hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/50"
                             onClick={(e) => {
                               e.stopPropagation();
                               setCancelLoanId(loan.id);
@@ -1171,7 +1171,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/50"
+                            className="h-8 w-8 text-muted-foreground hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/50"
                             onClick={(e) => {
                               e.stopPropagation();
                               setDeleteLoanId(loan.id);
@@ -1185,20 +1185,20 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                   </div>
 
                   {/* Mobile-only financial row */}
-                  <div className="flex md:hidden items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex md:hidden items-center justify-between mt-3 pt-3 border-t border-input/50 dark:border-emerald-500/10">
                     <div className="flex items-center gap-4">
                       <div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Monto</p>
-                        <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{formatCurrency(loan.amount)}</p>
+                        <p className="text-xs text-muted-foreground dark:text-muted-foreground">Monto</p>
+                        <p className="font-bold text-sm text-foreground dark:text-foreground">{formatCurrency(loan.amount)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Cuota</p>
+                        <p className="text-xs text-muted-foreground dark:text-muted-foreground">Cuota</p>
                         <p className="font-bold text-sm text-emerald-600 dark:text-emerald-300">{formatCurrency(loan.dailyPayment)}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Restante</p>
-                      <p className="font-bold text-sm text-slate-700 dark:text-slate-300">{formatCurrency(loan.remaining)}</p>
+                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Restante</p>
+                      <p className="font-bold text-sm text-foreground/80 dark:text-foreground/80">{formatCurrency(loan.remaining)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -1217,7 +1217,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-slate-600 dark:text-slate-400">
+              <span className="text-sm text-foreground/70 dark:text-muted-foreground">
                 Página {page} de {totalPages}
               </span>
               <Button
@@ -1296,7 +1296,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       {/* ============================================================ */}
       <Dialog open={createOpen} onOpenChange={(open) => { if (!open) resetCreateForm(); else if (!isAdmin && user?.id) { setCollectorId(user.id); } setCreateOpen(open); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col p-0">
-          <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-input/50 dark:border-emerald-500/10">
             <DialogTitle className="flex items-center gap-2 text-xl">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
                 <Plus className="h-4 w-4 text-white" />
@@ -1309,17 +1309,17 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
           </DialogHeader>
 
           {/* Step Indicator */}
-          <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+          <div className="px-6 py-4 bg-background/50 dark:bg-[#05060b]/70 border-b border-input/50 dark:border-emerald-500/10">
             <div className="flex items-center gap-3">
               {[1, 2, 3].map((step) => (
                 <React.Fragment key={step}>
-                  <div className={`flex items-center gap-2 ${createStep >= step ? 'text-emerald-600 dark:text-emerald-300' : 'text-slate-400'}`}>
+                  <div className={`flex items-center gap-2 ${createStep >= step ? 'text-emerald-600 dark:text-emerald-300' : 'text-muted-foreground'}`}>
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
                       createStep > step
                         ? 'bg-emerald-500 text-white'
                         : createStep === step
                         ? 'bg-emerald-100 text-emerald-700 dark:text-emerald-300 border-2 border-emerald-500'
-                        : 'bg-slate-200 text-slate-500 dark:text-slate-400'
+                        : 'bg-slate-200 text-muted-foreground dark:text-muted-foreground'
                     }`}>
                       {createStep > step ? <CheckCircle2 className="h-4 w-4" /> : step}
                     </div>
@@ -1341,9 +1341,9 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
               {createStep === 1 && (
                 <>
                   <div>
-                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Buscar Cliente</Label>
+                    <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">Buscar Cliente</Label>
                     <div className="relative mt-1.5">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         placeholder="Buscar por nombre, DNI o teléfono..."
                         value={clientSearch}
@@ -1357,7 +1357,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                     <ScrollArea className="max-h-56">
                       <div className="space-y-2">
                         {clients.length === 0 ? (
-                          <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No se encontraron clientes</p>
+                          <p className="text-sm text-muted-foreground dark:text-muted-foreground text-center py-4">No se encontraron clientes</p>
                         ) : (
                           clients.map((client) => {
                             const hasActive = (client.stats?.activeLoans || 0) > 0;
@@ -1369,30 +1369,30 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                                   isSelected
                                     ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 ring-2 ring-emerald-200'
                                     : hasActive
-                                    ? 'border-slate-200 bg-slate-50 dark:bg-slate-800/50 opacity-60 cursor-not-allowed'
-                                    : 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30'
+                                    ? 'border-input bg-background/50 dark:bg-[#05060b]/70 opacity-60 cursor-not-allowed'
+                                    : 'border-input hover:border-emerald-300 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30'
                                 }`}
                                 onClick={() => { if (!hasActive) { setSelectedClientId(client.id); setClientSearch(''); } }}
                                 disabled={hasActive}
                               >
                                 <div className="flex items-center justify-between">
                                   <div>
-                                    <p className="font-medium text-sm text-slate-900 dark:text-slate-100">{client.name}</p>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">{getDocumentLabel(client.documentType)}: {client.documentNumber} | Tel: {client.phone}</p>
+                                    <p className="font-medium text-sm text-foreground dark:text-foreground">{client.name}</p>
+                                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">{getDocumentLabel(client.documentType)}: {client.documentNumber} | Tel: {client.phone}</p>
                                   </div>
                                   {hasActive ? (
                                     <Badge variant="outline" className="bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 text-xs shrink-0 ml-2">
                                       Préstamo activo
                                     </Badge>
                                   ) : client.zone ? (
-                                    <Badge variant="outline" className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 text-xs shrink-0 ml-2">
+                                    <Badge variant="outline" className="bg-background/50 dark:bg-[#05060b]/70 text-foreground/70 dark:text-muted-foreground border-input text-xs shrink-0 ml-2">
                                       {client.zone.name}
                                     </Badge>
                                   ) : null}
                                 </div>
                                 {client.creditScore !== null && (
                                   <div className="mt-2 flex items-center gap-1.5">
-                                    <span className="text-xs text-slate-400">Score:</span>
+                                    <span className="text-xs text-muted-foreground">Score:</span>
                                     <span className={`text-xs font-semibold ${
                                       client.creditScore < 30 ? 'text-red-600 dark:text-red-300' :
                                       client.creditScore < 50 ? 'text-amber-600 dark:text-amber-300' :
@@ -1525,11 +1525,11 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">
                         Monto del Préstamo (S/) *
                       </Label>
                       <div className="relative mt-1.5">
-                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                           type="number"
                           placeholder="1000.00"
@@ -1549,12 +1549,12 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                     </div>
 
                     <div className="bg-emerald-50 dark:bg-emerald-950/50 rounded-lg border border-emerald-100 px-3 py-2.5 flex items-center justify-between">
-                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Tasa de Interés</span>
-                      <span className="text-sm font-bold text-emerald-600 dark:text-emerald-300">{interestRate || '20'}% <span className="font-normal text-slate-400 dark:text-slate-500">· {loanDays === '36' ? '32.10%' : '20%'} fijo</span></span>
+                      <span className="text-xs text-muted-foreground dark:text-muted-foreground font-medium">Tasa de Interés</span>
+                      <span className="text-sm font-bold text-emerald-600 dark:text-emerald-300">{interestRate || '20'}% <span className="font-normal text-muted-foreground dark:text-muted-foreground">· {loanDays === '36' ? '32.10%' : '20%'} fijo</span></span>
                     </div>
 
                     <div>
-                      <Label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      <Label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
                         Plazo
                       </Label>
                       <div className="grid grid-cols-2 gap-1.5 mt-1">
@@ -1565,7 +1565,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                             onClick={() => handleLoanDaysChange(d)}
                             className={`py-2 rounded-lg text-xs font-medium transition-all duration-200 border ${loanDays === d
                               ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 shadow-sm'
-                              : 'border-slate-200 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:border-emerald-300 hover:text-emerald-600 dark:text-emerald-300'
+                              : 'border-input bg-white dark:bg-[#05060b]/80 text-muted-foreground dark:text-muted-foreground hover:border-emerald-300 hover:text-emerald-600 dark:text-emerald-300'
                               }`}
                           >
                             {d} días
@@ -1575,7 +1575,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                     </div>
 
                     <div>
-                      <Label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      <Label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
                         Frecuencia
                       </Label>
                       <div className="grid grid-cols-2 gap-1.5 mt-1">
@@ -1589,7 +1589,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                             onClick={() => setPaymentFrequency(f.value)}
                             className={`py-2 rounded-lg text-xs font-medium transition-all duration-200 border ${paymentFrequency === f.value
                               ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 shadow-sm'
-                              : 'border-slate-200 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:border-emerald-300 hover:text-emerald-600 dark:text-emerald-300'
+                              : 'border-input bg-white dark:bg-[#05060b]/80 text-muted-foreground dark:text-muted-foreground hover:border-emerald-300 hover:text-emerald-600 dark:text-emerald-300'
                               }`}
                           >
                             {f.label}
@@ -1601,7 +1601,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
                   {/* Rest Days */}
                   <div className="space-y-2">
-                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">
                       Día de Descanso (sin cobro)
                     </Label>
                     <div className="flex flex-wrap gap-1.5">
@@ -1614,7 +1614,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                             onClick={() => setRestDays(active ? [] : [idx])}
                             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border-2 ${active
                               ? 'border-red-400 bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-300 shadow-md shadow-red-500/10'
-                              : 'border-slate-200 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-red-300 hover:bg-red-50/50 dark:hover:bg-red-950/30'
+                              : 'border-input bg-white dark:bg-[#05060b]/80 text-foreground/70 dark:text-muted-foreground hover:border-red-300 hover:bg-red-50/50 dark:hover:bg-red-950/30'
                               }`}
                           >
                             {day}
@@ -1622,7 +1622,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                         );
                       })}
                     </div>
-                    <p className="text-xs text-slate-400 dark:text-slate-500">
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                       {paymentFrequency === 'daily'
                         ? 'Los cobros saltarán este día de la semana'
                         : 'El cobro semanal se programará evitando este día'}
@@ -1630,7 +1630,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Fecha de Inicio</Label>
+                    <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">Fecha de Inicio</Label>
                     <Input
                       type="date"
                       value={startDate}
@@ -1650,20 +1650,20 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-emerald-100">
-                            <p className="text-xs text-slate-500 dark:text-slate-400">Monto Prestado</p>
-                            <p className="text-lg font-bold text-slate-900 dark:text-slate-100">{formatCurrency(parseFloat(loanAmount) || 0)}</p>
+                          <div className="bg-white dark:bg-[#05060b]/80 rounded-lg p-3 border border-emerald-100">
+                            <p className="text-xs text-muted-foreground dark:text-muted-foreground">Monto Prestado</p>
+                            <p className="text-lg font-bold text-foreground dark:text-foreground">{formatCurrency(parseFloat(loanAmount) || 0)}</p>
                           </div>
-                          <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-emerald-100">
-                            <p className="text-xs text-slate-500 dark:text-slate-400">Interés ({interestRate}%)</p>
+                          <div className="bg-white dark:bg-[#05060b]/80 rounded-lg p-3 border border-emerald-100">
+                            <p className="text-xs text-muted-foreground dark:text-muted-foreground">Interés ({interestRate}%)</p>
                             <p className="text-lg font-bold text-amber-600 dark:text-amber-300">{formatCurrency(calcInterest)}</p>
                           </div>
-                          <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-emerald-100">
-                            <p className="text-xs text-slate-500 dark:text-slate-400">Total a Pagar</p>
+                          <div className="bg-white dark:bg-[#05060b]/80 rounded-lg p-3 border border-emerald-100">
+                            <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total a Pagar</p>
                             <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{formatCurrency(calcTotalAmount)}</p>
                           </div>
-                          <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-emerald-100">
-                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                          <div className="bg-white dark:bg-[#05060b]/80 rounded-lg p-3 border border-emerald-100">
+                            <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                               Cuota {paymentFrequency === 'daily' ? 'Diaria' : 'Semanal'}
                             </p>
                             <p className="text-lg font-bold text-emerald-600 dark:text-emerald-300">{formatCurrency(paymentFrequency === 'weekly' ? calcWeeklyPayment : calcPaymentAmount)}</p>
@@ -1671,21 +1671,21 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                         </div>
                         <Separator />
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">Ganancia esperada:</span>
+                          <span className="text-foreground/70 dark:text-muted-foreground">Ganancia esperada:</span>
                           <span className="font-bold text-emerald-600 dark:text-emerald-300">{formatCurrency(calcInterest)}</span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">Número de cuotas:</span>
-                          <span className="font-bold text-slate-700 dark:text-slate-300">{calcNumCuotas}</span>
+                          <span className="text-foreground/70 dark:text-muted-foreground">Número de cuotas:</span>
+                          <span className="font-bold text-foreground/80 dark:text-foreground/80">{calcNumCuotas}</span>
                         </div>
                         {restDays.length > 0 && (
                           <div className="flex items-center justify-between text-sm">
-                            <span className="text-slate-600 dark:text-slate-400">Días de descanso:</span>
+                            <span className="text-foreground/70 dark:text-muted-foreground">Días de descanso:</span>
                             <span className="font-bold text-red-500">{restDays.sort().map(d => DAYS[d]).join(', ')}</span>
                           </div>
                         )}
                         {startDate && calcSchedule.length > 0 && (
-                          <div className="bg-white dark:bg-slate-900 rounded-lg border border-emerald-100 max-h-40 overflow-y-auto">
+                          <div className="bg-white dark:bg-[#05060b]/80 rounded-lg border border-emerald-100 max-h-40 overflow-y-auto">
                             <table className="w-full text-xs">
                               <thead>
                                 <tr className="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300">
@@ -1698,15 +1698,15 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                               <tbody>
                                 {calcSchedule.slice(0, 15).map((row) => (
                                   <tr key={row.num} className="border-t border-emerald-50">
-                                    <td className="px-2 py-1 text-slate-500 dark:text-slate-400">{row.num}</td>
-                                    <td className="px-2 py-1"><span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${row.type === 'Semana' ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>{row.type}</span></td>
-                                    <td className="px-2 py-1 text-slate-700 dark:text-slate-300">{row.date}</td>
+                                    <td className="px-2 py-1 text-muted-foreground dark:text-muted-foreground">{row.num}</td>
+                                    <td className="px-2 py-1"><span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${row.type === 'Semana' ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300' : 'bg-background/70 dark:bg-[#05060b]/70 text-foreground/70 dark:text-muted-foreground'}`}>{row.type}</span></td>
+                                    <td className="px-2 py-1 text-foreground/80 dark:text-foreground/80">{row.date}</td>
                                     <td className="px-2 py-1 text-right font-medium text-emerald-600 dark:text-emerald-300">{formatCurrency(row.amount)}</td>
                                   </tr>
                                 ))}
                                 {calcSchedule.length > 15 && (
                                   <tr className="border-t border-emerald-50">
-                                    <td colSpan={4} className="px-2 py-1.5 text-center text-slate-400 italic">
+                                    <td colSpan={4} className="px-2 py-1.5 text-center text-muted-foreground italic">
                                       ... y {calcSchedule.length - 15} pagos más
                                     </td>
                                   </tr>
@@ -1738,28 +1738,28 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                       <h4 className="font-semibold text-sm text-emerald-800 dark:text-emerald-200 mb-2">Resumen del Préstamo</h4>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>
-                          <span className="text-slate-500 dark:text-slate-400">Cliente:</span>
-                          <p className="font-semibold text-slate-900 dark:text-slate-100">{selectedClient?.name}</p>
+                          <span className="text-muted-foreground dark:text-muted-foreground">Cliente:</span>
+                          <p className="font-semibold text-foreground dark:text-foreground">{selectedClient?.name}</p>
                         </div>
                         <div>
-                          <span className="text-slate-500 dark:text-slate-400">{getDocumentLabel(selectedClient?.documentType || 'dni')}:</span>
-                          <p className="font-semibold text-slate-900 dark:text-slate-100">{selectedClient?.documentNumber}</p>
+                          <span className="text-muted-foreground dark:text-muted-foreground">{getDocumentLabel(selectedClient?.documentType || 'dni')}:</span>
+                          <p className="font-semibold text-foreground dark:text-foreground">{selectedClient?.documentNumber}</p>
                         </div>
                         <div>
-                          <span className="text-slate-500 dark:text-slate-400">Monto:</span>
-                          <p className="font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(parseFloat(loanAmount) || 0)}</p>
+                          <span className="text-muted-foreground dark:text-muted-foreground">Monto:</span>
+                          <p className="font-semibold text-foreground dark:text-foreground">{formatCurrency(parseFloat(loanAmount) || 0)}</p>
                         </div>
                         <div>
-                          <span className="text-slate-500 dark:text-slate-400">Total a Pagar:</span>
+                          <span className="text-muted-foreground dark:text-muted-foreground">Total a Pagar:</span>
                           <p className="font-semibold text-emerald-700 dark:text-emerald-300">{formatCurrency(calcTotalAmount)}</p>
                         </div>
                         <div>
-                          <span className="text-slate-500 dark:text-slate-400">Cuota {paymentFrequency === 'daily' ? 'Diaria' : 'Semanal'}:</span>
+                          <span className="text-muted-foreground dark:text-muted-foreground">Cuota {paymentFrequency === 'daily' ? 'Diaria' : 'Semanal'}:</span>
                           <p className="font-semibold text-emerald-600 dark:text-emerald-300">{formatCurrency(paymentFrequency === 'weekly' ? calcWeeklyPayment : calcPaymentAmount)}</p>
                         </div>
                         <div>
-                          <span className="text-slate-500 dark:text-slate-400">Cuotas:</span>
-                          <p className="font-semibold text-slate-900 dark:text-slate-100">{calcNumCuotas}</p>
+                          <span className="text-muted-foreground dark:text-muted-foreground">Cuotas:</span>
+                          <p className="font-semibold text-foreground dark:text-foreground">{calcNumCuotas}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -1767,8 +1767,8 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
                   <div className={`grid grid-cols-1 ${isAdmin ? 'sm:grid-cols-2' : ''} gap-8`}>
                     {isAdmin && (
-                      <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
-                        <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Cobrador</Label>
+                      <div className="bg-background/50 dark:bg-[#05060b]/70 rounded-lg p-4 border border-input dark:border-emerald-500/5">
+                        <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">Cobrador</Label>
                         <Select value={collectorId} onValueChange={setCollectorId}>
                           <SelectTrigger className="mt-2">
                             <SelectValue placeholder="Seleccionar cobrador (opcional)" />
@@ -1784,8 +1784,8 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                       </div>
                     )}
 
-                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
-                      <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Zona</Label>
+                    <div className="bg-background/50 dark:bg-[#05060b]/70 rounded-lg p-4 border border-input dark:border-emerald-500/5">
+                      <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">Zona</Label>
                       <Select value={zoneId} onValueChange={setZoneId}>
                         <SelectTrigger className="mt-2">
                           <SelectValue placeholder="Seleccionar zona (opcional)" />
@@ -1800,7 +1800,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Notas</Label>
+                    <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">Notas</Label>
                     <Textarea
                       placeholder="Observaciones adicionales sobre el préstamo..."
                       value={loanNotes}
@@ -1815,7 +1815,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
           </ScrollArea>
 
           {/* Dialog Footer - Navigation */}
-          <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+          <div className="px-6 py-4 border-t border-input/50 dark:border-emerald-500/10 bg-background/50 dark:bg-[#05060b]/70">
             <div className="flex items-center justify-between">
               <Button
                 variant="outline"
@@ -1871,7 +1871,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
         <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-6">
           {detailLoan && (
             <>
-              <SheetHeader className="border-b border-slate-100 dark:border-slate-800 p-0">
+              <SheetHeader className="border-b border-input/50 dark:border-emerald-500/10 p-0">
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                     detailLoan.status === 'mora' ? 'bg-red-100 dark:bg-red-900/50' :
@@ -1901,33 +1901,33 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 {/* Client Info */}
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-slate-400" />
-                    <span className="text-slate-500 dark:text-slate-400">Tel:</span>
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground dark:text-muted-foreground">Tel:</span>
                     <span className="font-medium">{detailLoan.client.phone}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-slate-400" />
-                    <span className="text-slate-500 dark:text-slate-400">{getDocumentLabel(detailLoan.client.documentType || 'dni')}:</span>
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground dark:text-muted-foreground">{getDocumentLabel(detailLoan.client.documentType || 'dni')}:</span>
                     <span className="font-medium">{detailLoan.client.documentNumber}</span>
                   </div>
                   {detailLoan.zone && (
                     <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-slate-400" />
-                      <span className="text-slate-500 dark:text-slate-400">Zona:</span>
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground dark:text-muted-foreground">Zona:</span>
                       <span className="font-medium">{detailLoan.zone.name}</span>
                     </div>
                   )}
                   {detailLoan.collector && (
                     <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-slate-400" />
-                      <span className="text-slate-500 dark:text-slate-400">Cobrador:</span>
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground dark:text-muted-foreground">Cobrador:</span>
                       <span className="font-medium">{detailLoan.collector.name}</span>
                     </div>
                   )}
                   {detailLoan.client.creditScore !== null && (
                     <div className="flex items-center gap-2">
-                      <CreditCard className="h-4 w-4 text-slate-400" />
-                      <span className="text-slate-500 dark:text-slate-400">Score:</span>
+                      <CreditCard className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground dark:text-muted-foreground">Score:</span>
                       <span className={`font-semibold ${
                         detailLoan.client.creditScore < 30 ? 'text-red-600 dark:text-red-300' :
                         detailLoan.client.creditScore < 50 ? 'text-amber-600 dark:text-amber-300' :
@@ -1943,20 +1943,20 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
                 {/* Financial Summary */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Monto</p>
-                    <p className="text-base font-bold text-slate-900 dark:text-slate-100">{formatCurrency(detailLoan.amount)}</p>
+                  <div className="bg-background/50 dark:bg-[#05060b]/70 rounded-lg p-3 text-center">
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">Monto</p>
+                    <p className="text-base font-bold text-foreground dark:text-foreground">{formatCurrency(detailLoan.amount)}</p>
                   </div>
                   <div className="bg-amber-50 dark:bg-amber-950/50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Interés</p>
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">Interés</p>
                     <p className="text-base font-bold text-amber-600 dark:text-amber-300">{formatCurrency(detailLoan.interest)}</p>
                   </div>
                   <div className="bg-emerald-50 dark:bg-emerald-950/50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Total</p>
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total</p>
                     <p className="text-base font-bold text-emerald-700 dark:text-emerald-300">{formatCurrency(detailLoan.totalAmount)}</p>
                   </div>
                   <div className="bg-teal-50 dark:bg-teal-950/50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Cuota</p>
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">Cuota</p>
                     <p className="text-base font-bold text-teal-600 dark:text-teal-300">{formatCurrency(detailLoan.dailyPayment)}</p>
                   </div>
                 </div>
@@ -1965,7 +1965,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 <Card className="border-0 shadow-sm">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Progreso de Pago</span>
+                      <span className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">Progreso de Pago</span>
                       <span className={`text-sm font-bold ${
                         detailLoan.status === 'mora' ? 'text-red-600 dark:text-red-300' :
                         detailLoan.progressPercent >= 75 ? 'text-emerald-600 dark:text-emerald-300' :
@@ -1975,7 +1975,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                       </span>
                     </div>
                     <Progress value={detailLoan.progressPercent} className={`h-3 ${getProgressColor(detailLoan.progressPercent, detailLoan.status)}`} />
-                    <div className="flex items-center justify-between mt-2 text-xs text-slate-500 dark:text-slate-400">
+                    <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground dark:text-muted-foreground">
                       <span>Pagado: {formatCurrency(detailLoan.amountPaid)}</span>
                       <span>Restante: {formatCurrency(detailLoan.remaining)}</span>
                     </div>
@@ -1987,14 +1987,14 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-emerald-500" />
                     <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Fecha Inicio</p>
+                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Fecha Inicio</p>
                       <p className="text-sm font-medium">{detailLoan.startDate ? formatDate(detailLoan.startDate) : 'No definida'}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-amber-500" />
                     <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Fecha Fin</p>
+                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Fecha Fin</p>
                       <p className="text-sm font-medium">{detailLoan.endDate ? formatDate(detailLoan.endDate) : 'No definida'}</p>
                     </div>
                   </div>
@@ -2002,23 +2002,23 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
                 {/* Time info */}
                 <div className="grid grid-cols-3 gap-3 text-center">
-                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Días Transcurridos</p>
-                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{detailLoan.daysElapsed}d</p>
+                  <div className="bg-background/50 dark:bg-[#05060b]/70 rounded-lg p-2">
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">Días Transcurridos</p>
+                    <p className="text-sm font-bold text-foreground/80 dark:text-foreground/80">{detailLoan.daysElapsed}d</p>
                   </div>
-                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Días Restantes</p>
+                  <div className="bg-background/50 dark:bg-[#05060b]/70 rounded-lg p-2">
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">Días Restantes</p>
                     <p className={`text-sm font-bold ${
                       detailLoan.daysRemaining !== null && detailLoan.daysRemaining < 0 ? 'text-red-600 dark:text-red-300' :
                       detailLoan.daysRemaining !== null && detailLoan.daysRemaining < 5 ? 'text-amber-600 dark:text-amber-300' :
-                      'text-slate-700 dark:text-slate-300'
+                      'text-foreground/80 dark:text-foreground/80'
                     }`}>
                       {detailLoan.daysRemaining !== null ? `${detailLoan.daysRemaining}d` : '—'}
                     </p>
                   </div>
-                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Frecuencia</p>
-                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                  <div className="bg-background/50 dark:bg-[#05060b]/70 rounded-lg p-2">
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">Frecuencia</p>
+                    <p className="text-sm font-bold text-foreground/80 dark:text-foreground/80">
                       {detailLoan.paymentFrequency === 'daily' ? 'Diario' : 'Semanal'}
                     </p>
                   </div>
@@ -2027,10 +2027,10 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 {/* Notes */}
                 {detailLoan.notes && (
                   <div>
-                    <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                    <h4 className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 mb-1 flex items-center gap-1">
                       <FileText className="h-4 w-4" /> Notas
                     </h4>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg">{detailLoan.notes}</p>
+                    <p className="text-sm text-foreground/70 dark:text-muted-foreground bg-background/50 dark:bg-[#05060b]/70 p-3 rounded-lg">{detailLoan.notes}</p>
                   </div>
                 )}
 
@@ -2058,7 +2058,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 {/* Late Fees */}
                 {detailLoan.lateFees && detailLoan.lateFees.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1">
+                    <h4 className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 mb-2 flex items-center gap-1">
                       <AlertTriangle className="h-4 w-4 text-red-500" /> Recargos por Mora
                     </h4>
                     <div className="space-y-2">
@@ -2073,7 +2073,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                             <Badge variant="outline" className={`text-xs ${
                               fee.status === 'pending' ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 border-red-200' :
                               fee.status === 'paid' ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-200' :
-                              'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200'
+                              'bg-background/70 dark:bg-[#05060b]/70 text-foreground/70 dark:text-muted-foreground border-input'
                             }`}>
                               {fee.status === 'pending' ? 'Pendiente' : fee.status === 'paid' ? 'Pagado' : 'Condonado'}
                             </Badge>
@@ -2089,7 +2089,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 {/* Payment Schedule */}
                 {detailLoan.schedule && detailLoan.schedule.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1">
+                    <h4 className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 mb-2 flex items-center gap-1">
                       <Calendar className="h-4 w-4 text-emerald-500" /> Cronograma de Pagos
                     </h4>
                     <ScrollArea className="max-h-64">
@@ -2104,7 +2104,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                         </TableHeader>
                         <TableBody>
                           {detailLoan.schedule.map((s) => (
-                            <TableRow key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                            <TableRow key={s.id} className="hover:bg-background/50 dark:hover:bg-white/10/30 transition-colors">
                               <TableCell className="text-xs font-medium px-3 py-2">{s.installmentNumber}</TableCell>
                               <TableCell className="text-xs px-3 py-2">{formatDate(s.dueDate)}</TableCell>
                               <TableCell className="text-xs font-semibold px-3 py-2 text-right">{formatCurrency(s.amount)}</TableCell>
@@ -2117,7 +2117,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                                         ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-200'
                                         : isOverdue
                                           ? 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-200'
-                                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200'
+                                          : 'bg-background/70 dark:bg-[#05060b]/70 text-foreground/70 dark:text-muted-foreground border-input'
                                     }`}>
                                       {s.status === 'paid' ? 'Pagado' : isOverdue ? 'No canceló' : 'Pendiente'}
                                     </Badge>
@@ -2135,7 +2135,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 {/* Recent Payments */}
                 {detailLoan.payments && detailLoan.payments.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1">
+                    <h4 className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 mb-2 flex items-center gap-1">
                       <CreditCard className="h-4 w-4 text-teal-500" /> Últimos Pagos
                     </h4>
                     <ScrollArea className="max-h-64">
@@ -2150,7 +2150,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                         </TableHeader>
                         <TableBody>
                           {detailLoan.payments.map((p) => (
-                            <TableRow key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                            <TableRow key={p.id} className="hover:bg-background/50 dark:hover:bg-white/10/30 transition-colors">
                               <TableCell className="text-xs whitespace-nowrap px-3 py-2">{formatDateTime(p.paymentDate)}</TableCell>
                               <TableCell className="text-xs font-semibold px-3 py-2 text-right">{formatCurrency(p.amount)}</TableCell>
                               <TableCell className="px-3 py-2">
@@ -2158,7 +2158,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                                   {PAYMENT_METHOD_LABELS[p.paymentMethod] || p.paymentMethod}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-xs text-slate-500 dark:text-slate-400 px-3 py-2">
+                              <TableCell className="text-xs text-muted-foreground dark:text-muted-foreground px-3 py-2">
                                 {p.collector?.name || '—'}
                               </TableCell>
                             </TableRow>
@@ -2176,7 +2176,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                     <div className="space-y-2">
                       {/* Primary action - Cobrar */}
                       <Button
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all h-10"
+                        className="relative w-full bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:via-emerald-400 hover:to-teal-400 text-white border-0 shadow-lg shadow-emerald-600/30 hover:shadow-emerald-500/50 transition-all duration-300 h-11 overflow-hidden group"
                         onClick={() => {
                           setDetailOpen(false);
                           setPaySelectedInstallments([]);
@@ -2191,22 +2191,23 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                           setPayOpen(true);
                         }}
                       >
+                        <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-all duration-700" />
                         <DollarSign className="h-5 w-5 mr-2" />
-                        Cobrar
+                        <span className="relative">Cobrar</span>
                       </Button>
                       {/* Secondary actions grid */}
                       <div className="grid grid-cols-2 gap-2">
                         <Button
                           variant="outline"
-                          className="border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950 h-10"
+                          className="border-emerald-500/20 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 hover:border-emerald-500/40 h-10 transition-all duration-200"
                           onClick={() => handleRecordar(detailLoan)}
                         >
-                          <Bell className="h-4 w-4 mr-2 text-emerald-500" />
+                          <Bell className="h-4 w-4 mr-2" />
                           Recordar
                         </Button>
                         <Button
                           variant="outline"
-                          className="border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950 h-10"
+                          className="border-emerald-500/20 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 hover:border-emerald-500/40 h-10 transition-all duration-200"
                           onClick={() => { setSelectedLoanId(detailLoan.id); setScheduleOpen(true); }}
                         >
                           <Calendar className="h-4 w-4 mr-2 text-emerald-500" />
@@ -2471,17 +2472,17 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
           <div className="px-6 pb-4 overflow-y-auto space-y-5">
             {/* Loan summary */}
             {detailLoan && (
-              <div className="grid grid-cols-3 gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+              <div className="grid grid-cols-3 gap-3 p-3 rounded-xl bg-background/50 dark:bg-[#05060b]/70 border border-input/50 dark:border-emerald-500/10">
                 <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Monto</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{formatCurrency(detailLoan.amount)}</p>
+                  <p className="text-xs text-muted-foreground dark:text-muted-foreground">Monto</p>
+                  <p className="text-sm font-bold text-foreground dark:text-foreground">{formatCurrency(detailLoan.amount)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Diario</p>
+                  <p className="text-xs text-muted-foreground dark:text-muted-foreground">Diario</p>
                   <p className="text-sm font-bold text-emerald-600 dark:text-emerald-300">{formatCurrency(detailLoan.dailyPayment)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Restante</p>
+                  <p className="text-xs text-muted-foreground dark:text-muted-foreground">Restante</p>
                   <p className="text-sm font-bold text-amber-600 dark:text-amber-300">{formatCurrency(detailLoan.remaining)}</p>
                 </div>
               </div>
@@ -2489,8 +2490,8 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
             {/* Installments */}
             <div>
-              <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Seleccionar Cuota(s)</Label>
-              <p className="text-xs text-slate-400 mt-0.5 mb-1">Seleccione una o más cuotas a cancelar</p>
+              <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">Seleccionar Cuota(s)</Label>
+              <p className="text-xs text-muted-foreground mt-0.5 mb-1">Seleccione una o más cuotas a cancelar</p>
               <ScrollArea className="max-h-48 mt-1">
                 <div className="space-y-1.5">
                   {detailLoan?.schedule?.filter(s => s.status === 'pending').map(s => {
@@ -2516,19 +2517,19 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                         className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm border transition-colors ${
                           selected
                             ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-300'
-                            : 'bg-white dark:bg-slate-900 border-slate-200 text-slate-600 dark:text-slate-400 hover:border-emerald-200'
+                            : 'bg-white dark:bg-[#05060b]/80 border-input text-foreground/70 dark:text-muted-foreground hover:border-emerald-200'
                         }`}
                       >
                         <div className="flex items-center gap-2">
                           <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
                             selected
                               ? 'bg-emerald-500 text-white'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                              : 'bg-background/70 dark:bg-[#05060b]/70 text-muted-foreground'
                           }`}>
                             {selected ? '✓' : s.installmentNumber}
                           </div>
                           <div className="text-left">
-                            <p className="text-xs text-slate-400">{formatDate(s.dueDate)}</p>
+                            <p className="text-xs text-muted-foreground">{formatDate(s.dueDate)}</p>
                           </div>
                         </div>
                         <span className="font-semibold">{formatCurrency(s.amount)}</span>
@@ -2536,7 +2537,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                     );
                   })}
                   {(!detailLoan?.schedule || detailLoan.schedule.filter(s => s.status === 'pending').length === 0) && (
-                    <p className="text-sm text-slate-400 text-center py-4">No hay cuotas pendientes</p>
+                    <p className="text-sm text-muted-foreground text-center py-4">No hay cuotas pendientes</p>
                   )}
                 </div>
               </ScrollArea>
@@ -2544,16 +2545,21 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
             {/* Amount */}
             {paySelectedInstallments.length > 0 && (
-              <div className="mt-8 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Monto a Cobrar</Label>
-                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-300 mt-1">{formatCurrency(parseFloat(payAmount) || 0)}</p>
-                <p className="text-xs text-slate-400">{paySelectedInstallments.length} cuota(s) seleccionada(s)</p>
+              <div className="mt-6 text-center">
+                <div className="relative inline-block">
+                  <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-emerald-500/20 rounded-2xl blur-xl animate-pulse" />
+                  <div className="relative bg-gradient-to-br from-[#05060b]/90 to-[#05060b]/70 backdrop-blur-2xl border border-emerald-500/20 rounded-2xl px-8 py-5 shadow-[0_0_40px_rgba(16,185,129,0.15)]">
+                    <p className="text-xs font-medium text-emerald-400/80 uppercase tracking-[0.2em] mb-1">Total a Cobrar</p>
+                    <p className="text-3xl font-black bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(16,185,129,0.5)]">{formatCurrency(parseFloat(payAmount) || 0)}</p>
+                    <p className="text-xs text-emerald-400/60 mt-1">{paySelectedInstallments.length} cuota(s) seleccionada(s)</p>
+                  </div>
+                </div>
               </div>
             )}
 
             {/* Payment Method */}
             <div className="mt-10">
-              <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Método de Pago</Label>
+              <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">Método de Pago</Label>
               <RadioGroup value={payMethod} onValueChange={setPayMethod} className="flex gap-2 mt-2">
                 {PAYMENT_METHODS.map((method) => {
                   const Icon = method.icon;
@@ -2563,12 +2569,12 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                       className={`flex-1 flex flex-col items-center gap-1.5 p-3 rounded-xl border cursor-pointer transition-all ${
                         payMethod === method.value
                           ? `ring-2 ring-emerald-300 ${method.bg}`
-                          : 'bg-white dark:bg-slate-900 border-slate-200 hover:border-emerald-200'
+                          : 'bg-white dark:bg-[#05060b]/80 border-input hover:border-emerald-200'
                       }`}
                     >
                       <input type="radio" name="payMethod" value={method.value} checked={payMethod === method.value} onChange={() => setPayMethod(method.value)} className="sr-only" />
                       <Icon className={`h-5 w-5 ${method.color}`} />
-                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{method.label}</span>
+                      <span className="text-xs font-medium text-foreground/80 dark:text-foreground/80">{method.label}</span>
                     </Label>
                   );
                 })}
@@ -2579,9 +2585,9 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
             {payMethod === 'cash' && (
               <div className="space-y-3">
                 <div>
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Monto Recibido</Label>
+                  <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">Monto Recibido</Label>
                   <div className="relative mt-1.5">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">S/</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">S/</span>
                     <Input
                       type="number"
                       step="0.01"
@@ -2592,7 +2598,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                         if (val === '' || parseFloat(val) >= 0) setPayCashReceived(val);
                       }}
                       placeholder="0.00"
-                      className="pl-8 bg-white dark:bg-slate-900 border-slate-200"
+                      className="pl-8 bg-white dark:bg-[#05060b]/80 border-input"
                     />
                   </div>
                 </div>
@@ -2602,11 +2608,11 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                   </p>
                 )}
                 <div>
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Foto del Comprobante</Label>
+                  <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">Foto del Comprobante</Label>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="mt-1.5 border-slate-200"
+                    className="mt-1.5 border-input"
                     onClick={() => {
                       const input = document.createElement('input');
                       input.type = 'file';
@@ -2643,14 +2649,14 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 <p className="text-sm font-semibold text-sky-800 dark:text-sky-200">Pagar con Plin</p>
                 {paySettings.payment_qr_plin && (
                   <div className="flex flex-col items-center gap-2">
-                    <img src={paySettings.payment_qr_plin} alt="QR Plin" className="w-48 h-48 object-contain rounded-xl bg-white dark:bg-slate-900 p-2 shadow-sm" />
+                    <img src={paySettings.payment_qr_plin} alt="QR Plin" className="w-48 h-48 object-contain rounded-xl bg-white dark:bg-[#05060b]/80 p-2 shadow-sm" />
                     <p className="text-xs text-sky-600 dark:text-sky-300 font-medium">
                       Plin - S/{parseFloat(payAmount || '0').toFixed(2)}
                     </p>
                   </div>
                 )}
                 {paySettings.payment_phone_plin && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+                  <p className="text-xs text-muted-foreground dark:text-muted-foreground text-center">
                     Número: <a href={`tel:${paySettings.payment_phone_plin}`} className="font-medium text-sky-600 dark:text-sky-300 hover:underline">{paySettings.payment_phone_plin}</a> a nombre de <strong>Keysy Otero Cañola</strong>
                   </p>
                 )}
@@ -2673,7 +2679,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 <div>
                   <Label className="text-xs font-semibold text-sky-800 dark:text-sky-200">Subir Comprobante</Label>
                   <div className="mt-1.5 flex items-center gap-3">
-                    <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-sky-200 bg-white dark:bg-slate-900 cursor-pointer hover:bg-sky-50 dark:hover:bg-sky-950/50 text-xs text-sky-700 dark:text-sky-300">
+                    <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-sky-200 bg-white dark:bg-[#05060b]/80 cursor-pointer hover:bg-sky-50 dark:hover:bg-sky-950/50 text-xs text-sky-700 dark:text-sky-300">
                       <Upload className="h-4 w-4" />
                       {payProofPreview ? 'Cambiar foto' : 'Tomar foto'}
                       <input
@@ -2706,7 +2712,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                   </div>
                   {payProofPreview && (
                     <div className="mt-2">
-                      <img src={payProofPreview} alt="Comprobante" className="w-full max-h-40 object-contain rounded-lg border border-sky-200 bg-white dark:bg-slate-900" />
+                      <img src={payProofPreview} alt="Comprobante" className="w-full max-h-40 object-contain rounded-lg border border-sky-200 bg-white dark:bg-[#05060b]/80" />
                     </div>
                   )}
                 </div>
@@ -2719,15 +2725,15 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 <p className="text-sm font-semibold text-teal-800 dark:text-teal-200">Transferencia Bancaria</p>
                 <div className="text-xs text-teal-600 dark:text-teal-400 space-y-1">
                   {paySettings.payment_bank_name && (
-                    <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-teal-200">
-                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{paySettings.payment_bank_name}</p>
+                    <div className="p-2.5 rounded-lg bg-white dark:bg-[#05060b]/80 border border-teal-200">
+                      <p className="text-sm font-semibold text-slate-800 dark:text-foreground">{paySettings.payment_bank_name}</p>
                       {paySettings.payment_bank_cuenta && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">Cuenta Ahorro: <span className="select-all cursor-pointer hover:text-teal-600">{paySettings.payment_bank_cuenta}</span></p>
+                        <p className="text-xs text-muted-foreground dark:text-muted-foreground font-mono">Cuenta Ahorro: <span className="select-all cursor-pointer hover:text-teal-600">{paySettings.payment_bank_cuenta}</span></p>
                       )}
                       {paySettings.payment_bank_cci && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">CCI: <span className="select-all cursor-pointer hover:text-teal-600">{paySettings.payment_bank_cci}</span></p>
+                        <p className="text-xs text-muted-foreground dark:text-muted-foreground font-mono">CCI: <span className="select-all cursor-pointer hover:text-teal-600">{paySettings.payment_bank_cci}</span></p>
                       )}
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">A nombre de <strong>Keysy Otero Cañola</strong></p>
+                      <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">A nombre de <strong>Keysy Otero Cañola</strong></p>
                     </div>
                   )}
                 </div>
@@ -2750,7 +2756,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                 <div>
                   <Label className="text-xs font-semibold text-teal-800 dark:text-teal-200">Subir Comprobante</Label>
                   <div className="mt-1.5 flex items-center gap-3">
-                    <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-teal-200 bg-white dark:bg-slate-900 cursor-pointer hover:bg-teal-50 dark:hover:bg-teal-950/50 text-xs text-teal-700 dark:text-teal-300">
+                    <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-teal-200 bg-white dark:bg-[#05060b]/80 cursor-pointer hover:bg-teal-50 dark:hover:bg-teal-950/50 text-xs text-teal-700 dark:text-teal-300">
                       <Upload className="h-4 w-4" />
                       {payProofPreview ? 'Cambiar foto' : 'Tomar foto'}
                       <input
@@ -2783,7 +2789,7 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                   </div>
                   {payProofPreview && (
                     <div className="mt-2">
-                      <img src={payProofPreview} alt="Comprobante" className="w-full max-h-40 object-contain rounded-lg border border-teal-200 bg-white dark:bg-slate-900" />
+                      <img src={payProofPreview} alt="Comprobante" className="w-full max-h-40 object-contain rounded-lg border border-teal-200 bg-white dark:bg-[#05060b]/80" />
                     </div>
                   )}
                 </div>
@@ -2792,30 +2798,30 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
             {/* Collector */}
             <div className="mt-6">
-              <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Cobrador</Label>
-              <div className="mt-1.5 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                <User className="h-4 w-4 text-slate-400" />
+              <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">Cobrador</Label>
+              <div className="mt-1.5 p-2.5 rounded-lg bg-background/50 dark:bg-[#05060b]/70 border border-input dark:border-emerald-500/5 text-sm font-medium text-foreground/80 dark:text-foreground/80 flex items-center gap-2">
+                <User className="h-4 w-4 text-muted-foreground" />
                 {user?.name || 'Cobrador'}
               </div>
             </div>
 
             {/* Observation */}
             <div className="mt-6">
-              <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Observación</Label>
+              <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">Observación</Label>
               <Textarea
                 value={payObservation}
                 onChange={(e) => setPayObservation(e.target.value)}
                 placeholder="Observación opcional..."
-                className="mt-1.5 bg-white dark:bg-slate-900 border-slate-200 resize-none"
+                className="mt-1.5 bg-white dark:bg-[#05060b]/80 border-input resize-none"
                 rows={2}
               />
             </div>
           </div>
 
           {/* Footer */}
-          <DialogFooter className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
+          <DialogFooter className="px-6 py-4 border-t border-input/50 dark:border-emerald-500/10 bg-background/50/50 dark:bg-[#05060b]/70 shrink-0">
             <div className="flex items-center justify-between w-full">
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted-foreground">
                 Total: <strong className="text-emerald-600 dark:text-emerald-300">{payAmount ? formatCurrency(parseFloat(payAmount)) : '—'}</strong>
               </p>
               <div className="flex items-center gap-2">
@@ -2823,12 +2829,13 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
                   Cancelar
                 </Button>
                 <Button
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all"
+                  className="relative bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:via-emerald-400 hover:to-teal-400 text-white border-0 shadow-lg shadow-emerald-600/30 hover:shadow-emerald-500/50 transition-all duration-300 overflow-hidden group"
                   onClick={handlePayRegister}
                   disabled={paySelectedInstallments.length === 0 || !payAmount || payRegistering}
                 >
+                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-all duration-700" />
                   {payRegistering ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <DollarSign className="h-4 w-4 mr-2" />}
-                  Registrar Cobro
+                  <span className="relative">Registrar Cobro</span>
                 </Button>
               </div>
             </div>

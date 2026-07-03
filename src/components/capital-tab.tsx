@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -120,7 +120,7 @@ const getTypeBadge = (type: string) => {
     case 'PRESTAMO':
       return 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 border-red-200';
     default:
-      return 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200';
+      return 'bg-background/70 dark:bg-[#05060b]/70 text-slate-800 dark:text-foreground border-input';
   }
 };
 
@@ -291,7 +291,7 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-        <span className="ml-3 text-slate-500 dark:text-slate-400">Cargando capital...</span>
+        <span className="ml-3 text-muted-foreground dark:text-muted-foreground">Cargando capital...</span>
       </div>
     );
   }
@@ -330,7 +330,7 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
             <div className="w-full md:w-auto flex gap-3">
               <Button
                 onClick={() => openDialog('INYECCION')}
-                className="bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 font-semibold shadow-lg flex-1 md:flex-none"
+                className="bg-white dark:bg-[#05060b]/80 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 font-semibold shadow-lg flex-1 md:flex-none"
               >
                 <ArrowUpCircle className="h-4 w-4 mr-2" />
                 Inyectar Capital
@@ -449,11 +449,11 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
             <div className="flex items-center justify-center gap-6 mt-2">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                <span className="text-xs text-slate-600 dark:text-slate-400">Disponible ({formatCurrency(currentCapital)})</span>
+                <span className="text-xs text-foreground/70 dark:text-muted-foreground">Disponible ({formatCurrency(currentCapital)})</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-teal-500" />
-                <span className="text-xs text-slate-600 dark:text-slate-400">Prestado ({formatCurrency(activeLoansOut)})</span>
+                <span className="text-xs text-foreground/70 dark:text-muted-foreground">Prestado ({formatCurrency(activeLoansOut)})</span>
               </div>
             </div>
           </CardContent>
@@ -473,7 +473,7 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
               <Button
                 size="sm"
                 variant="outline"
-                className="border-slate-200"
+                className="border-input"
                 onClick={fetchCapital}
               >
                 <RefreshCw className="h-3.5 w-3.5 mr-1" />
@@ -517,7 +517,7 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-[280px] text-slate-400">
+              <div className="flex items-center justify-center h-[280px] text-muted-foreground">
                 <div className="text-center">
                   <DollarSign className="h-12 w-12 mx-auto mb-2 opacity-30" />
                   <p className="text-sm">Sin movimientos registrados</p>
@@ -544,7 +544,7 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
                 Registro de inyecciones, retiros y préstamos
               </CardDescription>
             </div>
-            <Badge variant="outline" className="bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border-slate-200">
+            <Badge variant="outline" className="bg-background/50 dark:bg-[#05060b]/70 text-foreground/70 dark:text-muted-foreground border-input">
               {capitalData?.movements.length || 0} movimientos
             </Badge>
           </div>
@@ -554,7 +554,7 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
             <ScrollArea className="max-h-96">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-slate-50/80 dark:bg-slate-800/80">
+                  <TableRow className="bg-background/50/80 dark:bg-[#05060b]/70/80">
                     <TableHead className="font-semibold">Fecha</TableHead>
                     <TableHead className="font-semibold">Tipo</TableHead>
                     <TableHead className="font-semibold text-right">Monto</TableHead>
@@ -565,8 +565,8 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
                 </TableHeader>
                 <TableBody>
                   {capitalData.movements.map((m) => (
-                    <TableRow key={m.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
-                      <TableCell className="text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                    <TableRow key={m.id} className="hover:bg-background/50/50 dark:hover:bg-white/10/50">
+                      <TableCell className="text-sm text-foreground/70 dark:text-muted-foreground whitespace-nowrap">
                         {formatDateTime(m.createdAt)}
                       </TableCell>
                       <TableCell>
@@ -588,13 +588,13 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
                           {formatCurrency(m.amount)}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right text-sm text-slate-500 dark:text-slate-400 hidden md:table-cell whitespace-nowrap">
+                      <TableCell className="text-right text-sm text-muted-foreground dark:text-muted-foreground hidden md:table-cell whitespace-nowrap">
                         {formatCurrency(m.previousCapital)}
                       </TableCell>
-                      <TableCell className="text-right text-sm font-medium text-slate-700 dark:text-slate-300 hidden md:table-cell whitespace-nowrap">
+                      <TableCell className="text-right text-sm font-medium text-foreground/80 dark:text-foreground/80 hidden md:table-cell whitespace-nowrap">
                         {formatCurrency(m.newCapital)}
                       </TableCell>
-                      <TableCell className="text-sm text-slate-500 dark:text-slate-400 max-w-48 truncate hidden lg:table-cell">
+                      <TableCell className="text-sm text-muted-foreground dark:text-muted-foreground max-w-48 truncate hidden lg:table-cell">
                         {m.description || '—'}
                       </TableCell>
                     </TableRow>
@@ -603,7 +603,7 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
               </Table>
             </ScrollArea>
           ) : (
-            <div className="flex items-center justify-center py-12 text-slate-400">
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
               <div className="text-center">
                 <DollarSign className="h-12 w-12 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">No hay movimientos de capital</p>
@@ -643,8 +643,8 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
 
           <div className="space-y-4 py-2">
             {/* Type indicator */}
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-              <span className="text-sm text-slate-500 dark:text-slate-400">Tipo:</span>
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-background/50 dark:bg-[#05060b]/70 border border-input/50 dark:border-emerald-500/10">
+              <span className="text-sm text-muted-foreground dark:text-muted-foreground">Tipo:</span>
               <Badge
                 variant="outline"
                 className={
@@ -677,7 +677,7 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
             {/* Description */}
             <div className="space-y-2">
               <Label htmlFor="capital-description" className="font-medium">
-                Descripción <span className="text-slate-400 font-normal">(opcional)</span>
+                Descripción <span className="text-muted-foreground font-normal">(opcional)</span>
               </Label>
               <Textarea
                 id="capital-description"
@@ -695,12 +695,12 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
             <Separator />
 
             {/* Confirmation Preview */}
-            <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 p-4">
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Vista previa del movimiento</p>
+            <div className="rounded-lg bg-background/50 dark:bg-[#05060b]/70 border border-input/50 dark:border-emerald-500/10 p-4">
+              <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-2">Vista previa del movimiento</p>
               <div className="flex items-center justify-between">
                 <div className="text-center">
-                  <p className="text-xs text-slate-400">Capital anterior</p>
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  <p className="text-xs text-muted-foreground">Capital anterior</p>
+                  <p className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">
                     {formatCurrency(currentCapital)}
                   </p>
                 </div>
@@ -716,7 +716,7 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
                 </div>
                 <ArrowRight className="h-4 w-4 text-slate-300" />
                 <div className="text-center">
-                  <p className="text-xs text-slate-400">Capital nuevo</p>
+                  <p className="text-xs text-muted-foreground">Capital nuevo</p>
                   <p
                     className={`text-sm font-bold ${
                       previewNewCapital >= currentCapital
