@@ -11,8 +11,16 @@ export default function StarfieldBg() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let stars: { x: number; y: number; r: number; alpha: number; maxAlpha: number; speed: number; state: string; vx: number; vy: number; color: string }[] = [];
+    let stars: {
+      x: number; y: number; r: number; alpha: number; maxAlpha: number;
+      speed: number; state: string; vx: number; vy: number; color: string;
+    }[] = [];
+    let meteors: {
+      x: number; y: number; vx: number; vy: number; len: number; alpha: number;
+      r: number; life: number; maxLife: number;
+    }[] = [];
     let animId: number;
+    let meteorTimer = 0;
 
     function resize() {
       canvas!.width = window.innerWidth;
@@ -80,6 +88,43 @@ export default function StarfieldBg() {
       }
     }
 
+    function spawnMeteor() {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 4 + Math.random() * 6;
+      const x = Math.random() * canvas!.width;
+      const y = Math.random() * canvas!.height * 0.3;
+      meteors.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed + 2,
+        len: 60 + Math.random() * 80,
+        alpha: 0.8 + Math.random() * 0.4,
+        r: 1.5 + Math.random(),
+        life: 0,
+        maxLife: 40 + Math.random() * 30,
+      });
+    }
+
+    function drawMeteor(m: typeof meteors[0]) {
+      const tailX = m.x - m.vx * (m.len / m.vx.length);
+      const tailY = m.y - m.vy * (m.len / m.vx.length);
+      const gradient = ctx!.createLinearGradient(m.x, m.y, tailX, tailY);
+      gradient.addColorStop(0, `rgba(255,255,255,${m.alpha})`);
+      gradient.addColorStop(0.3, `rgba(52,211,153,${m.alpha * 0.6})`);
+      gradient.addColorStop(1, `rgba(52,211,153,0)`);
+      ctx!.beginPath();
+      ctx!.moveTo(m.x, m.y);
+      ctx!.lineTo(tailX, tailY);
+      ctx!.strokeStyle = gradient;
+      ctx!.lineWidth = m.r;
+      ctx!.lineCap = 'round';
+      ctx!.stroke();
+      ctx!.beginPath();
+      ctx!.arc(m.x, m.y, m.r * 1.5, 0, Math.PI * 2);
+      ctx!.fillStyle = `rgba(255,255,255,${m.alpha * 0.9})`;
+      ctx!.fill();
+    }
+
     function initStars() {
       stars = [];
       const count = Math.min(Math.max(Math.floor((canvas!.width * canvas!.height) / 6000), 100), 250);
@@ -94,6 +139,22 @@ export default function StarfieldBg() {
     function animate() {
       ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
       stars.forEach(s => { s.update(); s.draw(); });
+
+      meteorTimer++;
+      if (meteorTimer > 120 + Math.random() * 200) {
+        spawnMeteor();
+        meteorTimer = 0;
+      }
+
+      meteors = meteors.filter(m => {
+        m.life++;
+        m.x += m.vx;
+        m.y += m.vy;
+        m.alpha *= 0.98;
+        drawMeteor(m);
+        return m.life < m.maxLife && m.alpha > 0.05;
+      });
+
       animId = requestAnimationFrame(animate);
     }
 

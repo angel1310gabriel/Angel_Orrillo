@@ -140,6 +140,53 @@
 @keyframes float-subtle { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-4px); } }
 @keyframes shimmer-x { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 
+@keyframes gradient-border {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes fab-enter {
+  from { transform: scale(0) rotate(-90deg); opacity: 0; }
+  to { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes fab-action {
+  from { transform: translateX(20px) scale(0.8); opacity: 0; }
+  to { transform: translateX(0) scale(1); opacity: 1; }
+}
+
+@keyframes meteor {
+  0% { transform: translateX(0) translateY(0); opacity: 1; }
+  5% { opacity: 1; }
+  100% { transform: translateX(-600px) translateY(300px); opacity: 0; }
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+@keyframes connection-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes stagger-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .glass-panel {
   backdrop-filter: blur(20px);
   background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
@@ -151,6 +198,16 @@
   transform: translateY(-2px);
   box-shadow: 0 8px 40px rgba(16,185,129,0.2);
   border-color: rgba(16,185,129,0.4);
+}
+
+.glass-panel-3d {
+  backdrop-filter: blur(20px);
+  background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  border: 1px solid rgba(16,185,129,0.15);
+  box-shadow: 0 4px 30px rgba(0,0,0,0.1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+  perspective: 800px;
 }
 
 .btn-futuristic {
@@ -175,6 +232,55 @@
   transform: translateY(-1px);
   box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
 }
+
+.gradient-border-active {
+  position: relative;
+  background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(52,211,153,0.1));
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+.gradient-border-active::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(16,185,129,0.5), rgba(52,211,153,0.3), rgba(16,185,129,0.5));
+  background-size: 200% 200%;
+  animation: gradient-border 3s ease infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+  background-size: 400px 100%;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+
+.stagger-item {
+  opacity: 0;
+  animation: stagger-in 0.4s ease-out forwards;
+}
+.stagger-item:nth-child(1) { animation-delay: 0.05s; }
+.stagger-item:nth-child(2) { animation-delay: 0.1s; }
+.stagger-item:nth-child(3) { animation-delay: 0.15s; }
+.stagger-item:nth-child(4) { animation-delay: 0.2s; }
+.stagger-item:nth-child(5) { animation-delay: 0.25s; }
+.stagger-item:nth-child(6) { animation-delay: 0.3s; }
+.stagger-item:nth-child(7) { animation-delay: 0.35s; }
+.stagger-item:nth-child(8) { animation-delay: 0.4s; }
+
+.scrollbar-custom {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(16,185,129,0.2) transparent;
+}
+.scrollbar-custom::-webkit-scrollbar { width: 4px; }
+.scrollbar-custom::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-custom::-webkit-scrollbar-thumb { background: rgba(16,185,129,0.2); border-radius: 999px; }
+.scrollbar-custom::-webkit-scrollbar-thumb:hover { background: rgba(16,185,129,0.4); }
 @layer base {
   * {
     @apply border-border outline-ring/50;

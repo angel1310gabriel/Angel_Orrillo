@@ -52,7 +52,7 @@ import {
   ExternalLink,
   AlertTriangle,
 } from 'lucide-react';
-import { Camera, Target, MessageSquare } from 'lucide-react';
+import { Plus, Camera, Target, MessageSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -66,35 +66,38 @@ import {
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
 
+// ============================================================
+// Skeleton loader for dynamic tabs
+// ============================================================
+function TabSkeleton({ label, rows = 4 }: { label?: string; rows?: number }) {
+  return (
+    <div className="flex flex-col gap-4 p-6">
+      {label && <div className="h-5 w-40 skeleton-shimmer" />}
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex gap-4">
+          <div className="h-12 flex-1 skeleton-shimmer" />
+          <div className="h-12 w-24 skeleton-shimmer" />
+          <div className="h-12 w-32 skeleton-shimmer" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Dynamic imports for heavy components (recharts) — lazy loaded, no SSR
 const AuditTab = dynamic(() => import('@/components/audit-tab'), {
   ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center py-20">
-      <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-      <span className="ml-3 text-muted-foreground">Cargando auditoría...</span>
-    </div>
-  ),
+  loading: () => <TabSkeleton label="Auditoría" rows={5} />,
 });
 
 const LateFeeTab = dynamic(() => import('@/components/late-fee-tab'), {
   ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center py-20">
-      <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-      <span className="ml-3 text-muted-foreground">Cargando sistema de mora...</span>
-    </div>
-  ),
+  loading: () => <TabSkeleton label="Sistema de Mora" rows={4} />,
 });
 
 const MapTab = dynamic(() => import('@/components/map-tab'), {
   ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center py-20">
-      <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-      <span className="ml-3 text-muted-foreground">Cargando mapa...</span>
-    </div>
-  ),
+  loading: () => <TabSkeleton label="Mapa" rows={3} />,
 });
 
 // ============================================================
@@ -133,7 +136,26 @@ export default function KCobranzasDashboard() {
   const [notifications, setNotifications] = useState<{id:string;title:string;body:string|null;type:string|null;isRead:boolean;createdAt:string;referenceType:string|null;referenceId:string|null}[]>([]);
   const notifRef = useRef<HTMLDivElement>(null);
   const unreadCount = notifications.filter(n=>!n.isRead).length;
+  const [fabOpen, setFabOpen] = useState(false);
+  const fabRef = useRef<HTMLDivElement>(null);
   const hasCheckedSession = useRef(false);
+
+  // Live clock
+  const [clock, setClock] = useState('');
+  useEffect(() => {
+    const tick = () => setClock(new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
+    tick(); const iv = setInterval(tick, 1000); return () => clearInterval(iv);
+  }, []);
+
+  // Connection status
+  const [isOnline, setIsOnline] = useState(true);
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+    const go = () => setIsOnline(true);
+    const goAway = () => setIsOnline(false);
+    window.addEventListener('online', go); window.addEventListener('offline', goAway);
+    return () => { window.removeEventListener('online', go); window.removeEventListener('offline', goAway); };
+  }, []);
 
   // Location tracking state + refs — must be before early returns to satisfy React's rules of hooks
   const [locationTracking, setLocationTracking] = useState(false);
@@ -239,15 +261,16 @@ export default function KCobranzasDashboard() {
     return () => clearInterval(iv);
   }, [fetchNotifs]);
 
-  // Close notifications on click outside
+  // Close notifications / FAB on click outside
   useEffect(() => {
-    if (!notifOpen) return;
+    if (!notifOpen && !fabOpen) return;
     const handler = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
+      if (fabRef.current && !fabRef.current.contains(e.target as Node)) setFabOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [notifOpen]);
+  }, [notifOpen, fabOpen]);
 
   const markRead = async (ids: string[]) => {
     try {
@@ -365,8 +388,8 @@ export default function KCobranzasDashboard() {
               <button
                 key={item.value}
                 onClick={() => setActiveTab(item.value)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 mb-0.5 group ${isActive
-                  ? 'bg-emerald-500/20 text-emerald-100 shadow-lg shadow-emerald-500/10'
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 mb-0.5 group relative overflow-hidden ${isActive
+                  ? 'gradient-border-active text-emerald-100 shadow-lg shadow-emerald-500/10'
                   : 'text-muted-foreground hover:bg-white/5 hover:text-white'
                 }`}
               >
@@ -626,6 +649,20 @@ export default function KCobranzasDashboard() {
 <header className="hidden lg:flex items-center justify-between h-14 px-6 backdrop-blur-2xl border-b border-emerald-500/20 shadow-[inset_0_-1px_20px_rgba(16,185,129,0.08)] sticky top-0 z-20">
           <div className="flex items-center gap-4">
             <h2 className="text-lg font-semibold text-foreground dark:text-foreground">{getActiveLabel()}</h2>
+            <span className="h-4 w-px bg-emerald-500/20" />
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5 font-mono tracking-wider">
+                <span className="text-emerald-400">{clock || '--:--:--'}</span>
+                <span className="text-emerald-500/50">|</span>
+                <span>{new Date().toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className={`inline-block w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-red-500'} ${isOnline ? 'animate-pulse' : ''}`} />
+                <span className={`text-[10px] ${isOnline ? 'text-emerald-400/70' : 'text-red-400/70'}`}>
+                  {isOnline ? 'En línea' : 'Desconectado'}
+                </span>
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={()=>setActiveTab('chat')} className="relative h-8 w-8 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Mensajes">
@@ -712,6 +749,34 @@ export default function KCobranzasDashboard() {
             </div>
           </div>
         </footer>
+
+        {/* FAB - Floating Action Button */}
+        <div ref={fabRef} className="fixed bottom-6 right-6 z-50">
+          <div className="flex flex-col items-end gap-3 mb-3">
+            {fabOpen && (
+              <>
+                <button onClick={() => { setFabOpen(false); setActiveTab('loans'); }} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-medium shadow-xl shadow-emerald-500/30 hover:bg-emerald-400 transition-all duration-200 animate-[fab-action_0.2s_ease-out] whitespace-nowrap" style={{ animationDelay: '0ms' }}>
+                  <DollarSign className="h-4 w-4" /><span>Nuevo Préstamo</span>
+                </button>
+                <button onClick={() => { setFabOpen(false); setActiveTab('clients'); }} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-medium shadow-xl shadow-emerald-500/30 hover:bg-emerald-400 transition-all duration-200 animate-[fab-action_0.25s_ease-out] whitespace-nowrap" style={{ animationDelay: '50ms' }}>
+                  <Users className="h-4 w-4" /><span>Nuevo Cliente</span>
+                </button>
+                <button onClick={() => { setFabOpen(false); setActiveTab('payments'); }} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-medium shadow-xl shadow-emerald-500/30 hover:bg-emerald-400 transition-all duration-200 animate-[fab-action_0.3s_ease-out] whitespace-nowrap" style={{ animationDelay: '100ms' }}>
+                  <CreditCard className="h-4 w-4" /><span>Registrar Pago</span>
+                </button>
+                <button onClick={() => { setFabOpen(false); setActiveTab('chat'); }} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-medium shadow-xl shadow-emerald-500/30 hover:bg-emerald-400 transition-all duration-200 animate-[fab-action_0.35s_ease-out] whitespace-nowrap" style={{ animationDelay: '150ms' }}>
+                  <MessageSquare className="h-4 w-4" /><span>Mensaje Rápido</span>
+                </button>
+              </>
+            )}
+          </div>
+          <button
+            onClick={() => setFabOpen(!fabOpen)}
+            className={`w-14 h-14 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-xl shadow-emerald-500/30 hover:shadow-2xl hover:shadow-emerald-500/40 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center ${fabOpen ? 'rotate-45' : ''}`}
+          >
+            <Plus className="h-6 w-6" />
+          </button>
+        </div>
       </main>
     </div>
     <style>{`
