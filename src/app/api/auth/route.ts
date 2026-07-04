@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
 
 // ============================================================
 // KC Cobranzas - Auth API Route
@@ -8,6 +9,11 @@ import { NextRequest, NextResponse } from 'next/server';
 // ============================================================
 
 const isVercel = process.env.VERCEL === '1';
+let prisma: PrismaClient | null = null;
+function getPrisma() {
+  if (!prisma) prisma = new PrismaClient();
+  return prisma;
+}
 
 // ============================================================
 // Supabase client helper (lazy, no module-level side effects)
@@ -276,6 +282,32 @@ async function handleLogin(body: { username: string; password: string }) {
       profile = profileById;
       profileError = null;
       console.log('[Auth] Step 3 fallback 2 - found profile:', { role: profileById.role, dni: profileById.dni });
+    }
+  }
+
+  // Fallback 3: Use Prisma (direct DB, bypasses RLS)
+  if (!profile && profileError?.message?.includes('permission denied')) {
+    console.log('[Auth] Step 3 fallback 3 - trying Prisma:', authData.user.id);
+    try {
+      const dbProfile = await getPrisma().profiles.findUnique({
+        where: { id: authData.user.id },
+        select: { id: true, email: true, name: true, role: true, phone: true, dni: true, is_active: true },
+      });
+      if (dbProfile) {
+        profile = {
+          id: dbProfile.id,
+          email: dbProfile.email,
+          name: dbProfile.name,
+          role: dbProfile.role,
+          phone: dbProfile.phone,
+          dni: dbProfile.dni,
+          is_active: dbProfile.is_active,
+        };
+        profileError = null;
+        console.log('[Auth] Step 3 fallback 3 - found via Prisma:', { role: dbProfile.role });
+      }
+    } catch (prismaErr) {
+      console.error('[Auth] Prisma fallback error:', prismaErr);
     }
   }
 
