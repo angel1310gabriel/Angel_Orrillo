@@ -112,27 +112,26 @@ export default function DashboardTab() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         {kpiData.map((k, i) => {
           const Icon = k.icon;
           return (
-            <div key={k.key} className="group relative overflow-hidden rounded-xl glass-panel shadow-lg hover:shadow-xl transition-all duration-500 hover:-translate-y-0.5" style={{ animation: `fadeUp 0.5s ease-out ${i * 0.1}s both` }}>
+            <div key={k.key} className="group relative overflow-hidden rounded-lg glass-panel shadow-md hover:shadow-lg transition-all duration-300" style={{ animation: `fadeUp 0.4s ease-out ${i * 0.08}s both` }}>
               <div className={`absolute inset-0 bg-gradient-to-br ${k.gradient} opacity-90`} />
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.2),_transparent_50%)]" />
-              <div className="relative p-3 sm:p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm border border-white/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                    <Icon className="h-4 w-4 text-white" />
+              <div className="relative p-2.5">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className="w-6 h-6 rounded-md bg-white/20 backdrop-blur-sm border border-white/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <Icon className="h-3 w-3 text-white" />
                   </div>
                   {k.key === 'moraLoans' && parseInt(k.value) > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-[9px] font-semibold text-white animate-pulse">Urgente</span>
+                    <span className="px-1 py-0.5 rounded-full bg-white/20 text-[8px] font-semibold text-white animate-pulse">Urgente</span>
                   )}
                 </div>
-                <p className="text-white/70 text-[10px] font-medium uppercase tracking-wider">{k.label}</p>
-                <p className="text-xl sm:text-2xl font-bold text-white mt-0.5 tracking-tight">{k.value}</p>
-                <p className="text-white/50 text-[9px] mt-0.5">{k.subtitle}</p>
+                <p className="text-white/70 text-[9px] font-medium uppercase tracking-wider">{k.label}</p>
+                <p className="text-base sm:text-lg font-bold text-white tracking-tight">{k.value}</p>
+                <p className="text-white/50 text-[8px]">{k.subtitle}</p>
               </div>
-              {/* Shimmer overlay on hover */}
               <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent" />
             </div>
           );
@@ -140,41 +139,41 @@ export default function DashboardTab() {
       </div>
 
       {/* Secondary Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-xl glass-panel p-4 flex items-center justify-between shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-emerald-500/20" style={{ animation: 'fadeUp 0.5s ease-out 0.4s both' }}>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+        <div className="rounded-lg glass-panel p-2.5 flex items-center justify-between shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-emerald-500/20" style={{ animation: 'fadeUp 0.4s ease-out 0.4s both' }}>
           <div>
-            <p className="text-xs text-muted-foreground dark:text-muted-foreground">Préstamos Activos</p>
-            <p className="text-xl font-bold text-foreground dark:text-foreground">{activeLoans}</p>
+            <p className="text-[10px] text-muted-foreground dark:text-muted-foreground">Préstamos Activos</p>
+            <p className="text-base font-bold text-foreground dark:text-foreground">{activeLoans}</p>
           </div>
-          <div className="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Activity className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+          <div className="w-7 h-7 rounded-md bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Activity className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
           </div>
         </div>
-        <div className="rounded-xl glass-panel p-4 flex items-center justify-between shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-teal-500/20" style={{ animation: 'fadeUp 0.5s ease-out 0.5s both' }}>
+        <div className="rounded-lg glass-panel p-2.5 flex items-center justify-between shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-teal-500/20" style={{ animation: 'fadeUp 0.4s ease-out 0.5s both' }}>
           <div>
-            <p className="text-xs text-muted-foreground dark:text-muted-foreground">Préstamos Completados</p>
-            <p className="text-xl font-bold text-foreground dark:text-foreground">{completedLoans}</p>
+            <p className="text-[10px] text-muted-foreground dark:text-muted-foreground">Préstamos Completados</p>
+            <p className="text-base font-bold text-foreground dark:text-foreground">{completedLoans}</p>
           </div>
-          <div className="w-9 h-9 rounded-lg bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center">
-            <PiggyBank className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+          <div className="w-7 h-7 rounded-md bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center">
+            <PiggyBank className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
           </div>
         </div>
-        <div className="rounded-xl glass-panel p-4 flex items-center justify-between shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-amber-500/20" style={{ animation: 'fadeUp 0.5s ease-out 0.6s both' }}>
+        <div className="rounded-lg glass-panel p-2.5 flex items-center justify-between shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-amber-500/20" style={{ animation: 'fadeUp 0.4s ease-out 0.6s both' }}>
           <div>
-            <p className="text-xs text-muted-foreground dark:text-muted-foreground">Interés Generado</p>
-            <p className="text-xl font-bold text-foreground dark:text-foreground">{formatVal(o?.totalInterest ?? 0)}</p>
+            <p className="text-[10px] text-muted-foreground dark:text-muted-foreground">Interés Generado</p>
+            <p className="text-base font-bold text-foreground dark:text-foreground">{formatVal(o?.totalInterest ?? 0)}</p>
           </div>
-          <div className="w-9 h-9 rounded-lg bg-amber-50 dark:bg-amber-950/50 flex items-center justify-center">
-            <TrendingUp className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <div className="w-7 h-7 rounded-md bg-amber-50 dark:bg-amber-950/50 flex items-center justify-center">
+            <TrendingUp className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
           </div>
         </div>
-        <div className="rounded-xl glass-panel p-4 flex items-center justify-between shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-blue-500/20" style={{ animation: 'fadeUp 0.5s ease-out 0.7s both' }}>
+        <div className="rounded-lg glass-panel p-2.5 flex items-center justify-between shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-blue-500/20" style={{ animation: 'fadeUp 0.4s ease-out 0.7s both' }}>
           <div>
-            <p className="text-xs text-muted-foreground dark:text-muted-foreground">Clientes Activos</p>
-            <p className="text-xl font-bold text-foreground dark:text-foreground">{data?.topClients?.length ?? 0}</p>
+            <p className="text-[10px] text-muted-foreground dark:text-muted-foreground">Clientes Activos</p>
+            <p className="text-base font-bold text-foreground dark:text-foreground">{data?.topClients?.length ?? 0}</p>
           </div>
-          <div className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center">
-            <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <div className="w-7 h-7 rounded-md bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center">
+            <Users className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
           </div>
         </div>
       </div>
