@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 
 // ============================================================
 // KC Cobranzas - Auth API Route
@@ -9,11 +8,6 @@ import { PrismaClient } from '@prisma/client';
 // ============================================================
 
 const isVercel = process.env.VERCEL === '1';
-let prisma: PrismaClient | null = null;
-function getPrisma() {
-  if (!prisma) prisma = new PrismaClient();
-  return prisma;
-}
 
 // ============================================================
 // Supabase client helper (lazy, no module-level side effects)
@@ -285,14 +279,40 @@ async function handleLogin(body: { username: string; password: string }) {
     }
   }
 
-  // Fallback 3: Use Prisma (direct DB, bypasses RLS)
+  // Fallback 3: Use Supabase Auth Admin API (bypasses RLS, uses /auth/v1/admin/users)
   if (!profile && profileError?.message?.includes('permission denied')) {
-    console.log('[Auth] Step 3 fallback 3 - trying Prisma:', authData.user.id);
+    console.log('[Auth] Step 3 fallback 3 - trying Auth Admin API:', authData.user.id);
     try {
-      const dbProfile = await getPrisma().profiles.findUnique({
+      const adminUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const adminKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (adminUrl && adminKey) {
+        const { createClient } = await import('@supabase/supabase-js');
+        const adminSupabase = createClient(adminUrl, adminKey, { auth: { persistSession: false } });
+        const { data: authUserData, error: authUserErr } = await adminSupabase.auth.admin.getUserById(authData.user.id);
+        if (!authUserErr && authUserData?.user) {
+          const metaRole = authUserData.user?.app_metadata?.role || authUserData.user?.user_metadata?.role;
+          if (metaRole) {
+            profile = { id: authData.user.id, email: emailToTry, name: emailToTry.split('@')[0], role: metaRole } as any;
+            profileError = null;
+            console.log('[Auth] Step 3 fallback 3 - found role in auth metadata:', { role: metaRole });
+          }
+        }
+      }
+    } catch (adminErr) {
+      console.error('[Auth] Admin API fallback error:', adminErr);
+    }
+  }
+  // Fallback 4: Try Prisma (direct DB via DATABASE_URL, bypasses RLS)
+  if (!profile && profileError?.message?.includes('permission denied')) {
+    console.log('[Auth] Step 3 fallback 4 - trying Prisma:', authData.user.id);
+    try {
+      const { PrismaClient } = await import('@prisma/client');
+      const prisma = new PrismaClient();
+      const dbProfile = await prisma.profiles.findUnique({
         where: { id: authData.user.id },
         select: { id: true, email: true, name: true, role: true, phone: true, dni: true, is_active: true },
       });
+      await prisma.$disconnect();
       if (dbProfile) {
         profile = {
           id: dbProfile.id,
@@ -304,7 +324,7 @@ async function handleLogin(body: { username: string; password: string }) {
           is_active: dbProfile.is_active,
         };
         profileError = null;
-        console.log('[Auth] Step 3 fallback 3 - found via Prisma:', { role: dbProfile.role });
+        console.log('[Auth] Step 3 fallback 4 - found via Prisma:', { role: dbProfile.role });
       }
     } catch (prismaErr) {
       console.error('[Auth] Prisma fallback error:', prismaErr);
