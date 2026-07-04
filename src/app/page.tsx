@@ -52,7 +52,7 @@ import {
   ExternalLink,
   AlertTriangle,
 } from 'lucide-react';
-import { Plus, Camera, Target, MessageSquare } from 'lucide-react';
+import { ChevronDown, Plus, Camera, Target, MessageSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -138,6 +138,10 @@ export default function KCobranzasDashboard() {
   const unreadCount = notifications.filter(n=>!n.isRead).length;
   const [fabOpen, setFabOpen] = useState(false);
   const fabRef = useRef<HTMLDivElement>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    panel: true, gestion: true, personal: true, finanzas: true, seguimiento: true, sistema: true,
+  });
+  const toggleGroup = (key: string) => setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
   const hasCheckedSession = useRef(false);
 
   // Live clock
@@ -303,40 +307,57 @@ export default function KCobranzasDashboard() {
     logout();
   };
 
-  // All navigation items
-  const allNavItems = [
-    { value: 'dashboard', icon: BarChart3, label: 'Dashboard' },
-    { value: 'loans', icon: DollarSign, label: 'Préstamos' },
-    { value: 'clients', icon: Users, label: 'Clientes' },
-    { value: 'payments', icon: CreditCard, label: 'Cobros' },
-    { value: 'collectors', icon: Navigation, label: 'Personal' },
-    { value: 'audit', icon: ShieldCheck, label: 'Auditoría' },
-    { value: 'capital', icon: Wallet, label: 'Capital' },
-    { value: 'chat', icon: MessageCircle, label: 'Mensajes' },
-    { value: 'late-fee', icon: Clock, label: 'Mora Auto' },
-    { value: 'daily-settlement', icon: Wallet, label: 'Cierre de Caja' },
-    { value: 'caja', icon: Wallet, label: 'Caja' },
-    { value: 'map', icon: Map, label: 'Mapa' },
+  // Navigation groups with collapsible sections
+  const navGroups = [
+    { key: 'panel', title: 'Panel', items: [
+      { value: 'dashboard', icon: BarChart3, label: 'Dashboard' },
+    ]},
+    { key: 'gestion', title: 'Gestión', items: [
+      { value: 'loans', icon: DollarSign, label: 'Préstamos' },
+      { value: 'clients', icon: Users, label: 'Clientes' },
+      { value: 'payments', icon: CreditCard, label: 'Cobros' },
+    ]},
+    { key: 'personal', title: 'Personal', items: [
+      { value: 'collectors', icon: Navigation, label: 'Personal' },
+      { value: 'audit', icon: ShieldCheck, label: 'Auditoría' },
+    ]},
+    { key: 'finanzas', title: 'Finanzas', items: [
+      { value: 'capital', icon: Wallet, label: 'Capital' },
+      { value: 'caja', icon: Wallet, label: 'Caja' },
+      { value: 'daily-settlement', icon: Wallet, label: 'Cierre de Caja' },
+    ]},
+    { key: 'seguimiento', title: 'Seguimiento', items: [
+      { value: 'chat', icon: MessageCircle, label: 'Mensajes' },
+      { value: 'map', icon: Map, label: 'Mapa' },
+    ]},
+    { key: 'sistema', title: 'Sistema', items: [
+      { value: 'late-fee', icon: Clock, label: 'Mora Auto' },
+    ]},
   ];
 
-  // Filter navigation items based on user role
-  const navItems = isAuthenticated && user
-    ? allNavItems.filter((item) => {
-      const allowedTabs = ROLE_PERMISSIONS[user.role] || [];
-      return allowedTabs.includes(item.value);
-    })
-    : allNavItems;
+  // Filter items in each group based on user role, remove empty groups
+  const filteredGroups = isAuthenticated && user
+    ? navGroups
+        .map(g => ({
+          ...g,
+          items: g.items.filter(item => (ROLE_PERMISSIONS[user.role] || []).includes(item.value)),
+        }))
+        .filter(g => g.items.length > 0)
+    : navGroups;
+
+  // Flatten for backward compatibility (effective tab, etc.)
+  const allNavItems = filteredGroups.flatMap(g => g.items);
 
   // Compute effective active tab
-  const effectiveTab = (isAuthenticated && user && navItems.length > 0)
-    ? (navItems.some((n) => n.value === activeTab) ? activeTab : navItems[0].value)
+  const effectiveTab = (isAuthenticated && user && allNavItems.length > 0)
+    ? (allNavItems.some((n) => n.value === activeTab) ? activeTab : allNavItems[0].value)
     : activeTab;
 
   if (effectiveTab !== activeTab) {
     setActiveTab(effectiveTab);
   }
 
-  const getActiveLabel = () => navItems.find(n => n.value === activeTab)?.label || 'Dashboard';
+  const getActiveLabel = () => allNavItems.find(n => n.value === activeTab)?.label || 'Dashboard';
 
   // Show loading until component mounts in browser (SSR guard)
   if (!mounted) {
@@ -379,23 +400,36 @@ export default function KCobranzasDashboard() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-4 px-3 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent hover:scrollbar-thumb-slate-600 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-track]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-slate-600 bg-transparent">
-          <p className="px-3 mb-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Menú Principal</p>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.value;
+        <nav className="flex-1 py-4 px-3 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent hover:scrollbar-thumb-slate-600 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-track]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-slate-600 bg-transparent scrollbar-custom">
+          {filteredGroups.map((group) => {
+            const isExpanded = expandedGroups[group.key];
             return (
-              <button
-                key={item.value}
-                onClick={() => setActiveTab(item.value)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 mb-0.5 group relative overflow-hidden ${isActive
-                  ? 'gradient-border-active text-emerald-100 shadow-lg shadow-emerald-500/10'
-                  : 'text-muted-foreground hover:bg-white/5 hover:text-white'
-                }`}
-              >
-                <Icon className={`h-4.5 w-4.5 ${isActive ? 'text-emerald-200' : 'text-muted-foreground group-hover:scale-110'} transition-transform duration-300`} />
-                <span>{item.label}</span>
-              </button>
+              <div key={group.key} className="mb-2">
+                <button
+                  onClick={() => toggleGroup(group.key)}
+                  className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hover:text-white/80 transition-colors"
+                >
+                  <span>{group.title}</span>
+                  <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${isExpanded ? 'rotate-0' : '-rotate-90'}`} />
+                </button>
+                {isExpanded && group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.value;
+                  return (
+                    <button
+                      key={item.value}
+                      onClick={() => setActiveTab(item.value)}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 mb-0.5 group relative overflow-hidden ${isActive
+                        ? 'gradient-border-active text-emerald-100 shadow-lg shadow-emerald-500/10'
+                        : 'text-muted-foreground hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      <Icon className={`h-4 w-4 ${isActive ? 'text-emerald-200' : 'text-muted-foreground group-hover:scale-110'} transition-transform duration-300`} />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             );
           })}
         </nav>
@@ -601,22 +635,35 @@ export default function KCobranzasDashboard() {
             </div>
 
             <nav className="flex-1 py-4 px-3 overflow-y-auto">
-              <p className="px-3 mb-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Menú Principal</p>
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.value;
+              {filteredGroups.map((group) => {
+                const isExpanded = expandedGroups[group.key];
                 return (
-                  <button
-                    key={item.value}
-                    onClick={() => handleTabChange(item.value)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 mb-0.5 ${isActive
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20'
-                      : 'text-foreground/70 dark:text-muted-foreground hover:bg-background/50 dark:hover:bg-white/10 hover:text-foreground dark:hover:text-slate-100'
-                      }`}
-                  >
-                    <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
-                    <span>{item.label}</span>
-                  </button>
+                  <div key={group.key} className="mb-2">
+                    <button
+                      onClick={() => toggleGroup(group.key)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hover:text-white/80 transition-colors"
+                    >
+                      <span>{group.title}</span>
+                      <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${isExpanded ? 'rotate-0' : '-rotate-90'}`} />
+                    </button>
+                    {isExpanded && group.items.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = activeTab === item.value;
+                      return (
+                        <button
+                          key={item.value}
+                          onClick={() => handleTabChange(item.value)}
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 mb-0.5 ${isActive
+                            ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20'
+                            : 'text-foreground/70 dark:text-muted-foreground hover:bg-background/50 dark:hover:bg-white/10 hover:text-foreground dark:hover:text-slate-100'
+                          }`}
+                        >
+                          <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
+                          <span>{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 );
               })}
             </nav>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, isVercel } from '@/lib/db';
+import { PrismaClient } from '@prisma/client';
 
 // Helper for document type labels
 function getDocumentTypeLabel(type: string): string {
@@ -102,38 +103,40 @@ export async function GET() {
       }
     }
 
-    // On Vercel, if Supabase failed, don't fall back to Prisma (no SQLite)
-    if (isVercel) {
+    // Fallback to Prisma (direct PostgreSQL via DATABASE_URL, bypasses RLS)
+    try {
+      const prisma = new PrismaClient();
+      const profiles = await prisma.profiles.findMany({
+        where: { role: { in: ['collector', 'supervisor', 'admin'] } },
+        select: {
+          id: true, email: true, name: true, role: true, phone: true, dni: true, is_active: true,
+          created_at: true,
+        },
+        orderBy: { name: 'asc' },
+      });
+      await prisma.$disconnect();
+
+      const collectors = profiles.map((p) => ({
+        id: p.id,
+        name: p.name,
+        email: p.email || '',
+        phone: p.phone || null,
+        address: null,
+        role: p.role,
+        isActive: p.is_active ?? true,
+        documentType: 'dni',
+        documentNumber: p.dni || null,
+        photoUrl: null,
+        createdAt: p.created_at?.toISOString() || new Date().toISOString(),
+        zoneIds: [] as string[],
+        _count: { loans: 0, payments: 0 },
+      }));
+
+      return NextResponse.json({ collectors, dataSource: 'prisma' });
+    } catch (prismaErr) {
+      console.error('Prisma fallback failed:', prismaErr);
       return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
     }
-
-    // Fallback to Prisma (local SQLite)
-    const collectors = await db.profile.findMany({
-      where: { role: { in: ['collector', 'supervisor', 'admin'] } },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        address: true,
-        role: true,
-        isActive: true,
-        documentType: true,
-        documentNumber: true,
-        photoUrl: true,
-        createdAt: true,
-        collectorZones: { include: { zone: { select: { id: true, name: true } } } },
-        _count: { select: { loans: true, payments: true } },
-      },
-      orderBy: { name: 'asc' },
-    });
-
-    const collectorsWithZoneIds = collectors.map((c) => ({
-      ...c,
-      zoneIds: c.collectorZones.map((cz) => cz.zone.id),
-    }));
-
-    return NextResponse.json({ collectors: collectorsWithZoneIds, dataSource: 'local' });
   } catch (error) {
     console.error('Error fetching staff:', error);
     return NextResponse.json({ error: 'Error al obtener personal' }, { status: 500 });

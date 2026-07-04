@@ -7,8 +7,8 @@ const globalForPrisma = globalThis as unknown as {
 // Check if running on Vercel (serverless - no persistent SQLite)
 export const isVercel = process.env.VERCEL === '1'
 
-// On Vercel, ensure DATABASE_URL points to a writable location
-if (isVercel && process.env.DATABASE_URL) {
+// On Vercel, keep PostgreSQL URL; only override if it's a local SQLite path
+if (isVercel && process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith('postgresql://')) {
   if (!process.env.DATABASE_URL.includes('/tmp')) {
     process.env.DATABASE_URL = 'file:/tmp/kc-cobranzas.db'
   }

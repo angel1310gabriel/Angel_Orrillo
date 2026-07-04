@@ -112,25 +112,25 @@ export default function DashboardTab() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {kpiData.map((k, i) => {
           const Icon = k.icon;
           return (
-            <div key={k.key} className="group relative overflow-hidden rounded-2xl glass-panel shadow-lg hover:shadow-xl transition-all duration-500 hover:-translate-y-1 kpi-card" style={{ animation: `fadeUp 0.5s ease-out ${i * 0.1}s both` }}>
+            <div key={k.key} className="group relative overflow-hidden rounded-xl glass-panel shadow-lg hover:shadow-xl transition-all duration-500 hover:-translate-y-0.5" style={{ animation: `fadeUp 0.5s ease-out ${i * 0.1}s both` }}>
               <div className={`absolute inset-0 bg-gradient-to-br ${k.gradient} opacity-90`} />
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.2),_transparent_50%)]" />
-              <div className="relative p-4 sm:p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm border border-white/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                    <Icon className="h-5 w-5 text-white" />
+              <div className="relative p-3 sm:p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm border border-white/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <Icon className="h-4 w-4 text-white" />
                   </div>
                   {k.key === 'moraLoans' && parseInt(k.value) > 0 && (
-                    <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-semibold text-white animate-pulse">Urgente</span>
+                    <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-[9px] font-semibold text-white animate-pulse">Urgente</span>
                   )}
                 </div>
-                <p className="text-white/70 text-[11px] font-medium uppercase tracking-wider">{k.label}</p>
-                <p className="text-2xl sm:text-3xl font-bold text-white mt-1 tracking-tight value-pulse">{k.value}</p>
-                <p className="text-white/50 text-[10px] mt-1">{k.subtitle}</p>
+                <p className="text-white/70 text-[10px] font-medium uppercase tracking-wider">{k.label}</p>
+                <p className="text-xl sm:text-2xl font-bold text-white mt-0.5 tracking-tight">{k.value}</p>
+                <p className="text-white/50 text-[9px] mt-0.5">{k.subtitle}</p>
               </div>
               {/* Shimmer overlay on hover */}
               <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent" />
