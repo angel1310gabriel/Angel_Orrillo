@@ -226,6 +226,12 @@ async function handleLogin(body: { username: string; password: string }) {
     );
   }
 
+  // Refresh user data from server to ensure latest app_metadata
+  try {
+    const { data: { user: refreshedUser } } = await supabase.auth.getUser();
+    if (refreshedUser) authData.user = refreshedUser;
+  } catch { /* non-critical */ }
+
   // Step 3: Get profile from Supabase profiles table
   let { data: profile, error: profileError } = await supabase
     .from('profiles')
