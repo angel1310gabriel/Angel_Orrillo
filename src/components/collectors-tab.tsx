@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Shield, Eye, UserCheck, Search, RefreshCw, Loader2, CheckCircle2, XCircle, User, Mail, Phone, MapPin, Trash2, UserPlus, KeyRound, IdCard, Globe, AlertTriangle, DollarSign, Wallet } from 'lucide-react';
+import { Users, Shield, Eye, UserCheck, Search, RefreshCw, Loader2, CheckCircle2, XCircle, User, Mail, Phone, MapPin, Trash2, UserPlus, KeyRound, IdCard, Globe, AlertTriangle, DollarSign, Wallet, Fingerprint, Smartphone } from 'lucide-react';
 import CollectorExpensesPanel from './collector-expenses-panel';
 import CollectorLocationsMap from './collector-locations-map';
 import { Card, CardContent } from '@/components/ui/card';
@@ -85,6 +85,7 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
   const [search, setSearch] = useState('');
   const [regOpen, setRegOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [fLM, setFLM] = useState('email');
   const [fDT, setFDT] = useState('dni'), [fDN, setFDN] = useState(''), [fN, setFN] = useState(''), [fE, setFE] = useState('');
   const [fPh, setFPh] = useState(''), [fAd, setFAd] = useState(''), [fDailyGoal, setFDailyGoal] = useState(''), [fR, setFR] = useState('collector'), [fPw, setFPw] = useState('');
   const [phOk, setPhOk] = useState(false);
@@ -99,7 +100,10 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
   const maxDig = DOC_TYPES.find(d => d.value === fDT)?.digits ?? 8;
   const docOk = fDN.length === maxDig && /^\d+$/.test(fDN);
   const phOk_ = /^9\d{8}$/.test(fPh), emOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fE), nmOk = fN.trim().length >= 2, pwOk = fPw.length >= 4;
-  const formOk = nmOk && emOk && pwOk && docOk && phOk_;
+  const lmNeedsEmail = fLM === 'email';
+  const lmNeedsDoc = fLM === 'dni';
+  const lmNeedsPh = fLM === 'phone';
+  const formOk = nmOk && pwOk && docOk && phOk_ && (lmNeedsEmail ? emOk : true);
 
   const fetchS = useCallback(async () => {
     setLoading(true);
@@ -117,7 +121,7 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
   const q = search.toLowerCase().trim();
   const filtered = q ? staff.filter(s => (s.name || '').toLowerCase().includes(q) || (s.documentNumber || '').includes(q) || s.email.toLowerCase().includes(q)) : staff;
 
-  const reset = () => { setFDT('dni'); setFDN(''); setFN(''); setFE(''); setFPh(''); setFAd(''); setFDailyGoal(''); setFR('collector'); setFPw(''); setPhOk(false); setDOk(false); setDRes(null); };
+  const reset = () => { setFLM('email'); setFDT('dni'); setFDN(''); setFN(''); setFE(''); setFPh(''); setFAd(''); setFDailyGoal(''); setFR('collector'); setFPw(''); setPhOk(false); setDOk(false); setDRes(null); };
 
   const onVerifyDoc = async () => {
     if (!docOk) return; setVDoc(true);
@@ -134,7 +138,9 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
     if (!formOk) { toast({ title: 'Error', description: 'Complete todos los campos', variant: 'destructive' }); return; }
     setSubmitting(true);
     try {
-      const r = await fetch('/api/collectors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: fN.trim(), email: fE.trim(), password: fPw, documentType: fDT, documentNumber: fDN, phone: fPh, address: fAd || undefined, role: fR, dailyGoal: parseFloat(fDailyGoal) || 0 }) });
+      const body: Record<string, unknown> = { name: fN.trim(), password: fPw, documentType: fDT, documentNumber: fDN, phone: fPh, address: fAd || undefined, role: fR, dailyGoal: parseFloat(fDailyGoal) || 0, loginMethod: fLM };
+      if (fLM === 'email') body.email = fE.trim();
+      const r = await fetch('/api/collectors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const d = await r.json();
       if (!r.ok) { toast({ title: 'Error', description: d.error || 'No se pudo registrar', variant: 'destructive' }); return; }
       toast({ title: 'Personal registrado', description: `${fN.trim()} como ${RS[fR]?.l || fR}` }); setRegOpen(false); reset(); fetchS();
@@ -246,11 +252,28 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
               </div>
 
               <Separator />
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 flex items-center gap-2"><KeyRound className="h-4 w-4 text-emerald-500" /> Método de Inicio de Sesión *</Label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { value: 'email', label: 'Email', Icon: Mail, desc: 'correo + contraseña' },
+                    { value: 'dni', label: 'DNI', Icon: IdCard, desc: 'documento + contraseña' },
+                    { value: 'phone', label: 'Celular', Icon: Smartphone, desc: 'teléfono + contraseña' },
+                    { value: 'fingerprint', label: 'Huella', Icon: Fingerprint, desc: 'biométrico (mobile)' },
+                  ].map(o => { const s = fLM === o.value; return (
+                    <button key={o.value} type="button" onClick={() => { setFLM(o.value); }} className={`relative flex flex-col items-center gap-1.5 p-2.5 rounded-xl border-2 transition-all cursor-pointer text-center group ${s ? 'border-emerald-400 bg-emerald-50/80 dark:bg-emerald-950/30 ring-2 ring-emerald-200 shadow-sm' : 'border-input bg-white dark:bg-[#05060b]/80 hover:border-emerald-200 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/30'}`}>
+                      {s && <div className="absolute -top-1.5 -right-1.5"><CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500 stroke-white" /></div>}
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${s ? 'bg-emerald-100 dark:bg-emerald-900/50' : 'bg-background/70 dark:bg-[#05060b]/70'}`}><o.Icon className={`h-4 w-4 ${s ? 'text-emerald-600 dark:text-emerald-300' : 'text-muted-foreground'}`} /></div>
+                      <div><p className={`font-semibold text-xs ${s ? 'text-emerald-700 dark:text-emerald-300' : 'text-foreground/80 dark:text-foreground/80'}`}>{o.label}</p><p className="text-[10px] text-muted-foreground leading-tight">{o.desc}</p></div>
+                    </button>
+                  );})}
+                </div>
+              </div>
               <div className="space-y-2"><Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 flex items-center gap-2"><User className="h-4 w-4 text-muted-foreground" /> Nombre Completo *</Label><VInput value={fN} valid={nmOk} placeholder="Ej: Juan Pérez García" onChange={e => setFN(e.target.value)} /></div>
-              <div className="space-y-2"><Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 flex items-center gap-2"><Mail className="h-4 w-4 text-muted-foreground" /> Email *</Label><VInput value={fE} valid={emOk} type="email" placeholder="correo@ejemplo.com" onChange={e => setFE(e.target.value)} /></div>
+              {fLM === 'email' && <div className="space-y-2"><Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 flex items-center gap-2"><Mail className="h-4 w-4 text-muted-foreground" /> Email *</Label><VInput value={fE} valid={emOk} type="email" placeholder="correo@ejemplo.com" onChange={e => setFE(e.target.value)} /></div>}
 
               <div className="space-y-2">
-                <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" /> Teléfono *</Label>
+                <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" /> Teléfono {fLM === 'phone' ? '*' : ''}</Label>
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1"><Input placeholder="Ej: 999888777" value={fPh} onChange={e => { setFPh(e.target.value.replace(/\D/g, '').slice(0, 9)); setPhOk(false); }} className={`pr-14 bg-white dark:bg-[#05060b]/80 font-mono tracking-wider ${vb(fPh, phOk_)}`} /><div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">{fPh.length > 0 && (phOk_ ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <XCircle className="h-3.5 w-3.5 text-red-400" />)}<span className={`text-xs font-medium tabular-nums ${fPh.length === 9 ? 'text-emerald-600 dark:text-emerald-300' : 'text-muted-foreground'}`}>{fPh.length}/9</span></div></div>
                   <Button type="button" variant="outline" className={`shrink-0 h-10 ${phOk && phOk_ ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50' : 'border-input'}`} disabled={!phOk_ || vPh} onClick={onVerifyPh}>{vPh ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : phOk && phOk_ ? <CheckCircle2 className="h-4 w-4 mr-1.5" /> : null} Verificar</Button>

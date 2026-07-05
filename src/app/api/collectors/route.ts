@@ -143,17 +143,50 @@ export async function GET() {
   }
 }
 
+// ============================================================
+// Helper: Create Firebase Auth user via REST API
+// ============================================================
+const FIREBASE_API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCYbYHvlGwOLY071631rtb2A-j0MVPQeMo';
+
+async function createFirebaseUser(email: string, password: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, returnSecureToken: true }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      if (data.error.message === 'EMAIL_EXISTS') return null;
+      console.error('[Collectors] Firebase create error:', data.error.message);
+      return null;
+    }
+    return data.localId;
+  } catch (err) {
+    console.error('[Collectors] Firebase create error:', err);
+    return null;
+  }
+}
+
 // POST /api/collectors - Create new staff member
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, email, password, documentType, documentNumber, phone, address, role } = body;
+    const { name, email, password, documentType, documentNumber, phone, address, role, loginMethod } = body;
+    const lm = loginMethod || 'email';
+
+    // Build Firebase email based on login method
+    const fbEmail = lm === 'email' ? (email || '').trim().toLowerCase()
+      : lm === 'dni' ? `${documentNumber}@kc-cobranzas.app`
+      : lm === 'phone' ? `${phone}@phone.kc-cobranzas.app`
+      : lm === 'fingerprint' ? `${documentNumber || phone}@bio.kc-cobranzas.app`
+      : (email || '').trim().toLowerCase();
 
     // Validation
     if (!name || !name.trim()) {
       return NextResponse.json({ error: 'El nombre es requerido' }, { status: 400 });
     }
-    if (!email || !email.trim()) {
+    if (!fbEmail && lm === 'email') {
       return NextResponse.json({ error: 'El email es requerido' }, { status: 400 });
     }
     if (!password || password.length < 4) {
@@ -179,6 +212,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'El teléfono debe tener exactamente 9 dígitos y empezar con 9' }, { status: 400 });
     }
 
+    // Create Firebase Auth user first
+    const firebaseUid = await createFirebaseUser(fbEmail, password);
+
     // On Vercel: use Supabase as primary DB
     if (isVercel) {
       const supabase = await getSupabase();
@@ -186,26 +222,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
       }
 
-      // Check duplicate email via Supabase
-      const { data: existingEmail } = await supabase.from('profiles').select('id').eq('email', email.trim().toLowerCase()).maybeSingle();
-      if (existingEmail) {
-        return NextResponse.json({ error: 'Ya existe un usuario con ese email' }, { status: 409 });
-      }
-
-      // Check duplicate document number via Supabase
-      if (documentNumber) {
-        const { data: existingDoc } = await supabase.from('profiles').select('id').eq('dni', documentNumber).maybeSingle();
-        if (existingDoc) {
-          return NextResponse.json({ error: 'Ya existe un usuario con ese número de documento' }, { status: 409 });
-        }
-      }
-
-      // Create via Supabase
-      const profileId = crypto.randomUUID();
+      const profileId = firebaseUid || crypto.randomUUID();
       const { data: newProfile, error: createError } = await supabase.from('profiles').insert({
         id: profileId,
         name: name.trim(),
-        email: email.trim().toLowerCase(),
+        email: fbEmail,
         document_type: docType,
         dni: documentNumber || null,
         phone: phone || null,
@@ -231,16 +252,11 @@ export async function POST(request: NextRequest) {
         photoUrl: null,
         createdAt: newProfile.created_at || new Date().toISOString(),
         _count: { loans: 0, payments: 0 },
+        loginMethod: lm,
       }, { status: 201 });
     }
 
     // Local mode: Prisma-first with Supabase background push
-
-    // Check duplicate email locally
-    const existingEmail = await db.profile.findUnique({ where: { email: email.trim().toLowerCase() } });
-    if (existingEmail) {
-      return NextResponse.json({ error: 'Ya existe un usuario con ese email' }, { status: 409 });
-    }
 
     // Check duplicate document number locally
     if (documentNumber) {
@@ -254,8 +270,8 @@ export async function POST(request: NextRequest) {
     const profile = await db.profile.create({
       data: {
         name: name.trim(),
-        email: email.trim().toLowerCase(),
-        password: password, // Store plaintext to match auth route logic
+        email: fbEmail,
+        password: password,
         documentType: docType,
         documentNumber: documentNumber || null,
         phone: phone || null,
@@ -279,7 +295,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Also push to Supabase in background (create auth user + profile)
+    // Also push to Supabase in background
     const supabase = await getSupabase();
     if (supabase) {
       pushProfileToSupabase(supabase, {
@@ -302,11 +318,11 @@ export async function POST(request: NextRequest) {
         entityId: profile.id,
         entityName: profile.name,
         severity: 'info',
-        notes: `Personal registrado: ${profile.name} (${getDocumentTypeLabel(profile.documentType)}: ${profile.documentNumber}, Rol: ${profile.role})`,
+        notes: `Personal registrado: ${profile.name} (${getDocumentTypeLabel(profile.documentType)}: ${profile.documentNumber}, Rol: ${profile.role}, Login: ${lm})`,
       },
     }).catch(() => { });
 
-    return NextResponse.json(profile, { status: 201 });
+    return NextResponse.json({ ...profile, loginMethod: lm }, { status: 201 });
   } catch (error) {
     console.error('Error creating staff:', error);
     return NextResponse.json({ error: 'Error al registrar personal' }, { status: 500 });

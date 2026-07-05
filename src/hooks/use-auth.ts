@@ -2,10 +2,18 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-
-// ============================================================
-// Types
-// ============================================================
+import {
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  type User as FirebaseUser,
+} from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase-client';
 
 export interface AuthUser {
   id: string;
@@ -15,9 +23,10 @@ export interface AuthUser {
   phone: string | null;
   documentNumber: string | null;
   isActive: boolean;
+  photoUrl?: string | null;
 }
 
-export const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutos
+export const INACTIVITY_TIMEOUT = 5 * 60 * 1000;
 
 export interface AuthState {
   user: AuthUser | null;
@@ -26,69 +35,27 @@ export interface AuthState {
   error: string | null;
   lastActivity: number;
   _hasHydrated: boolean;
-
-  // Actions
+  _initialized: boolean;
   login: (username: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   checkSession: () => Promise<void>;
   refreshRole: () => Promise<void>;
   hasRole: (roles: string[]) => boolean;
   changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
   clearError: () => void;
   updateActivity: () => void;
+  _setUser: (u: AuthUser | null) => void;
 }
 
-// ============================================================
-// Role Permissions Map
-// ============================================================
-
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
-  admin: [
-    'dashboard',
-    'loans',
-    'clients',
-    'payments',
-    'collectors',
-    'audit',
-    'capital',
-    'late-fee',
-    'config',
-    'chat',
-    'daily-settlement',
-    'caja',
-    'map',
-  ],
-  supervisor: [
-    'dashboard',
-    'loans',
-    'clients',
-    'payments',
-    'collectors',
-    'audit',
-    'late-fee',
-    'chat',
-    'daily-settlement',
-    'caja',
-    'map',
-  ],
-  collector: [
-    'loans',
-    'clients',
-    'payments',
-    'chat',
-    'daily-settlement',
-    'map',
-  ],
+  admin: ['dashboard', 'loans', 'clients', 'payments', 'collectors', 'audit', 'capital', 'late-fee', 'config', 'chat', 'daily-settlement', 'caja', 'map'],
+  supervisor: ['dashboard', 'loans', 'clients', 'payments', 'collectors', 'audit', 'late-fee', 'chat', 'daily-settlement', 'caja', 'map'],
+  collector: ['loans', 'clients', 'payments', 'chat', 'daily-settlement', 'map'],
 };
-
-// ============================================================
-// Sync initial state from localStorage (synchronous!)
-// This runs at module level, BEFORE any React render
-// ============================================================
 
 const STORAGE_KEY = 'kc-cobranzas-auth-v3';
 
-function getStoredState(): { user: AuthUser | null; isAuthenticated: boolean; lastActivity: number } {
+function getStoredState() {
   if (typeof window === 'undefined') return { user: null, isAuthenticated: false, lastActivity: Date.now() };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -96,224 +63,152 @@ function getStoredState(): { user: AuthUser | null; isAuthenticated: boolean; la
       const parsed = JSON.parse(raw);
       const data = parsed?.state || parsed;
       if (data?.user && data?.isAuthenticated) {
-        return {
-          user: data.user as AuthUser,
-          isAuthenticated: true,
-          lastActivity: Date.now(),
-        };
+        return { user: data.user as AuthUser, isAuthenticated: true, lastActivity: data.lastActivity || Date.now() };
       }
     }
-  } catch {}
+  } catch { }
   return { user: null, isAuthenticated: false, lastActivity: Date.now() };
 }
 
-const initialStored = getStoredState();
-
-// ============================================================
-// Auth Store with Zustand + Persist
-// Login con DNI, Email o Celular via Supabase
-// ============================================================
+// Convert Firebase user + Firestore profile to AuthUser
+async function buildAuthUser(fbUser: FirebaseUser): Promise<AuthUser | null> {
+  try {
+    const profileDoc = await getDoc(doc(db, 'profiles', fbUser.uid));
+    if (profileDoc.exists()) {
+      const p = profileDoc.data();
+      return {
+        id: fbUser.uid,
+        email: p.email || fbUser.email || '',
+        name: p.name || fbUser.email?.split('@')[0] || 'Usuario',
+        role: p.role || 'collector',
+        phone: p.phone || null,
+        documentNumber: p.dni || null,
+        isActive: p.is_active ?? true,
+        photoUrl: p.photo_url || null,
+      };
+    }
+    return null;
+  } catch { return null; }
+}
 
 export const useAuth = create<AuthState>()(
   persist(
-    (set, get) => ({
-      user: initialStored.user,
-      isAuthenticated: initialStored.isAuthenticated,
-      isLoading: false,
-      error: null,
-      lastActivity: initialStored.lastActivity,
-      _hasHydrated: typeof window === 'undefined' ? true : false,
-
-      login: async (username: string, password: string) => {
-        set({ isLoading: true, error: null });
-
-        try {
-          const response = await fetch('/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'login', username, password }),
-          });
-
-          const data = await response.json();
-
-          if (!data.success) {
-            set({
-              isLoading: false,
-              error: data.error || 'Error al iniciar sesión',
-              user: null,
-              isAuthenticated: false,
-            });
-            return false;
-          }
-
-          const user = data.user as AuthUser;
-
-          set({
-            user: {
-              id: user.id,
-              email: user.email,
-              name: user.name || user.email.split('@')[0],
-              role: user.role ?? 'collector',
-              phone: user.phone || null,
-              documentNumber: user.documentNumber || null,
-              isActive: user.isActive !== false,
-            },
-            isAuthenticated: true,
-            isLoading: false,
-            error: null,
-            lastActivity: Date.now(),
-          });
-
-          return true;
-        } catch {
-          set({
-            isLoading: false,
-            error: 'Error de conexión. Verifique su conexión a internet.',
-            user: null,
-            isAuthenticated: false,
-          });
-          return false;
-        }
-      },
-
-      logout: () => {
-        fetch('/api/auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'logout' }),
-        }).catch(() => { });
-
-        set({
-          user: null,
-          isAuthenticated: false,
-          isLoading: false,
-          error: null,
-        });
-      },
-
-      checkSession: async () => {
-        const { user } = get();
-        if (!user) {
-          set({ isAuthenticated: false });
-          return;
-        }
-
-        try {
-          const response = await fetch('/api/auth', {
-            headers: {
-              Authorization: `Bearer ${user.id}`,
-            },
-          });
-
-          const data = await response.json();
-
-          if (data.success && data.user) {
-            const updatedUser = data.user as AuthUser;
-            set({
-              user: {
-                id: updatedUser.id,
-                email: updatedUser.email,
-                name: updatedUser.name || updatedUser.email.split('@')[0],
-                role: updatedUser.role ?? 'collector',
-                phone: updatedUser.phone || null,
-                documentNumber: updatedUser.documentNumber || null,
-                isActive: updatedUser.isActive !== false,
-              },
-              isAuthenticated: true,
-              lastActivity: Date.now(),
-            });
-          } else if (response.status === 404) {
-            console.warn('[Auth] checkSession - User not found (404), clearing session');
-            set({
-              user: null,
-              isAuthenticated: false,
-            });
-          } else {
-            console.warn('[Auth] checkSession - Server returned error, keeping cached session');
-          }
-        } catch {
-          // Keep cached session during network issues
-        }
-      },
-
-      refreshRole: async () => {
-        const { user } = get();
-        if (!user) return;
-
-        try {
-          const response = await fetch('/api/auth', {
-            headers: {
-              Authorization: `Bearer ${user.id}`,
-            },
-          });
-
-          const data = await response.json();
-
-          if (data.success && data.user) {
-            const serverUser = data.user as AuthUser;
-            if (serverUser.role !== user.role || serverUser.name !== user.name) {
-              set({
-                user: {
-                  id: serverUser.id,
-                  email: serverUser.email,
-                  name: serverUser.name || serverUser.email.split('@')[0],
-                  role: serverUser.role ?? 'collector',
-                  phone: serverUser.phone || null,
-                  documentNumber: serverUser.documentNumber || null,
-                  isActive: serverUser.isActive !== false,
-                },
-              });
+    (set, get) => {
+      // Listen to Firebase auth state changes
+      if (typeof window !== 'undefined') {
+        onAuthStateChanged(auth, async (fbUser) => {
+          const state = get();
+          if (fbUser && !state._initialized) {
+            const authUser = await buildAuthUser(fbUser);
+            if (authUser) {
+              set({ user: authUser, isAuthenticated: true, isLoading: false, _initialized: true });
+            } else {
+              // No profile in Firestore yet, create a basic one
+              const basicUser: AuthUser = {
+                id: fbUser.uid,
+                email: fbUser.email || '',
+                name: fbUser.email?.split('@')[0] || 'Usuario',
+                role: 'collector',
+                phone: null,
+                documentNumber: null,
+                isActive: true,
+              };
+              set({ user: basicUser, isAuthenticated: true, isLoading: false, _initialized: true });
             }
+          } else if (!fbUser && !state._initialized) {
+            set({ user: null, isAuthenticated: false, isLoading: false, _initialized: true });
           }
-        } catch {
-          // Silent - don't disrupt the UI
-        }
-      },
+        });
+      }
 
-      hasRole: (roles: string[]) => {
-        const { user } = get();
-        if (!user) return false;
-        return roles.includes(user.role);
-      },
+      return {
+        user: null,
+        isAuthenticated: false,
+        isLoading: true,
+        error: null,
+        lastActivity: Date.now(),
+        _hasHydrated: false,
+        _initialized: false,
 
-      changePassword: async (currentPassword: string, newPassword: string) => {
-        const { user } = get();
-        if (!user) return false;
-
-        try {
-          const response = await fetch('/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'change-password',
-              userId: user.id,
-              currentPassword,
-              newPassword,
-            }),
-          });
-
-          const data = await response.json();
-
-          if (!data.success) {
-            set({ error: data.error || 'Error al cambiar contraseña' });
+        login: async (username: string, password: string) => {
+          set({ isLoading: true, error: null });
+          try {
+            const isEmail = username.includes('@');
+            const email = isEmail ? username : `${username}@kc-cobranzas.app`;
+            const cred = await signInWithEmailAndPassword(auth, email, password);
+            const authUser = await buildAuthUser(cred.user);
+            if (authUser) {
+              set({ user: authUser, isAuthenticated: true, isLoading: false, error: null, lastActivity: Date.now() });
+              return true;
+            }
+            const basicUser: AuthUser = {
+              id: cred.user.uid,
+              email: cred.user.email || email,
+              name: cred.user.email?.split('@')[0] || 'Usuario',
+              role: 'collector',
+              phone: null,
+              documentNumber: null,
+              isActive: true,
+            };
+            set({ user: basicUser, isAuthenticated: true, isLoading: false, error: null, lastActivity: Date.now() });
+            return true;
+          } catch (err: any) {
+            const msg = err?.code === 'auth/user-not-found' || err?.code === 'auth/invalid-credential'
+              ? 'Usuario o contraseña incorrectos'
+              : err?.code === 'auth/too-many-requests'
+              ? 'Demasiados intentos. Espera un momento'
+              : err?.message || 'Error al iniciar sesión';
+            set({ isLoading: false, error: msg });
             return false;
           }
+        },
 
-          return true;
-        } catch {
-          set({ error: 'Error de conexión al cambiar contraseña' });
-          return false;
-        }
-      },
+        logout: async () => {
+          await signOut(auth);
+          set({ user: null, isAuthenticated: false, error: null });
+        },
 
-      updateActivity: () => {
-        set({ lastActivity: Date.now() });
-      },
+        checkSession: async () => {
+          const fbUser = auth.currentUser;
+          if (fbUser) {
+            const authUser = await buildAuthUser(fbUser);
+            if (authUser) set({ user: authUser, isAuthenticated: true, isLoading: false });
+          } else {
+            set({ user: null, isAuthenticated: false, isLoading: false });
+          }
+        },
 
-      clearError: () => {
-        set({ error: null });
-      },
-    }),
+        refreshRole: async () => {
+          const fbUser = auth.currentUser;
+          if (fbUser) {
+            const authUser = await buildAuthUser(fbUser);
+            if (authUser) set({ user: authUser, isAuthenticated: true });
+          }
+        },
+
+        hasRole: (roles: string[]) => {
+          const { user } = get();
+          return user ? roles.includes(user.role) : false;
+        },
+
+        changePassword: async (currentPassword: string, newPassword: string) => {
+          try {
+            const fbUser = auth.currentUser;
+            if (!fbUser || !fbUser.email) return false;
+            const cred = EmailAuthProvider.credential(fbUser.email, currentPassword);
+            await reauthenticateWithCredential(fbUser, cred);
+            await updatePassword(fbUser, newPassword);
+            return true;
+          } catch { return false; }
+        },
+
+        clearError: () => set({ error: null }),
+
+        updateActivity: () => set({ lastActivity: Date.now() }),
+
+        _setUser: (u) => set({ user: u, isAuthenticated: !!u }),
+      };
+    },
     {
       name: STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
@@ -322,6 +217,14 @@ export const useAuth = create<AuthState>()(
         isAuthenticated: state.isAuthenticated,
         lastActivity: state.lastActivity,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state) state._hasHydrated = true;
+      },
     }
   )
 );
+
+// Helper for inactivity check (called from page.tsx)
+export function checkInactivity(lastActivity: number): boolean {
+  return Date.now() - lastActivity > INACTIVITY_TIMEOUT;
+}
