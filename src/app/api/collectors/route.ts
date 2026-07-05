@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, isVercel } from '@/lib/db';
+import { db } from '@/lib/db';
 import { PrismaClient } from '@prisma/client';
 
-// Helper for document type labels
 function getDocumentTypeLabel(type: string): string {
   switch (type) {
     case 'dni': return 'DNI';
@@ -12,159 +11,77 @@ function getDocumentTypeLabel(type: string): string {
   }
 }
 
-// ============================================================
-// Helper: Get Supabase client from env or DB settings
-// ============================================================
-async function getSupabase() {
-  try {
-    const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    // Priority: service_role key (bypasses RLS for admin operations)
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const envKey = serviceKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (envUrl && envKey) {
-      const { createClient } = await import('@supabase/supabase-js');
-      return createClient(envUrl, envKey);
-    }
+const FIREBASE_API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCYbYHvlGwOLY071631rtb2A-j0MVPQeMo';
 
-    // Fallback to DB settings (only available locally, not on Vercel)
-    if (!isVercel) {
-      const urlSetting = await db.setting.findUnique({ where: { key: 'supabase_url' } });
-      const keySetting = await db.setting.findUnique({ where: { key: 'supabase_anon_key' } });
-      const serviceKeySetting = await db.setting.findUnique({ where: { key: 'supabase_service_role_key' } });
-
-      const url = urlSetting?.value;
-      const key = serviceKeySetting?.value || keySetting?.value;
-      if (url && key) {
-        const { createClient } = await import('@supabase/supabase-js');
-        return createClient(url, key);
-      }
-    }
-  } catch {
-    // Not configured
+async function createFirebaseUser(email: string, password: string): Promise<{ localId: string }> {
+  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, returnSecureToken: true }),
+  });
+  const data = await res.json();
+  if (data.error) {
+    if (data.error.message === 'EMAIL_EXISTS') throw new Error('El email ya está registrado en Firebase');
+    throw new Error(data.error.message || 'Error al crear usuario en Firebase');
   }
-  return null;
+  return { localId: data.localId };
 }
 
-// GET /api/collectors - List all staff (admin, supervisor, collector)
+function buildFirebaseEmail(name: string, documentNumber: string | null, phone: string | null, loginMethod: string): string {
+  switch (loginMethod) {
+    case 'dni': return `${documentNumber}@kc-cobranzas.app`;
+    case 'phone': return `${phone}@phone.kc-cobranzas.app`;
+    case 'fingerprint': return `${documentNumber || phone}@bio.kc-cobranzas.app`;
+    default: return `${name.toLowerCase().replace(/\s+/g, '.')}@kc-cobranzas.app`;
+  }
+}
+
+// GET /api/collectors - List all staff
 export async function GET() {
   try {
-    // Try Supabase first
-    const supabase = await getSupabase();
-    if (supabase) {
-      try {
-        const { data, error } = await Promise.race([
-          supabase.from('profiles').select('*').in('role', ['admin', 'supervisor', 'collector']).order('name'),
-          new Promise<{ data: null; error: Error }>((_, reject) =>
-            setTimeout(() => reject(new Error('timeout')), 5000)
-          ),
-        ]);
+    const prisma = new PrismaClient();
+    const profiles = await prisma.profiles.findMany({
+      where: { role: { in: ['collector', 'supervisor', 'admin'] } },
+      select: {
+        id: true, email: true, name: true, role: true, phone: true, dni: true,
+        is_active: true, created_at: true, document_type: true, address: true,
+        daily_goal: true,
+        _count: { select: { loans: true, payments: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+    await prisma.$disconnect();
 
-        if (!error && data && data.length > 0) {
-          // Sync to local in background
-          syncProfilesToLocal(data).catch(() => { });
-
-          // Fetch zones for each collector
-          const collectorIds = data.map((p: Record<string, unknown>) => p.id as string);
-          const { data: collectorZones } = await supabase
-            .from('collector_zones')
-            .select('collector_id, zone_id')
-            .in('collector_id', collectorIds);
-
-          const zoneMap: Record<string, string[]> = {};
-          if (collectorZones) {
-            for (const cz of collectorZones as Array<{ collector_id: string; zone_id: string }>) {
-              if (!zoneMap[cz.collector_id]) zoneMap[cz.collector_id] = [];
-              if (!zoneMap[cz.collector_id].includes(cz.zone_id)) {
-                zoneMap[cz.collector_id].push(cz.zone_id);
-              }
-            }
-          }
-
-          const collectors = data.map((p: Record<string, unknown>) => ({
-            id: p.id,
-            name: p.name,
-            email: p.email || '',
-            phone: p.phone || null,
-            address: null,
-            role: p.role,
-            isActive: p.is_active ?? true,
-            documentType: p.document_type || 'dni',
-            documentNumber: p.dni || null,
-            photoUrl: null,
-            createdAt: p.created_at || new Date().toISOString(),
-            zoneIds: zoneMap[p.id as string] || [],
-            _count: { loans: 0, payments: 0 },
-          }));
-
-          return NextResponse.json({ collectors, dataSource: 'supabase' });
-        }
-      } catch (error) {
-        console.error('Supabase collectors failed, falling back:', error);
-      }
+    const zoneIds = await prisma.collector_zones.findMany({
+      select: { collector_id: true, zone_id: true },
+    });
+    const zoneMap: Record<string, string[]> = {};
+    for (const z of zoneIds) {
+      if (!zoneMap[z.collector_id]) zoneMap[z.collector_id] = [];
+      if (!zoneMap[z.collector_id].includes(z.zone_id)) zoneMap[z.collector_id].push(z.zone_id);
     }
 
-    // Fallback to Prisma (direct PostgreSQL via DATABASE_URL, bypasses RLS)
-    try {
-      const prisma = new PrismaClient();
-      const profiles = await prisma.profiles.findMany({
-        where: { role: { in: ['collector', 'supervisor', 'admin'] } },
-        select: {
-          id: true, email: true, name: true, role: true, phone: true, dni: true, is_active: true,
-          created_at: true,
-        },
-        orderBy: { name: 'asc' },
-      });
-      await prisma.$disconnect();
+    const collectors = profiles.map((p) => ({
+      id: p.id,
+      name: p.name,
+      email: p.email || '',
+      phone: p.phone || null,
+      address: p.address || null,
+      role: p.role,
+      isActive: p.is_active ?? true,
+      documentType: p.document_type || 'dni',
+      documentNumber: p.dni || null,
+      photoUrl: null,
+      createdAt: p.created_at?.toISOString() || new Date().toISOString(),
+      zoneIds: zoneMap[p.id] || [],
+      dailyGoal: p.daily_goal,
+      _count: p._count,
+    }));
 
-      const collectors = profiles.map((p) => ({
-        id: p.id,
-        name: p.name,
-        email: p.email || '',
-        phone: p.phone || null,
-        address: null,
-        role: p.role,
-        isActive: p.is_active ?? true,
-        documentType: 'dni',
-        documentNumber: p.dni || null,
-        photoUrl: null,
-        createdAt: p.created_at?.toISOString() || new Date().toISOString(),
-        zoneIds: [] as string[],
-        _count: { loans: 0, payments: 0 },
-      }));
-
-      return NextResponse.json({ collectors, dataSource: 'prisma' });
-    } catch (prismaErr) {
-      console.error('Prisma fallback failed:', prismaErr);
-      return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-    }
+    return NextResponse.json({ collectors });
   } catch (error) {
     console.error('Error fetching staff:', error);
     return NextResponse.json({ error: 'Error al obtener personal' }, { status: 500 });
-  }
-}
-
-// ============================================================
-// Helper: Create Firebase Auth user via REST API
-// ============================================================
-const FIREBASE_API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCYbYHvlGwOLY071631rtb2A-j0MVPQeMo';
-
-async function createFirebaseUser(email: string, password: string): Promise<string | null> {
-  try {
-    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, returnSecureToken: true }),
-    });
-    const data = await res.json();
-    if (data.error) {
-      if (data.error.message === 'EMAIL_EXISTS') return null;
-      console.error('[Collectors] Firebase create error:', data.error.message);
-      return null;
-    }
-    return data.localId;
-  } catch (err) {
-    console.error('[Collectors] Firebase create error:', err);
-    return null;
   }
 }
 
@@ -172,157 +89,108 @@ async function createFirebaseUser(email: string, password: string): Promise<stri
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, email, password, documentType, documentNumber, phone, address, role, loginMethod } = body;
+    const { name, password, documentType, documentNumber, phone, address, role, loginMethod, email } = body;
     const lm = loginMethod || 'email';
 
-    // Build Firebase email based on login method
-    const fbEmail = lm === 'email' ? (email || '').trim().toLowerCase()
+    if (!name || !name.trim()) return NextResponse.json({ error: 'El nombre es requerido' }, { status: 400 });
+    if (!password || password.length < 4) return NextResponse.json({ error: 'La contraseña debe tener al menos 4 caracteres' }, { status: 400 });
+    if (!role || !['admin', 'supervisor', 'collector'].includes(role)) return NextResponse.json({ error: 'Rol inválido' }, { status: 400 });
+
+    const docType = documentType || 'dni';
+    if (documentNumber) {
+      if (docType === 'dni' && !/^\d{8}$/.test(documentNumber)) return NextResponse.json({ error: 'El DNI debe tener exactamente 8 dígitos' }, { status: 400 });
+      if ((docType === 'carnet_extranjeria' || docType === 'pasaporte') && !/^\d{9}$/.test(documentNumber)) return NextResponse.json({ error: 'El documento debe tener exactamente 9 dígitos' }, { status: 400 });
+    }
+    if (phone && !/^9\d{8}$/.test(phone)) return NextResponse.json({ error: 'El teléfono debe tener 9 dígitos y empezar con 9' }, { status: 400 });
+
+    // Build Firebase email
+    const fbEmail = lm === 'email' && email ? email.trim().toLowerCase()
       : lm === 'dni' ? `${documentNumber}@kc-cobranzas.app`
       : lm === 'phone' ? `${phone}@phone.kc-cobranzas.app`
       : lm === 'fingerprint' ? `${documentNumber || phone}@bio.kc-cobranzas.app`
-      : (email || '').trim().toLowerCase();
+      : buildFirebaseEmail(name, documentNumber, phone, lm);
 
-    // Validation
-    if (!name || !name.trim()) {
-      return NextResponse.json({ error: 'El nombre es requerido' }, { status: 400 });
-    }
-    if (!fbEmail && lm === 'email') {
-      return NextResponse.json({ error: 'El email es requerido' }, { status: 400 });
-    }
-    if (!password || password.length < 4) {
-      return NextResponse.json({ error: 'La contraseña debe tener al menos 4 caracteres' }, { status: 400 });
-    }
-    if (!role || !['admin', 'supervisor', 'collector'].includes(role)) {
-      return NextResponse.json({ error: 'Rol inválido. Debe ser admin, supervisor o collector' }, { status: 400 });
+    // Create Firebase Auth user FIRST — fail if it doesn't work
+    let firebaseUid: string;
+    try {
+      const result = await createFirebaseUser(fbEmail, password);
+      firebaseUid = result.localId;
+    } catch (fbErr: any) {
+      return NextResponse.json({ error: `Firebase: ${fbErr.message}` }, { status: 400 });
     }
 
-    // Validate document number based on type
-    const docType = documentType || 'dni';
-    if (documentNumber) {
-      if (docType === 'dni' && !/^\d{8}$/.test(documentNumber)) {
-        return NextResponse.json({ error: 'El DNI debe tener exactamente 8 dígitos' }, { status: 400 });
-      }
-      if ((docType === 'carnet_extranjeria' || docType === 'pasaporte') && !/^\d{9}$/.test(documentNumber)) {
-        return NextResponse.json({ error: 'El Carnet de Extranjería / Pasaporte debe tener exactamente 9 dígitos numéricos' }, { status: 400 });
-      }
-    }
-
-    // Validate phone
-    if (phone && !/^9\d{8}$/.test(phone)) {
-      return NextResponse.json({ error: 'El teléfono debe tener exactamente 9 dígitos y empezar con 9' }, { status: 400 });
-    }
-
-    // Create Firebase Auth user first
-    const firebaseUid = await createFirebaseUser(fbEmail, password);
-
-    // On Vercel: use Supabase as primary DB
-    if (isVercel) {
-      const supabase = await getSupabase();
-      if (!supabase) {
-        return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
+    // Create profile in PostgreSQL with Firebase UID as id
+    const prisma = new PrismaClient();
+    try {
+      const existing = await prisma.profiles.findFirst({
+        where: { OR: [{ email: fbEmail }, ...(documentNumber ? [{ dni: documentNumber }] : [])] },
+      });
+      if (existing) {
+        await prisma.$disconnect();
+        return NextResponse.json({ error: 'Ya existe un usuario con ese email o documento' }, { status: 409 });
       }
 
-      const profileId = firebaseUid || crypto.randomUUID();
-      const { data: newProfile, error: createError } = await supabase.from('profiles').insert({
-        id: profileId,
-        name: name.trim(),
-        email: fbEmail,
-        document_type: docType,
-        dni: documentNumber || null,
-        phone: phone || null,
-        role,
-        is_active: true,
-      }).select().single();
+      const profile = await prisma.profiles.create({
+        data: {
+          id: firebaseUid,
+          name: name.trim(),
+          email: fbEmail,
+          password,
+          document_type: docType,
+          dni: documentNumber || null,
+          phone: phone || null,
+          address: address || null,
+          role,
+          is_active: true,
+          daily_goal: parseFloat(body.dailyGoal) || 0,
+        },
+        select: {
+          id: true, name: true, email: true, phone: true, address: true, role: true,
+          is_active: true, document_type: true, dni: true, created_at: true, daily_goal: true,
+          _count: { select: { loans: true, payments: true } },
+        },
+      });
 
-      if (createError) {
-        console.error('[Collectors] Supabase create error:', createError.message);
-        return NextResponse.json({ error: 'Error al registrar personal' }, { status: 500 });
-      }
+      await prisma.$disconnect();
+
+      // Audit log
+      await db.auditLog.create({
+        data: {
+          action: 'CREATE',
+          entityType: 'staff',
+          entityId: profile.id,
+          entityName: profile.name,
+          severity: 'info',
+          notes: `Personal registrado: ${profile.name} (${getDocumentTypeLabel(profile.document_type || 'dni')}: ${profile.dni || '—'}, Rol: ${profile.role}, Firebase: ${fbEmail})`,
+        },
+      }).catch(() => {});
 
       return NextResponse.json({
-        id: newProfile.id,
-        name: newProfile.name,
-        email: newProfile.email || '',
-        phone: newProfile.phone || null,
-        address: null,
-        role: newProfile.role,
-        isActive: newProfile.is_active ?? true,
-        documentType: newProfile.document_type || 'dni',
-        documentNumber: newProfile.dni || null,
-        photoUrl: null,
-        createdAt: newProfile.created_at || new Date().toISOString(),
-        _count: { loans: 0, payments: 0 },
-        loginMethod: lm,
-      }, { status: 201 });
-    }
-
-    // Local mode: Prisma-first with Supabase background push
-
-    // Check duplicate document number locally
-    if (documentNumber) {
-      const existingDoc = await db.profile.findFirst({ where: { documentNumber } });
-      if (existingDoc) {
-        return NextResponse.json({ error: 'Ya existe un usuario con ese número de documento' }, { status: 409 });
-      }
-    }
-
-    // Create in local DB first (fast)
-    const profile = await db.profile.create({
-      data: {
-        name: name.trim(),
-        email: fbEmail,
-        password: password,
-        documentType: docType,
-        documentNumber: documentNumber || null,
-        phone: phone || null,
-        address: address || null,
-        role,
-        isActive: true,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        address: true,
-        role: true,
-        isActive: true,
-        documentType: true,
-        documentNumber: true,
-        photoUrl: true,
-        createdAt: true,
-        _count: { select: { loans: true, payments: true } },
-      },
-    });
-
-    // Also push to Supabase in background
-    const supabase = await getSupabase();
-    if (supabase) {
-      pushProfileToSupabase(supabase, {
         id: profile.id,
         name: profile.name,
         email: profile.email,
-        password,
-        documentType: docType,
-        documentNumber: documentNumber || null,
-        phone: phone || null,
-        role,
-      }).catch((err) => console.error('[Collectors] Push to Supabase error:', err));
+        phone: profile.phone,
+        address: profile.address,
+        role: profile.role,
+        isActive: profile.is_active,
+        documentType: profile.document_type || 'dni',
+        documentNumber: profile.dni,
+        createdAt: profile.created_at?.toISOString(),
+        dailyGoal: profile.daily_goal,
+        _count: profile._count,
+      }, { status: 201 });
+    } catch (dbErr: any) {
+      // Rollback Firebase user if DB insert failed
+      try {
+        await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:delete?key=${FIREBASE_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken: '', localId: firebaseUid }),
+        });
+      } catch {}
+      await prisma.$disconnect().catch(() => {});
+      return NextResponse.json({ error: dbErr.message || 'Error al guardar en base de datos' }, { status: 500 });
     }
-
-    // Audit log (local only)
-    await db.auditLog.create({
-      data: {
-        action: 'CREATE',
-        entityType: 'staff',
-        entityId: profile.id,
-        entityName: profile.name,
-        severity: 'info',
-        notes: `Personal registrado: ${profile.name} (${getDocumentTypeLabel(profile.documentType)}: ${profile.documentNumber}, Rol: ${profile.role}, Login: ${lm})`,
-      },
-    }).catch(() => { });
-
-    return NextResponse.json({ ...profile, loginMethod: lm }, { status: 201 });
   } catch (error) {
     console.error('Error creating staff:', error);
     return NextResponse.json({ error: 'Error al registrar personal' }, { status: 500 });
@@ -334,189 +202,61 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
     const { id, name, phone, address, role, isActive, zoneIds } = body;
+    if (!id) return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
+    if (role && !['admin', 'supervisor', 'collector'].includes(role)) return NextResponse.json({ error: 'Rol inválido' }, { status: 400 });
+    if (phone && !/^9\d{8}$/.test(phone)) return NextResponse.json({ error: 'Teléfono inválido' }, { status: 400 });
 
-    if (!id) {
-      return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
-    }
+    const prisma = new PrismaClient();
+    try {
+      const existing = await prisma.profiles.findUnique({ where: { id } });
+      if (!existing) { await prisma.$disconnect(); return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 }); }
 
-    // Validate role if provided
-    if (role && !['admin', 'supervisor', 'collector'].includes(role)) {
-      return NextResponse.json({ error: 'Rol inválido' }, { status: 400 });
-    }
+      const profile = await prisma.profiles.update({
+        where: { id },
+        data: {
+          name: name !== undefined ? name.trim() : existing.name,
+          phone: phone !== undefined ? phone : existing.phone,
+          address: address !== undefined ? address : existing.address,
+          role: role !== undefined ? role : existing.role,
+          is_active: isActive !== undefined ? isActive : existing.is_active,
+        },
+        select: {
+          id: true, name: true, email: true, phone: true, address: true, role: true,
+          is_active: true, document_type: true, dni: true, created_at: true, daily_goal: true,
+          _count: { select: { loans: true, payments: true } },
+        },
+      });
 
-    // Validate phone if provided
-    if (phone && !/^9\d{8}$/.test(phone)) {
-      return NextResponse.json({ error: 'El teléfono debe tener exactamente 9 dígitos y empezar con 9' }, { status: 400 });
-    }
-
-    // On Vercel: use Supabase as primary DB
-    if (isVercel) {
-      const supabase = await getSupabase();
-      if (!supabase) {
-        return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-      }
-
-      // Check existing via Supabase
-      const { data: existingProfile, error: findError } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
-      if (!existingProfile || findError) {
-        return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 });
-      }
-
-      // Build update data (may be empty if only zones are being changed)
-      const updateData: Record<string, unknown> = {};
-      if (name !== undefined) updateData.name = name.trim();
-      if (phone !== undefined) updateData.phone = phone;
-      if (role !== undefined) updateData.role = role;
-      if (isActive !== undefined) updateData.is_active = isActive;
-
-      let updatedProfile: Record<string, unknown> | null;
-      if (Object.keys(updateData).length > 0) {
-        const { data, error: updateError } = await supabase.from('profiles').update(updateData).eq('id', id).select().single();
-        if (updateError) {
-          console.error('[Collectors] Supabase update error:', updateError.message);
-          return NextResponse.json({ error: 'Error al actualizar personal' }, { status: 500 });
-        }
-        updatedProfile = data;
-      } else {
-        // No profile fields to update; fetch current for response
-        const { data } = await supabase.from('profiles').select('*').eq('id', id).single();
-        updatedProfile = data;
-      }
-
-      if (!updatedProfile) {
-        return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 });
-      }
-
-      // Handle zone assignment if provided
       if (zoneIds !== undefined && Array.isArray(zoneIds)) {
-        await supabase.from('collector_zones').delete().eq('collector_id', id);
+        await prisma.collector_zones.deleteMany({ where: { collector_id: id } });
         if (zoneIds.length > 0) {
-          const zoneRows = zoneIds.map((zoneId: string) => ({
-            collector_id: id,
-            zone_id: zoneId,
-          }));
-          const { error: zoneError } = await supabase.from('collector_zones').insert(zoneRows);
-          if (zoneError) {
-            console.error('[Collectors] Supabase zone update error:', zoneError.message);
-          }
+          await prisma.collector_zones.createMany({
+            data: zoneIds.map((zoneId: string) => ({ collector_id: id, zone_id: zoneId })),
+          });
         }
       }
+
+      await prisma.$disconnect();
+
+      await db.auditLog.create({
+        data: {
+          action: 'UPDATE', entityType: 'staff', entityId: profile.id, entityName: profile.name,
+          severity: 'info', notes: `Personal actualizado: ${profile.name}`,
+        },
+      }).catch(() => {});
 
       return NextResponse.json({
-        id: updatedProfile.id,
-        name: updatedProfile.name,
-        email: updatedProfile.email || '',
-        phone: updatedProfile.phone || null,
-        address: null,
-        role: updatedProfile.role,
-        isActive: updatedProfile.is_active ?? true,
-        documentType: updatedProfile.document_type || 'dni',
-        documentNumber: updatedProfile.dni || null,
-        photoUrl: null,
-        createdAt: updatedProfile.created_at || new Date().toISOString(),
-        _count: { loans: 0, payments: 0 },
+        id: profile.id, name: profile.name, email: profile.email, phone: profile.phone,
+        address: profile.address, role: profile.role, isActive: profile.is_active,
+        documentType: profile.document_type || 'dni', documentNumber: profile.dni,
+        createdAt: profile.created_at?.toISOString(), dailyGoal: profile.daily_goal,
+        _count: profile._count,
       });
+    } catch (err: any) {
+      await prisma.$disconnect().catch(() => {});
+      return NextResponse.json({ error: err.message || 'Error al actualizar' }, { status: 500 });
     }
-
-    // Local mode: Prisma-first with Supabase background push
-    const existing = await db.profile.findUnique({ where: { id } });
-    if (!existing) {
-      return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 });
-    }
-
-    const profile = await db.profile.update({
-      where: { id },
-      data: {
-        name: name !== undefined ? name.trim() : existing.name,
-        phone: phone !== undefined ? phone : existing.phone,
-        address: address !== undefined ? address : existing.address,
-        role: role !== undefined ? role : existing.role,
-        isActive: isActive !== undefined ? isActive : existing.isActive,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        address: true,
-        role: true,
-        isActive: true,
-        documentType: true,
-        documentNumber: true,
-        photoUrl: true,
-        createdAt: true,
-        _count: { select: { loans: true, payments: true } },
-      },
-    });
-
-    // Handle zone assignment if provided
-    const zoneChanged = zoneIds !== undefined && Array.isArray(zoneIds);
-    if (zoneChanged) {
-      await db.collectorZone.deleteMany({ where: { collectorId: id } });
-      if (zoneIds.length > 0) {
-        await db.collectorZone.createMany({
-          data: zoneIds.map((zoneId: string) => ({
-            collectorId: id,
-            zoneId,
-          })),
-        });
-      }
-    }
-
-    // Also push update to Supabase in background
-    const supabase = await getSupabase();
-    if (supabase) {
-      supabase
-        .from('profiles')
-        .update({
-          name: profile.name,
-          phone: profile.phone,
-          role: profile.role,
-          is_active: profile.isActive,
-        })
-        .eq('id', id)
-        .then(({ error }) => {
-          if (error) console.error('[Collectors] Update profile in Supabase error:', error.message);
-        });
-
-      if (zoneChanged) {
-        supabase
-          .from('collector_zones')
-          .delete()
-          .eq('collector_id', id)
-          .then(() => {
-            if (zoneIds.length > 0) {
-              const zoneRows = zoneIds.map((zoneId: string) => ({
-                collector_id: id,
-                zone_id: zoneId,
-              }));
-              supabase.from('collector_zones').insert(zoneRows).then(({ error: ze }) => {
-                if (ze) console.error('[Collectors] Push zones to Supabase error:', ze.message);
-              });
-            }
-          });
-      }
-    }
-
-    // Audit log (local only)
-    await db.auditLog.create({
-      data: {
-        action: 'UPDATE',
-        entityType: 'staff',
-        entityId: profile.id,
-        entityName: profile.name,
-        severity: 'info',
-        notes: `Personal actualizado: ${profile.name}`,
-        changes: JSON.stringify({
-          before: { name: existing.name, phone: existing.phone, role: existing.role, isActive: existing.isActive },
-          after: { name: profile.name, phone: profile.phone, role: profile.role, isActive: profile.isActive },
-        }),
-      },
-    }).catch(() => { });
-
-    return NextResponse.json(profile);
   } catch (error) {
-    console.error('Error updating staff:', error);
     return NextResponse.json({ error: 'Error al actualizar personal' }, { status: 500 });
   }
 }
@@ -526,151 +266,33 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
 
-    if (!id) {
-      return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
-    }
-
-    // On Vercel: use Supabase as primary DB
-    if (isVercel) {
-      const supabase = await getSupabase();
-      if (!supabase) {
-        return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-      }
-
-      // Check existing via Supabase
-      const { data: profile, error: findError } = await supabase.from('profiles').select('id, name, document_type, dni').eq('id', id).maybeSingle();
-      if (!profile || findError) {
-        return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 });
-      }
-
-      // Check for active loans via Supabase
-      const { data: activeLoans } = await supabase.from('loans').select('id').eq('collector_id', id).in('status', ['active', 'mora']);
-      if (activeLoans && activeLoans.length > 0) {
+    const prisma = new PrismaClient();
+    try {
+      const profile = await prisma.profiles.findUnique({ where: { id }, include: { loans: true } });
+      if (!profile) { await prisma.$disconnect(); return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 }); }
+      if (profile.loans.some((l) => l.status === 'active' || l.status === 'mora')) {
+        await prisma.$disconnect();
         return NextResponse.json({ error: 'No se puede eliminar personal con préstamos activos' }, { status: 400 });
       }
 
-      // Delete via Supabase
-      const { error: deleteError } = await supabase.from('profiles').delete().eq('id', id);
-      if (deleteError) {
-        console.error('[Collectors] Supabase delete error:', deleteError.message);
-        return NextResponse.json({ error: 'Error al eliminar personal' }, { status: 500 });
-      }
+      await prisma.profiles.delete({ where: { id } });
+      await prisma.$disconnect();
+
+      await db.auditLog.create({
+        data: {
+          action: 'DELETE', entityType: 'staff', entityId: id, entityName: profile.name,
+          severity: 'warning', notes: `Personal eliminado: ${profile.name}`,
+        },
+      }).catch(() => {});
 
       return NextResponse.json({ message: 'Personal eliminado' });
+    } catch (err: any) {
+      await prisma.$disconnect().catch(() => {});
+      return NextResponse.json({ error: err.message || 'Error al eliminar' }, { status: 500 });
     }
-
-    // Local mode: Prisma-first with Supabase background push
-    const profile = await db.profile.findUnique({
-      where: { id },
-      include: { loans: true },
-    });
-
-    if (!profile) {
-      return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 });
-    }
-
-    if (profile.loans.some((l) => l.status === 'active' || l.status === 'mora')) {
-      return NextResponse.json({ error: 'No se puede eliminar personal con préstamos activos' }, { status: 400 });
-    }
-
-    await db.profile.delete({ where: { id } });
-
-    // Also delete from Supabase in background
-    const supabase = await getSupabase();
-    if (supabase) {
-      supabase
-        .from('profiles')
-        .delete()
-        .eq('id', id)
-        .then(({ error }) => {
-          if (error) console.error('[Collectors] Delete profile from Supabase error:', error.message);
-        });
-    }
-
-    // Audit log (local only)
-    await db.auditLog.create({
-      data: {
-        action: 'DELETE',
-        entityType: 'staff',
-        entityId: id,
-        entityName: profile.name,
-        severity: 'warning',
-        notes: `Personal eliminado: ${profile.name} (${getDocumentTypeLabel(profile.documentType)}: ${profile.documentNumber})`,
-      },
-    }).catch(() => { });
-
-    return NextResponse.json({ message: 'Personal eliminado' });
   } catch (error) {
-    console.error('Error deleting staff:', error);
     return NextResponse.json({ error: 'Error al eliminar personal' }, { status: 500 });
-  }
-}
-
-// ============================================================
-// Helper: Push profile to Supabase (create auth user + profile row)
-// ============================================================
-async function pushProfileToSupabase(
-  supabase: NonNullable<Awaited<ReturnType<typeof getSupabase>>>,
-  data: { id: string; name: string; email: string; password: string; documentType: string; documentNumber: string | null; phone: string | null; role: string }
-) {
-  try {
-    // Try to insert profile row in Supabase
-    const { error } = await supabase.from('profiles').upsert({
-      id: data.id,
-      name: data.name,
-      email: data.email,
-      document_type: data.documentType,
-      dni: data.documentNumber,
-      phone: data.phone,
-      role: data.role,
-      is_active: true,
-    });
-
-    if (error) {
-      console.error('[Collectors] Push profile to Supabase error:', error.message);
-    } else {
-      console.log('[Collectors] Profile pushed to Supabase:', data.email);
-    }
-  } catch (err) {
-    console.error('[Collectors] Push profile to Supabase error:', err);
-  }
-}
-
-// ============================================================
-// Helper: Sync profiles from Supabase to local DB
-// ============================================================
-async function syncProfilesToLocal(profiles: Record<string, unknown>[]) {
-  // Skip sync on Vercel (no local DB)
-  if (isVercel) return;
-
-  try {
-    for (const profile of profiles) {
-      const profileRole = (profile.role as string) || 'collector';
-      await db.profile.upsert({
-        where: { id: profile.id as string },
-        update: {
-          email: profile.email as string,
-          name: profile.name as string,
-          role: profileRole,
-          phone: (profile.phone as string) || null,
-          documentNumber: (profile.dni as string) || null,
-          isActive: (profile.is_active as boolean) ?? true,
-        },
-        create: {
-          id: profile.id as string,
-          email: profile.email as string,
-          name: (profile.name as string) || (profile.email as string).split('@')[0],
-          role: profileRole,
-          phone: (profile.phone as string) || null,
-          documentNumber: (profile.dni as string) || null,
-          password: 'synced_from_supabase',
-          isActive: (profile.is_active as boolean) ?? true,
-        },
-      });
-    }
-    console.log(`[Collectors] Synced ${profiles.length} profiles from Supabase to local`);
-  } catch (err) {
-    console.error('[Collectors] Sync error:', err);
   }
 }

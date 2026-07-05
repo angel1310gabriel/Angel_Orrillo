@@ -10,10 +10,8 @@ import {
   updatePassword,
   EmailAuthProvider,
   reauthenticateWithCredential,
-  type User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase-client';
+import { auth } from '@/lib/firebase-client';
 
 export interface AuthUser {
   id: string;
@@ -34,7 +32,6 @@ export interface AuthState {
   isLoading: boolean;
   error: string | null;
   lastActivity: number;
-  _hasHydrated: boolean;
   _initialized: boolean;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
@@ -55,55 +52,36 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
 
 const STORAGE_KEY = 'kc-cobranzas-auth-v3';
 
-function getStoredState() {
-  if (typeof window === 'undefined') return { user: null, isAuthenticated: false, lastActivity: Date.now() };
+async function fetchProfile(uid: string): Promise<AuthUser | null> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      const data = parsed?.state || parsed;
-      if (data?.user && data?.isAuthenticated) {
-        return { user: data.user as AuthUser, isAuthenticated: true, lastActivity: data.lastActivity || Date.now() };
-      }
-    }
-  } catch { }
-  return { user: null, isAuthenticated: false, lastActivity: Date.now() };
-}
-
-// Convert Firebase user + Firestore profile to AuthUser
-async function buildAuthUser(fbUser: FirebaseUser): Promise<AuthUser | null> {
-  try {
-    const profileDoc = await getDoc(doc(db, 'profiles', fbUser.uid));
-    if (profileDoc.exists()) {
-      const p = profileDoc.data();
-      return {
-        id: fbUser.uid,
-        email: p.email || fbUser.email || '',
-        name: p.name || fbUser.email?.split('@')[0] || 'Usuario',
-        role: p.role || 'collector',
-        phone: p.phone || null,
-        documentNumber: p.dni || null,
-        isActive: p.is_active ?? true,
-        photoUrl: p.photo_url || null,
-      };
-    }
+    const res = await fetch(`/api/profile?uid=${encodeURIComponent(uid)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      id: data.id,
+      email: data.email || '',
+      name: data.name || 'Usuario',
+      role: data.role || 'collector',
+      phone: data.phone || null,
+      documentNumber: data.documentNumber || null,
+      isActive: data.isActive ?? true,
+    };
+  } catch {
     return null;
-  } catch { return null; }
+  }
 }
 
 export const useAuth = create<AuthState>()(
   persist(
     (set, get) => {
-      // Listen to Firebase auth state changes
       if (typeof window !== 'undefined') {
         onAuthStateChanged(auth, async (fbUser) => {
           const state = get();
           if (fbUser && !state._initialized) {
-            const authUser = await buildAuthUser(fbUser);
-            if (authUser) {
-              set({ user: authUser, isAuthenticated: true, isLoading: false, _initialized: true });
+            const profile = await fetchProfile(fbUser.uid);
+            if (profile) {
+              set({ user: profile, isAuthenticated: true, isLoading: false, _initialized: true });
             } else {
-              // No profile in Firestore yet, create a basic one
               const basicUser: AuthUser = {
                 id: fbUser.uid,
                 email: fbUser.email || '',
@@ -127,18 +105,21 @@ export const useAuth = create<AuthState>()(
         isLoading: true,
         error: null,
         lastActivity: Date.now(),
-        _hasHydrated: false,
         _initialized: false,
 
         login: async (username: string, password: string) => {
           set({ isLoading: true, error: null });
           try {
-            const isEmail = username.includes('@');
-            const email = isEmail ? username : `${username}@kc-cobranzas.app`;
+            const clean = username.replace(/\D/g, '');
+            const email = username.includes('@') ? username.trim().toLowerCase()
+              : clean.length === 8 && /^\d{8}$/.test(clean) ? `${clean}@kc-cobranzas.app`
+              : clean.length === 9 && /^9\d{8}$/.test(clean) ? `${clean}@phone.kc-cobranzas.app`
+              : `${username}@kc-cobranzas.app`;
+
             const cred = await signInWithEmailAndPassword(auth, email, password);
-            const authUser = await buildAuthUser(cred.user);
-            if (authUser) {
-              set({ user: authUser, isAuthenticated: true, isLoading: false, error: null, lastActivity: Date.now() });
+            const profile = await fetchProfile(cred.user.uid);
+            if (profile) {
+              set({ user: profile, isAuthenticated: true, isLoading: false, error: null, lastActivity: Date.now() });
               return true;
             }
             const basicUser: AuthUser = {
@@ -171,8 +152,9 @@ export const useAuth = create<AuthState>()(
         checkSession: async () => {
           const fbUser = auth.currentUser;
           if (fbUser) {
-            const authUser = await buildAuthUser(fbUser);
-            if (authUser) set({ user: authUser, isAuthenticated: true, isLoading: false });
+            const profile = await fetchProfile(fbUser.uid);
+            if (profile) set({ user: profile, isAuthenticated: true, isLoading: false });
+            else set({ isLoading: false });
           } else {
             set({ user: null, isAuthenticated: false, isLoading: false });
           }
@@ -181,8 +163,8 @@ export const useAuth = create<AuthState>()(
         refreshRole: async () => {
           const fbUser = auth.currentUser;
           if (fbUser) {
-            const authUser = await buildAuthUser(fbUser);
-            if (authUser) set({ user: authUser, isAuthenticated: true });
+            const profile = await fetchProfile(fbUser.uid);
+            if (profile) set({ user: profile, isAuthenticated: true });
           }
         },
 
@@ -218,13 +200,12 @@ export const useAuth = create<AuthState>()(
         lastActivity: state.lastActivity,
       }),
       onRehydrateStorage: () => (state) => {
-        if (state) state._hasHydrated = true;
+        if (state) state._initialized = true;
       },
     }
   )
 );
 
-// Helper for inactivity check (called from page.tsx)
 export function checkInactivity(lastActivity: number): boolean {
   return Date.now() - lastActivity > INACTIVITY_TIMEOUT;
 }

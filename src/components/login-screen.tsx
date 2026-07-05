@@ -6,8 +6,6 @@ import { Loader2, Eye, EyeOff, Mail, Lock, IdCard, Smartphone, Fingerprint, LogI
 import { Button } from '@/components/ui/button';
 import { auth } from '@/lib/firebase-client';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase-client';
 
 function detectLoginType(input: string): { type: string; icon: any; label: string; placeholder: string } {
   const clean = input.replace(/\D/g, '');
@@ -86,9 +84,9 @@ export default function LoginScreen() {
       let role = 'collector';
       let name = cred.user.email?.split('@')[0] || 'Usuario';
       try {
-        const profileDoc = await getDoc(doc(db, 'profiles', cred.user.uid));
-        if (profileDoc.exists()) {
-          const p = profileDoc.data();
+        const res = await fetch(`/api/profile?uid=${encodeURIComponent(cred.user.uid)}`);
+        if (res.ok) {
+          const p = await res.json();
           role = p.role || 'collector';
           name = p.name || name;
         }
