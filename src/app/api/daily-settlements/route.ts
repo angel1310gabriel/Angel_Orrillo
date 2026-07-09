@@ -42,9 +42,7 @@ export async function GET(request: NextRequest) {
       console.error('Supabase query failed, falling back to Prisma:', error);
     }
 
-    if (isVercel) {
-      return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-    }
+
 
     // Fallback to Prisma
     const where: Record<string, unknown> = {};
@@ -133,9 +131,7 @@ export async function POST(request: NextRequest) {
       console.error('Supabase insert failed, falling back to Prisma:', error);
     }
 
-    if (isVercel) {
-      return NextResponse.json({ error: 'Error al crear cierre - base de datos no disponible' }, { status: 503 });
-    }
+
 
     // Fallback to Prisma
     const collector = await db.profile.findUnique({ where: { id: collectorId } });
@@ -253,9 +249,7 @@ export async function PUT(request: NextRequest) {
       console.error('Supabase update failed, falling back to Prisma:', error);
     }
 
-    if (isVercel) {
-      return NextResponse.json({ error: 'Error al actualizar cierre - base de datos no disponible' }, { status: 503 });
-    }
+
 
     // Fallback to Prisma
     const existing = await db.dailySettlement.findUnique({

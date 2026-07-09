@@ -62,9 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     // On Vercel, if Supabase failed, return error
-    if (isVercel) {
-      return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-    }
+
 
     // Fallback to Prisma
     await db.collectorLocation.create({
@@ -121,9 +119,7 @@ export async function GET() {
       }
     }
 
-    if (isVercel) {
-      return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-    }
+
 
     // Fallback to Prisma
     const activeCollectors = await db.profile.findMany({

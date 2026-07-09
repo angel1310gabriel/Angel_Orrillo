@@ -539,8 +539,6 @@ async function syncToLocalDB(
   user: { id: string; email: string; name: string; role: string; phone: string | null; documentNumber: string | null },
   password: string
 ) {
-  if (isVercel) return;
-
   try {
     const { db } = await import('@/lib/db');
     await db.profile.upsert({
@@ -574,8 +572,6 @@ async function syncToLocalDB(
 // Local-only: Background sync from Supabase (zones + profiles)
 // ============================================================
 async function syncFromSupabaseBackground() {
-  if (isVercel) return;
-
   try {
     const supabase = await getSupabaseClient();
     if (!supabase) return;

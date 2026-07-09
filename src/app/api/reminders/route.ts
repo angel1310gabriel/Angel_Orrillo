@@ -25,9 +25,7 @@ export async function GET(request: NextRequest) {
       console.error('Supabase not available, using Prisma fallback:', error);
     }
 
-    if (isVercel) {
-      return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-    }
+
 
     const data = await getRemindersFromPrisma(collectorId || null);
     return NextResponse.json(data);

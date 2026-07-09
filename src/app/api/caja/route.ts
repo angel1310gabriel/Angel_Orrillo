@@ -100,9 +100,7 @@ export async function POST(request: NextRequest) {
       }
     } catch {}
 
-    if (isVercel) {
-      return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-    }
+
 
     // Fallback: Prisma
     const movement = await db.cajaMovement.create({

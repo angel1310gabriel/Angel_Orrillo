@@ -25,9 +25,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!data) {
-      if (isVercel) {
-        return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-      }
+  
       data = await getReportsFromPrisma();
     }
 

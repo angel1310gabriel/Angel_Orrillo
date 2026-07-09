@@ -150,9 +150,7 @@ export async function GET(request: NextRequest) {
     }
 
     // On Vercel, if Supabase failed, don't fall back to Prisma (no SQLite)
-    if (isVercel) {
-      return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-    }
+
 
     // Fallback to Prisma (local)
     const skip = (page - 1) * limit;
@@ -576,8 +574,6 @@ export async function DELETE(request: NextRequest) {
 // ============================================================
 async function syncClientsToLocal(clients: Record<string, unknown>[]) {
   // Skip sync on Vercel (no local DB)
-  if (isVercel) return;
-
   try {
     for (const c of clients) {
       await db.client.upsert({

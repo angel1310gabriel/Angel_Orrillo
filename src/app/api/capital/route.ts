@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, isVercel } from '@/lib/db';
+import { db } from '@/lib/db';
 
 // GET /api/capital - Get capital history
 export async function GET(request: NextRequest) {
@@ -28,11 +28,6 @@ export async function GET(request: NextRequest) {
       }
     } catch (error) {
       console.error('Supabase not available, using Prisma fallback:', error);
-    }
-
-    // On Vercel, if Supabase failed, don't fall back to Prisma (no SQLite)
-    if (isVercel) {
-      return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
     }
 
     // Fallback to Prisma
@@ -134,11 +129,6 @@ export async function POST(request: NextRequest) {
       }
     } catch (error) {
       console.error('Supabase not available, using Prisma fallback:', error);
-    }
-
-    // On Vercel, if Supabase failed, don't fall back to Prisma (no SQLite)
-    if (isVercel) {
-      return NextResponse.json({ error: 'Error al registrar movimiento de capital - base de datos no disponible' }, { status: 503 });
     }
 
     // Fallback to Prisma

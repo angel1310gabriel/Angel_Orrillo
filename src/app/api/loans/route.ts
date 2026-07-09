@@ -41,9 +41,7 @@ export async function GET(request: NextRequest) {
     }
 
     // On Vercel, if Supabase failed, don't fall back to Prisma (no SQLite)
-    if (isVercel) {
-      return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-    }
+
 
     // Fallback to Prisma
     const skip = (page - 1) * limit;
@@ -197,9 +195,7 @@ export async function POST(request: NextRequest) {
     }
 
     // On Vercel, if Supabase failed, don't fall back to Prisma (no SQLite)
-    if (isVercel) {
-      return NextResponse.json({ error: 'Error al crear préstamo - base de datos no disponible' }, { status: 503 });
-    }
+
 
     // Fallback to Prisma
     // Check client exists
@@ -476,9 +472,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // On Vercel, if Supabase failed, don't fall back to Prisma (no SQLite)
-    if (isVercel) {
-      return NextResponse.json({ error: 'Error al actualizar préstamo - base de datos no disponible' }, { status: 503 });
-    }
+
 
     // Fallback to Prisma
     const existing = await db.loan.findUnique({

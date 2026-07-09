@@ -302,10 +302,10 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
       {/* Capital Overview - Big Hero Display */}
       {/* ============================================================ */}
       <Card className="border-0 shadow-lg overflow-hidden">
-        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 p-6 md:p-8">
+        <div className="bg-transparent p-6 md:p-8">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="flex-1">
-              <p className="text-emerald-100 text-sm font-medium flex items-center gap-2">
+              <p className="text-emerald-400 text-sm font-medium flex items-center gap-2">
                 <CircleDollarSign className="h-4 w-4" />
                 Capital Disponible del Negocio
               </p>
@@ -313,24 +313,24 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
                 {formatCurrency(currentCapital)}
               </p>
               <div className="flex flex-wrap items-center gap-4 mt-4">
-                <div className="flex items-center gap-2 bg-white/15 rounded-lg px-3 py-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-300" />
-                  <span className="text-white/90 text-xs font-medium">Disponible: {formatCurrency(currentCapital)}</span>
+                <div className="flex items-center gap-2 bg-emerald-950/60 rounded-lg px-3 py-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                  <span className="text-emerald-200 text-xs font-medium">Disponible: {formatCurrency(currentCapital)}</span>
                 </div>
-                <div className="flex items-center gap-2 bg-white/15 rounded-lg px-3 py-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-teal-300" />
-                  <span className="text-white/90 text-xs font-medium">Prestado: {formatCurrency(activeLoansOut)}</span>
+                <div className="flex items-center gap-2 bg-emerald-950/60 rounded-lg px-3 py-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-teal-400" />
+                  <span className="text-emerald-200 text-xs font-medium">Prestado: {formatCurrency(activeLoansOut)}</span>
                 </div>
-                <div className="flex items-center gap-2 bg-white/15 rounded-lg px-3 py-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-white/50" />
-                  <span className="text-white/90 text-xs font-medium">Total: {formatCurrency(totalInvested)}</span>
+                <div className="flex items-center gap-2 bg-emerald-950/60 rounded-lg px-3 py-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/50" />
+                  <span className="text-emerald-200 text-xs font-medium">Total: {formatCurrency(totalInvested)}</span>
                 </div>
               </div>
             </div>
             <div className="w-full md:w-auto flex gap-3">
               <Button
                 onClick={() => openDialog('INYECCION')}
-                className="bg-white dark:bg-[#05060b]/80 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 font-semibold shadow-lg flex-1 md:flex-none"
+                className="bg-[#05060b]/80 text-emerald-400 hover:bg-[#05060b] font-semibold shadow-lg flex-1 md:flex-none border border-emerald-500/30"
               >
                 <ArrowUpCircle className="h-4 w-4 mr-2" />
                 Inyectar Capital
@@ -338,7 +338,7 @@ export default function CapitalTab({ refreshTrigger }: CapitalTabProps) {
               <Button
                 onClick={() => openDialog('RETIRO')}
                 variant="outline"
-                className="border-white/30 text-white bg-white/15 hover:bg-white/25 font-semibold flex-1 md:flex-none"
+                className="border-emerald-500/30 text-emerald-300 bg-[#05060b]/60 hover:bg-[#05060b]/80 font-semibold flex-1 md:flex-none"
               >
                 <ArrowDownCircle className="h-4 w-4 mr-2" />
                 Retirar Capital
