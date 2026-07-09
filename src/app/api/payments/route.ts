@@ -254,7 +254,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Audit log
-    await db.audit_logs.create({
+    await db.auditLog.create({
       data: {
         action: 'CREATE',
         entityType: 'payment',
@@ -408,7 +408,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Audit log
-    await db.audit_logs.create({
+    await db.auditLog.create({
       data: {
         action: 'DELETE', entityType: 'payment', entityId: id,
         entityName: `Pago S/${payment.amount} - ${payment.loan.client.name}`,

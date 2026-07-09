@@ -317,7 +317,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Audit log
-    await db.audit_logs.create({
+    await db.auditLog.create({
       data: {
         action: 'CREATE',
         entityType: 'loan',
@@ -533,7 +533,7 @@ export async function PUT(request: NextRequest) {
     });
 
     // Audit log
-    await db.audit_logs.create({
+    await db.auditLog.create({
       data: {
         action: 'UPDATE',
         entityType: 'loan',
@@ -611,7 +611,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Audit log
-    await db.audit_logs.create({
+    await db.auditLog.create({
       data: {
         action: 'DELETE', entityType: 'loan', entityId: id,
         entityName: `Préstamo ${loan.client.name}`,

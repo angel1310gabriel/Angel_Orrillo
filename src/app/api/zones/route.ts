@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
       collector_zones: { some: { collector_id: collectorId } },
     } : {};
 
-    const zones = await db.zones.findMany({
+    const zones = await db.zone.findMany({
       where,
       include: {
         _count: { select: { clients: true, loans: true } },
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     });
 
     const zonesWithStats = await Promise.all(zones.map(async (zone) => {
-      const loans = await db.loans.findMany({
+      const loans = await db.loan.findMany({
         where: { zone_id: zone.id },
         select: { id: true, status: true, amount: true },
       });
@@ -60,9 +60,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Nombre es requerido' }, { status: 400 });
     }
 
-    const zone = await db.zones.create({ data: { name } });
+    const zone = await db.zone.create({ data: { name } });
 
-    await db.audit_logs.create({
+    await db.auditLog.create({
       data: {
         action: 'CREATE',
         entityType: 'zone',

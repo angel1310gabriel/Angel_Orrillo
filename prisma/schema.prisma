@@ -8,386 +8,407 @@ datasource db {
   schemas  = ["public"]
 }
 
-model audit_logs {
+model AuditLog {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   action      String
-  entity_type String
-  entity_id   String?   @db.Uuid
-  old_data    Json?
-  new_data    Json?
-  user_id     String?   @db.Uuid
-  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  entityType  String    @map("entity_type")
+  entityId    String?   @map("entity_id") @db.Uuid
+  oldData     Json?     @map("old_data")
+  newData     Json?     @map("new_data")
+  userId      String?   @map("user_id") @db.Uuid
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  @@index([entity_type, entity_id], map: "idx_audit_entity")
+  @@index([entityType, entityId], map: "idx_audit_entity")
   @@schema("public")
+  @@map("audit_logs")
 }
 
-model caja_movements {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  type         String
-  amount       Decimal   @db.Decimal(12, 2)
-  description  String?
-  collector_id String?   @db.Uuid
-  created_at   DateTime? @default(now()) @db.Timestamptz(6)
-  created_by   String?   @db.Uuid
-
-  @@index([collector_id], map: "idx_caja_collector")
-  @@schema("public")
-}
-
-model capital_movements {
-  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  type             String
-  amount           Decimal   @db.Decimal
-  previous_capital Decimal   @db.Decimal
-  new_capital      Decimal   @db.Decimal
-  description      String?
-  created_at       DateTime? @default(now()) @db.Timestamp(6)
-
-  @@schema("public")
-}
-
-model charge_off_history {
-  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  loan_id               String    @db.Uuid
-  original_collector_id String?   @db.Uuid
-  recovery_collector_id String?   @db.Uuid
-  amount                Decimal   @db.Decimal
-  reason                String?
-  status                String?   @default("assigned")
-  assigned_date         DateTime  @db.Date
-  recovered_date        DateTime? @db.Date
-  notes                 String?
-  created_at            DateTime? @default(now()) @db.Timestamp(6)
-  loans                 loans     @relation(fields: [loan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([loan_id], map: "idx_charge_off_loan")
-  @@index([recovery_collector_id], map: "idx_charge_off_recovery")
-  @@schema("public")
-}
-
-model chat_messages {
+model CajaMovement {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sender_id   String    @db.Uuid
-  receiver_id String    @db.Uuid
+  type        String
+  amount      Decimal   @db.Decimal(12, 2)
+  description String?
+  collectorId String?   @map("collector_id") @db.Uuid
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy   String?   @map("created_by") @db.Uuid
+
+  @@index([collectorId], map: "idx_caja_collector")
+  @@schema("public")
+  @@map("caja_movements")
+}
+
+model CapitalMovement {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type            String
+  amount          Decimal   @db.Decimal
+  previousCapital Decimal   @map("previous_capital") @db.Decimal
+  newCapital      Decimal   @map("new_capital") @db.Decimal
+  description     String?
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@schema("public")
+  @@map("capital_movements")
+}
+
+model ChargeOffHistory {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  loanId              String    @map("loan_id") @db.Uuid
+  originalCollectorId String?   @map("original_collector_id") @db.Uuid
+  recoveryCollectorId String?   @map("recovery_collector_id") @db.Uuid
+  amount              Decimal   @db.Decimal
+  reason              String?
+  status              String?   @default("assigned")
+  assignedDate        DateTime  @map("assigned_date") @db.Date
+  recoveredDate       DateTime? @map("recovered_date") @db.Date
+  notes               String?
+  createdAt           DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  loan                Loan      @relation(fields: [loanId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([loanId], map: "idx_charge_off_loan")
+  @@index([recoveryCollectorId], map: "idx_charge_off_recovery")
+  @@schema("public")
+  @@map("charge_off_history")
+}
+
+model ChatMessage {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  senderId    String    @map("sender_id") @db.Uuid
+  receiverId  String    @map("receiver_id") @db.Uuid
   message     String?
-  audio_url   String?
-  is_read     Boolean?  @default(false)
-  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  audioUrl    String?   @map("audio_url")
+  isRead      Boolean?  @default(false) @map("is_read")
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
 
-  @@index([created_at], map: "idx_chat_messages_created")
-  @@index([sender_id, receiver_id], map: "idx_chat_messages_participants")
+  @@index([createdAt], map: "idx_chat_messages_created")
+  @@index([senderId, receiverId], map: "idx_chat_messages_participants")
   @@schema("public")
+  @@map("chat_messages")
 }
 
-model client_notes {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  client_id    String    @db.Uuid
-  created_by   String?   @db.Uuid
-  note         String
-  is_important Boolean?  @default(false)
-  created_at   DateTime? @default(now()) @db.Timestamp(6)
-  clients      clients   @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+model ClientNote {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId    String    @map("client_id") @db.Uuid
+  createdBy   String?   @map("created_by") @db.Uuid
+  note        String
+  isImportant Boolean?  @default(false) @map("is_important")
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@index([client_id], map: "idx_client_notes_client")
+  @@index([clientId], map: "idx_client_notes_client")
   @@schema("public")
+  @@map("client_notes")
 }
 
-model clients {
-  id                 String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name               String?
-  dni                String?
-  phone              String?
-  address            String?
-  carnet_extranjeria String?
-  photo_url          String?
-  document_type      String?       @default("peruano")
-  credit_score       Decimal?      @default(50) @db.Decimal
-  credit_score_label String?       @default("Regular")
-  zone_id            String?       @db.Uuid
-  collector_id       String?       @db.Uuid
-  latitude           Float?
-  longitude          Float?
-  created_by         String?       @db.Uuid
-  created_at         DateTime?     @default(now()) @db.Timestamp(6)
-  status             String?       @default("active")
-  client_notes       client_notes[]
-  zones              zones?        @relation(fields: [zone_id], references: [id], onUpdate: NoAction)
-  guarantors         guarantors[]
-  loans              loans[]
-  payments           payments[]
+model Client {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String?
+  dni              String?
+  phone            String?
+  address          String?
+  carnetExtranjeria String?       @map("carnet_extranjeria")
+  photoUrl         String?        @map("photo_url")
+  documentType     String?        @default("peruano") @map("document_type")
+  creditScore      Decimal?       @default(50) @map("credit_score") @db.Decimal
+  creditScoreLabel String?        @default("Regular") @map("credit_score_label")
+  zoneId           String?        @map("zone_id") @db.Uuid
+  collectorId      String?        @map("collector_id") @db.Uuid
+  latitude         Float?
+  longitude        Float?
+  createdBy        String?        @map("created_by") @db.Uuid
+  createdAt        DateTime?      @default(now()) @map("created_at") @db.Timestamp(6)
+  status           String?        @default("active")
+  clientNotes      ClientNote[]
+  zone             Zone?          @relation(fields: [zoneId], references: [id], onUpdate: NoAction)
+  guarantors       Guarantor[]
+  loans            Loan[]
+  payments         Payment[]
 
-  @@index([carnet_extranjeria], map: "idx_clients_carnet")
-  @@index([collector_id], map: "idx_clients_collector")
+  @@index([carnetExtranjeria], map: "idx_clients_carnet")
+  @@index([collectorId], map: "idx_clients_collector")
   @@index([dni], map: "idx_clients_dni")
   @@index([phone], map: "idx_clients_phone")
-  @@index([zone_id], map: "idx_clients_zone")
-  @@index([zone_id], map: "idx_clients_zone_id")
+  @@index([zoneId], map: "idx_clients_zone")
   @@schema("public")
+  @@map("clients")
 }
 
-model collector_current_location {
-  collector_id String    @id @db.Uuid
-  latitude     Float?
-  longitude    Float?
-  heading      Float?    @default(0)
-  updated_at   DateTime? @default(now()) @db.Timestamp(6)
+model CollectorCurrentLocation {
+  collectorId String    @id @map("collector_id") @db.Uuid
+  latitude    Float?
+  longitude   Float?
+  heading     Float?    @default(0)
+  updatedAt   DateTime? @default(now()) @map("updated_at") @db.Timestamp(6)
 
   @@schema("public")
+  @@map("collector_current_location")
 }
 
-model collector_expenses {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  collector_id  String    @db.Uuid
-  amount        Decimal   @db.Decimal
-  category      String
-  description   String?
-  expense_date  DateTime  @db.Date
-  status        String?   @default("pending")
-  approved_by   String?   @db.Uuid
-  receipt_photo String?
-  created_at    DateTime? @default(now()) @db.Timestamp(6)
+model CollectorExpense {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  collectorId  String    @map("collector_id") @db.Uuid
+  amount       Decimal   @db.Decimal
+  category     String
+  description  String?
+  expenseDate  DateTime  @map("expense_date") @db.Date
+  status       String?   @default("pending")
+  approvedBy   String?   @map("approved_by") @db.Uuid
+  receiptPhoto String?   @map("receipt_photo")
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
 
-  @@index([collector_id], map: "idx_collector_expenses_collector")
-  @@index([expense_date], map: "idx_collector_expenses_date")
+  @@index([collectorId], map: "idx_collector_expenses_collector")
+  @@index([expenseDate], map: "idx_collector_expenses_date")
   @@index([status], map: "idx_collector_expenses_status")
   @@schema("public")
+  @@map("collector_expenses")
 }
 
-model collector_locations {
+model CollectorLocation {
   id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  collector_id String?   @db.Uuid
+  collectorId  String?   @map("collector_id") @db.Uuid
   latitude     Float?
   longitude    Float?
   heading      Float?    @default(0)
-  created_at   DateTime? @default(now()) @db.Timestamp(6)
-  updated_at   DateTime? @default(now()) @db.Timestamp(6)
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime? @default(now()) @map("updated_at") @db.Timestamp(6)
 
-  @@index([collector_id], map: "idx_collector_locations_collector_id")
+  @@index([collectorId], map: "idx_collector_locations_collector_id")
   @@schema("public")
+  @@map("collector_locations")
 }
 
-model collector_zones {
+model CollectorZone {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  collector_id String   @db.Uuid
-  zone_id      String   @db.Uuid
-  zones        zones    @relation(fields: [zone_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  collectorId  String   @map("collector_id") @db.Uuid
+  zoneId       String   @map("zone_id") @db.Uuid
+  zone         Zone     @relation(fields: [zoneId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@unique([collector_id, zone_id])
-  @@index([collector_id], map: "idx_collector_zones_collector")
+  @@unique([collectorId, zoneId])
+  @@index([collectorId], map: "idx_collector_zones_collector")
   @@schema("public")
+  @@map("collector_zones")
 }
 
-model daily_settlements {
-  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  collector_id    String    @db.Uuid
-  date            DateTime  @db.Date
-  expected_count  Int?      @default(0)
-  expected_amount Decimal?  @default(0) @db.Decimal
-  collected_count Int?      @default(0)
-  collected_amount Decimal? @default(0) @db.Decimal
-  difference      Decimal?  @default(0) @db.Decimal
-  notes           String?
-  status          String?   @default("pending")
-  approved_by     String?   @db.Uuid
-  created_at      DateTime? @default(now()) @db.Timestamp(6)
+model DailySettlement {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  collectorId      String    @map("collector_id") @db.Uuid
+  date             DateTime  @db.Date
+  expectedCount    Int?      @default(0) @map("expected_count")
+  expectedAmount   Decimal?  @default(0) @map("expected_amount") @db.Decimal
+  collectedCount   Int?      @default(0) @map("collected_count")
+  collectedAmount  Decimal?  @default(0) @map("collected_amount") @db.Decimal
+  difference       Decimal?  @default(0) @db.Decimal
+  notes            String?
+  status           String?   @default("pending")
+  approvedBy       String?   @map("approved_by") @db.Uuid
+  createdAt        DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
 
-  @@unique([collector_id, date])
-  @@index([collector_id, date], map: "idx_settlements_collector_date")
+  @@unique([collectorId, date])
+  @@index([collectorId, date], map: "idx_settlements_collector_date")
   @@schema("public")
+  @@map("daily_settlements")
 }
 
-model guarantors {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  client_id  String    @db.Uuid
-  name       String
-  dni        String
-  created_at DateTime? @default(now()) @db.Timestamp(6)
-  clients    clients   @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+model Guarantor {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId  String    @map("client_id") @db.Uuid
+  name      String
+  dni       String
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@schema("public")
+  @@map("guarantors")
 }
 
-model late_fees {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  loan_id       String?   @db.Uuid
-  days_late     Int       @default(0)
-  amount        Decimal   @default(0) @db.Decimal
-  rate_per_day  Decimal?  @default(0) @db.Decimal
-  status        String?   @default("pending")
-  generated_at  DateTime? @default(now()) @db.Timestamp(6)
-  updated_at    DateTime? @default(now()) @db.Timestamp(6)
-  paid_at       DateTime? @db.Timestamp(6)
-  waived_at     DateTime? @db.Timestamp(6)
-  waived_by     String?   @db.Uuid
-  waived_reason String?
-  loans         loans?    @relation(fields: [loan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+model LateFee {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  loanId      String?   @map("loan_id") @db.Uuid
+  daysLate    Int       @default(0) @map("days_late")
+  amount      Decimal   @default(0) @db.Decimal
+  ratePerDay  Decimal?  @default(0) @map("rate_per_day") @db.Decimal
+  status      String?   @default("pending")
+  generatedAt DateTime? @default(now()) @map("generated_at") @db.Timestamp(6)
+  updatedAt   DateTime? @default(now()) @map("updated_at") @db.Timestamp(6)
+  paidAt      DateTime? @map("paid_at") @db.Timestamp(6)
+  waivedAt    DateTime? @map("waived_at") @db.Timestamp(6)
+  waivedBy    String?   @map("waived_by") @db.Uuid
+  waivedReason String?  @map("waived_reason")
+  loan        Loan?     @relation(fields: [loanId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@index([loan_id], map: "idx_late_fees_loan")
+  @@index([loanId], map: "idx_late_fees_loan")
   @@index([status], map: "idx_late_fees_status")
   @@schema("public")
+  @@map("late_fees")
 }
 
-model loans {
-  id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  client_id             String?              @db.Uuid
-  collector_id          String?              @db.Uuid
-  zone_id               String?              @db.Uuid
-  amount                Decimal?             @db.Decimal
-  total_amount          Decimal?             @db.Decimal
-  interest              Decimal?             @db.Decimal
-  days                  Int?
-  daily_payment         Decimal?             @db.Decimal
-  start_date            DateTime?            @db.Timestamp(6)
-  end_date              DateTime?            @db.Timestamp(6)
-  status                String?              @default("active")
-  payment_frequency     String?              @default("daily")
-  num_cuotas            Int?                 @default(24)
-  amount_paid           Decimal?             @default(0) @db.Decimal
-  notes                 String?
-  signature             String?
-  cancellation_reason   String?
-  cancelled_by          String?              @db.Uuid
-  cancelled_at          DateTime?            @db.Timestamp(6)
-  completed_at          DateTime?            @db.Timestamp(6)
-  credit_approved       Boolean?             @default(false)
-  charged_off           Boolean?             @default(false)
-  charged_off_at        DateTime?            @db.Timestamp(6)
-  charged_off_by        String?              @db.Uuid
-  recovery_collector_id String?              @db.Uuid
-  created_by            String?              @db.Uuid
-  created_at            DateTime?            @default(now()) @db.Timestamp(6)
-  next_payment_date     DateTime?            @db.Date
-  rest_days             String?              @default("")
-  charge_off_history    charge_off_history[]
-  late_fees             late_fees[]
-  clients               clients?             @relation(fields: [client_id], references: [id], onUpdate: NoAction)
-  zones                 zones?               @relation(fields: [zone_id], references: [id], onUpdate: NoAction)
-  payment_links         payment_links[]
-  payment_schedule      payment_schedule[]
-  payments              payments[]
+model Loan {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId            String?            @map("client_id") @db.Uuid
+  collectorId         String?            @map("collector_id") @db.Uuid
+  zoneId              String?            @map("zone_id") @db.Uuid
+  amount              Decimal?           @db.Decimal
+  totalAmount         Decimal?           @map("total_amount") @db.Decimal
+  interest            Decimal?           @db.Decimal
+  days                Int?
+  dailyPayment        Decimal?           @map("daily_payment") @db.Decimal
+  startDate           DateTime?          @map("start_date") @db.Timestamp(6)
+  endDate             DateTime?          @map("end_date") @db.Timestamp(6)
+  status              String?            @default("active")
+  paymentFrequency    String?            @default("daily") @map("payment_frequency")
+  numCuotas           Int?               @default(24) @map("num_cuotas")
+  amountPaid          Decimal?           @default(0) @map("amount_paid") @db.Decimal
+  notes               String?
+  signature           String?
+  cancellationReason  String?            @map("cancellation_reason")
+  cancelledBy         String?            @map("cancelled_by") @db.Uuid
+  cancelledAt         DateTime?          @map("cancelled_at") @db.Timestamp(6)
+  completedAt         DateTime?          @map("completed_at") @db.Timestamp(6)
+  creditApproved      Boolean?           @default(false) @map("credit_approved")
+  chargedOff          Boolean?           @default(false) @map("charged_off")
+  chargedOffAt        DateTime?          @map("charged_off_at") @db.Timestamp(6)
+  chargedOffBy        String?            @map("charged_off_by") @db.Uuid
+  recoveryCollectorId String?            @map("recovery_collector_id") @db.Uuid
+  createdBy           String?            @map("created_by") @db.Uuid
+  createdAt           DateTime?          @default(now()) @map("created_at") @db.Timestamp(6)
+  nextPaymentDate     DateTime?          @map("next_payment_date") @db.Date
+  restDays            String?            @default("") @map("rest_days")
+  chargeOffHistory    ChargeOffHistory[]
+  lateFees            LateFee[]
+  client              Client?            @relation(fields: [clientId], references: [id], onUpdate: NoAction)
+  zone                Zone?              @relation(fields: [zoneId], references: [id], onUpdate: NoAction)
+  paymentLinks        PaymentLink[]
+  paymentSchedule     PaymentSchedule[]
+  payments            Payment[]
 
-  @@index([client_id], map: "idx_loans_client")
-  @@index([collector_id], map: "idx_loans_collector")
+  @@index([clientId], map: "idx_loans_client")
+  @@index([collectorId], map: "idx_loans_collector")
   @@index([status], map: "idx_loans_status")
-  @@index([zone_id], map: "idx_loans_zone")
+  @@index([zoneId], map: "idx_loans_zone")
   @@schema("public")
+  @@map("loans")
 }
 
-model notifications {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id        String    @db.Uuid
-  title          String
-  body           String
-  type           String    @default("info")
-  reference_type String?
-  reference_id   String?
-  is_read        Boolean?  @default(false)
-  push_sent      Boolean?  @default(false)
-  created_at     DateTime? @default(now()) @db.Timestamp(6)
+model Notification {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  title         String
+  body          String
+  type          String    @default("info")
+  referenceType String?   @map("reference_type")
+  referenceId   String?   @map("reference_id")
+  isRead        Boolean?  @default(false) @map("is_read")
+  pushSent      Boolean?  @default(false) @map("push_sent")
+  createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
 
-  @@index([created_at], map: "idx_notifications_created")
-  @@index([user_id, is_read], map: "idx_notifications_unread")
-  @@index([user_id], map: "idx_notifications_user")
+  @@index([createdAt], map: "idx_notifications_created")
+  @@index([userId, isRead], map: "idx_notifications_unread")
+  @@index([userId], map: "idx_notifications_user")
   @@schema("public")
+  @@map("notifications")
 }
 
-model payment_links {
+model PaymentLink {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  loan_id     String    @db.Uuid
+  loanId      String    @map("loan_id") @db.Uuid
   amount      Decimal   @db.Decimal
   token       String    @unique
   status      String?   @default("pending")
   description String?
-  expires_at  DateTime  @db.Timestamp(6)
-  paid_at     DateTime? @db.Timestamp(6)
-  created_by  String?   @db.Uuid
-  created_at  DateTime? @default(now()) @db.Timestamp(6)
-  loans       loans     @relation(fields: [loan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  expiresAt   DateTime  @map("expires_at") @db.Timestamp(6)
+  paidAt      DateTime? @map("paid_at") @db.Timestamp(6)
+  createdBy   String?   @map("created_by") @db.Uuid
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  loan        Loan      @relation(fields: [loanId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@index([loan_id], map: "idx_payment_links_loan")
+  @@index([loanId], map: "idx_payment_links_loan")
   @@index([status], map: "idx_payment_links_status")
   @@index([token], map: "idx_payment_links_token")
   @@schema("public")
+  @@map("payment_links")
 }
 
-model payment_schedule {
-  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  loan_id            String?  @db.Uuid
-  installment_number Int
-  amount             Decimal  @db.Decimal
-  due_date           DateTime @db.Date
-  status             String?  @default("pending")
-  loans              loans?   @relation(fields: [loan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+model PaymentSchedule {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  loanId            String?  @map("loan_id") @db.Uuid
+  installmentNumber Int      @map("installment_number")
+  amount            Decimal  @db.Decimal
+  dueDate           DateTime @map("due_date") @db.Date
+  status            String?  @default("pending")
+  loan              Loan?    @relation(fields: [loanId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@index([loan_id], map: "idx_payment_schedule_loan")
+  @@index([loanId], map: "idx_payment_schedule_loan")
   @@schema("public")
+  @@map("payment_schedule")
 }
 
-model payments {
-  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  loan_id           String?   @db.Uuid
-  collector_id      String?   @db.Uuid
-  client_id         String?   @db.Uuid
-  amount            Decimal?  @db.Decimal
-  interest          Decimal?  @db.Decimal
-  payment_method    String?
-  status            String?   @default("completed")
-  observation       String?
-  proof_photo       String?
-  payment_date      DateTime? @default(now()) @db.Date
-  created_at        DateTime? @default(now()) @db.Timestamp(6)
-  created_by        String?   @db.Uuid
-  cancellation_reason String?
-  cancelled_at      DateTime? @db.Timestamp(6)
-  cancelled_by      String?   @db.Uuid
-  clients           clients?  @relation(fields: [client_id], references: [id], onUpdate: NoAction)
-  loans             loans?    @relation(fields: [loan_id], references: [id], onUpdate: NoAction)
+model Payment {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  loanId             String?   @map("loan_id") @db.Uuid
+  collectorId        String?   @map("collector_id") @db.Uuid
+  clientId           String?   @map("client_id") @db.Uuid
+  amount             Decimal?  @db.Decimal
+  interest           Decimal?  @db.Decimal
+  paymentMethod      String?   @map("payment_method")
+  status             String?   @default("completed")
+  observation        String?
+  proofPhoto         String?   @map("proof_photo")
+  paymentDate        DateTime? @default(now()) @map("payment_date") @db.Date
+  createdAt          DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  createdBy          String?   @map("created_by") @db.Uuid
+  cancellationReason String?   @map("cancellation_reason")
+  cancelledAt        DateTime? @map("cancelled_at") @db.Timestamp(6)
+  cancelledBy        String?   @map("cancelled_by") @db.Uuid
+  client             Client?   @relation(fields: [clientId], references: [id], onUpdate: NoAction)
+  loan               Loan?     @relation(fields: [loanId], references: [id], onUpdate: NoAction)
 
-  @@index([collector_id], map: "idx_payments_collector")
-  @@index([payment_date], map: "idx_payments_date")
-  @@index([loan_id], map: "idx_payments_loan")
+  @@index([collectorId], map: "idx_payments_collector")
+  @@index([paymentDate], map: "idx_payments_date")
+  @@index([loanId], map: "idx_payments_loan")
   @@schema("public")
+  @@map("payments")
 }
 
 model profiles {
-  id              String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  firebase_uid    String?                     @unique
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  firebaseUid     String?   @unique @map("firebase_uid")
   name            String?
   email           String?
   phone           String?
   dni             String?
-  role            String?                     @default("collector")
-  is_active       Boolean?                    @default(true)
-  biometric_enabled                           Boolean? @default(false)
-  photo_url       String?
-  daily_goal      Decimal?                    @default(0) @db.Decimal
-  created_at      DateTime?                   @default(now()) @db.Timestamp(6)
-  zone_id         String?                     @db.Uuid
-  document_type   String?
+  role            String?   @default("collector")
+  isActive        Boolean?  @default(true) @map("is_active")
+  biometricEnabled Boolean? @default(false) @map("biometric_enabled")
+  photoUrl        String?   @map("photo_url")
+  dailyGoal       Decimal?  @default(0) @map("daily_goal") @db.Decimal
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  zoneId          String?   @map("zone_id") @db.Uuid
+  documentType    String?   @map("document_type")
   address         String?
-  zones           zones?                      @relation(fields: [zone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  zone            Zone?     @relation(fields: [zoneId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([dni], map: "idx_profiles_dni")
   @@index([phone], map: "idx_profiles_phone")
-  @@index([zone_id], map: "idx_profiles_zone_id")
+  @@index([zoneId], map: "idx_profiles_zone_id")
   @@schema("public")
+  @@map("profiles")
 }
 
-model settings {
+model Setting {
   id      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   capital Decimal? @default(0) @db.Decimal
 
   @@schema("public")
+  @@map("settings")
 }
 
-model zones {
+model Zone {
   id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name            String
-  clients         clients[]
-  collector_zones collector_zones[]
-  loans           loans[]
+  clients         Client[]
+  collectorZones  CollectorZone[]
+  loans           Loan[]
   profiles        profiles[]
 
   @@schema("public")
+  @@map("zones")
 }

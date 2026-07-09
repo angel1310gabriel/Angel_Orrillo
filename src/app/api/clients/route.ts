@@ -343,7 +343,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Audit log (local only)
-    await db.audit_logs.create({
+    await db.auditLog.create({
       data: {
         action: 'CREATE',
         entityType: 'client',
@@ -464,7 +464,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Audit log (local only)
-    await db.audit_logs.create({
+    await db.auditLog.create({
       data: {
         action: 'UPDATE',
         entityType: 'client',
@@ -551,7 +551,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Audit log (local only)
-    await db.audit_logs.create({
+    await db.auditLog.create({
       data: {
         action: 'DELETE',
         entityType: 'client',

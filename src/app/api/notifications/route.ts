@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = {};
     if (uuid) where.user_id = uuid;
 
-    const notifications = await db.notifications.findMany({
+    const notifications = await db.notification.findMany({
       where,
       orderBy: { created_at: 'desc' },
       take: 50,

@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
     }
 
     const [logs, total] = await Promise.all([
-      db.audit_logs.findMany({
+      db.auditLog.findMany({
         where,
         include: {
           user: {
@@ -150,21 +150,21 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
       }),
-      db.audit_logs.count({ where }),
+      db.auditLog.count({ where }),
     ]);
 
     // Stats for audit summary
-    const stats = await db.audit_logs.groupBy({
+    const stats = await db.auditLog.groupBy({
       by: ['action'],
       _count: { action: true },
     });
 
-    const severityStats = await db.audit_logs.groupBy({
+    const severityStats = await db.auditLog.groupBy({
       by: ['severity'],
       _count: { severity: true },
     });
 
-    const entityTypeStats = await db.audit_logs.groupBy({
+    const entityTypeStats = await db.auditLog.groupBy({
       by: ['entityType'],
       _count: { entityType: true },
     });
@@ -239,7 +239,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Local: Prisma
-    const log = await db.audit_logs.create({
+    const log = await db.auditLog.create({
       data: {
         userId: userId || null,
         action,

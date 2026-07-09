@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Audit log
-    await db.audit_logs.create({
+    await db.auditLog.create({
       data: {
         action: 'CREATE',
         entityType: 'capital',

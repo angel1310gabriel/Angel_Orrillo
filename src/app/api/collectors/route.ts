@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Audit log
-      await db.audit_logs.create({
+      await db.auditLog.create({
         data: {
           action: 'CREATE',
           entityType: 'staff',
@@ -227,7 +227,7 @@ export async function PUT(request: NextRequest) {
         }
       }
 
-      await db.audit_logs.create({
+      await db.auditLog.create({
         data: {
           action: 'UPDATE', entityType: 'staff', entityId: profile.id, entityName: profile.name,
           severity: 'info', notes: `Personal actualizado: ${profile.name}`,
@@ -259,7 +259,7 @@ export async function DELETE(request: NextRequest) {
     try {
       const profile = await db.profiles.findUnique({ where: { id } });
       if (!profile) { return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 }); }
-      const activeLoans = await db.loans.findMany({
+      const activeLoans = await db.loan.findMany({
         where: { collector_id: id, status: { in: ['active', 'mora'] } },
         take: 1,
       });
@@ -277,7 +277,7 @@ export async function DELETE(request: NextRequest) {
 
       await db.profiles.delete({ where: { id } });
 
-      await db.audit_logs.create({
+      await db.auditLog.create({
         data: {
           action: 'DELETE', entityType: 'staff', entityId: id, entityName: profile.name,
           severity: 'warning', notes: `Personal eliminado: ${profile.name}`,
