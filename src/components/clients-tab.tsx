@@ -1,6 +1,6 @@
 'use client';
 import React,{useState,useEffect,useCallback,useMemo}from 'react';
-import{Search,RefreshCw,Eye,Pencil,Trash2,ChevronLeft,ChevronRight,Loader2,User,Phone,MapPin,CreditCard,Users,AlertTriangle,CheckCircle2,XCircle,FileText,TrendingUp,Shield,Calendar,UserPlus,IdCard,Globe,CheckCheck,BadgeCheck,BookOpen,Fingerprint,ScanLine,DollarSign,StickyNote,Banknote,Wifi,ArrowRightLeft}from'lucide-react';
+import{Search,RefreshCw,Eye,Pencil,Trash2,ChevronLeft,ChevronRight,Loader2,User,Phone,MapPin,CreditCard,Users,AlertTriangle,CheckCircle2,XCircle,FileText,TrendingUp,Shield,Calendar,UserPlus,IdCard,Globe,CheckCheck,BadgeCheck,BookOpen,Fingerprint,ScanLine,DollarSign,StickyNote,Banknote,Wifi,ArrowRightLeft,Link2,Send}from'lucide-react';
 import{Card,CardContent}from'@/components/ui/card';
 import{Button}from'@/components/ui/button';
 import{Input}from'@/components/ui/input';
@@ -88,6 +88,13 @@ const[payMethod,setPayMethod]=useState('cash');
 const[payObservation,setPayObservation]=useState('');
 const[payRegistering,setPayRegistering]=useState(false);
 
+// Payment link state
+const[plOpen,setPlOpen]=useState(false);
+const[plClient,setPlClient]=useState<CWS|null>(null);
+const[plAmount,setPlAmount]=useState('');
+const[plSentVia,setPlSentVia]=useState('yape');
+const[plSubmitting,setPlSubmitting]=useState(false);
+
 const docV=useMemo(()=>fDN?vDoc(fDN,fDT):null,[fDN,fDT]);
 const phV=useMemo(()=>fPh?vPh(fPh):null,[fPh]);
 const nOk=fName.trim().length>0;
@@ -173,7 +180,7 @@ return(
 </div>
 <div className="flex items-center gap-2 text-center shrink-0"><div><p className="text-[10px] text-muted-foreground">Préstamos</p><p className="font-bold text-sm">{c.stats.totalLoans}</p></div><div><p className="text-[10px] text-muted-foreground">Prestado</p><p className="font-bold text-sm">{fC(c.stats.totalLoaned)}</p></div><div><p className="text-[10px] text-muted-foreground">Pagado</p><p className="font-bold text-sm text-emerald-600 dark:text-emerald-300">{fC(c.stats.totalPaid)}</p></div></div>
 <div className="flex items-center gap-1 shrink-0" onClick={e=>e.stopPropagation()}>
-{c.stats.activeLoans>0&&<Button className="h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-sm" size="icon" onClick={()=>{setPayClient(c);setPayOpen(true)}}><DollarSign className="h-4 w-4"/></Button>}
+{c.stats.activeLoans>0&&<><Button className="h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-sm" size="icon" onClick={()=>{setPayClient(c);setPayOpen(true)}}><DollarSign className="h-4 w-4"/></Button><Button className="h-8 w-8 bg-sky-600 hover:bg-sky-700 text-white border-0 shadow-sm" size="icon" onClick={()=>{setPlClient(c);setPlAmount('');setPlSentVia('yape');setPlOpen(true)}}><Link2 className="h-4 w-4"/></Button></>}
 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-emerald-600 dark:text-emerald-300" onClick={()=>{setDetC(c);setDetO(true)}}><Eye className="h-4 w-4"/></Button>
 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-amber-600 dark:text-amber-300" onClick={()=>openEdit(c)}><Pencil className="h-4 w-4"/></Button>
 {isAdmin&&<Button variant="ghost" size="icon" className={`h-8 w-8 ${c.stats.activeLoans>0?'text-slate-300':'text-muted-foreground hover:text-red-600 dark:text-red-300'}`} disabled={c.stats.activeLoans>0} onClick={()=>!c.stats.activeLoans&&setDelC(c)}><Trash2 className="h-4 w-4"/></Button>}
@@ -183,6 +190,49 @@ return(
 </Card>)})}
 {totalP>1&&<div className="flex items-center justify-center gap-2 pt-4"><Button variant="outline" size="sm" disabled={page<=1} onClick={()=>setPage(page-1)}><ChevronLeft className="h-4 w-4"/></Button><span className="text-sm text-foreground/70 dark:text-muted-foreground">{page}/{totalP}</span><Button variant="outline" size="sm" disabled={page>=totalP} onClick={()=>setPage(page+1)}><ChevronRight className="h-4 w-4"/></Button></div>}
 </div>}
+
+{/* Payment Link Dialog */}
+<Dialog open={plOpen} onOpenChange={setPlOpen}>
+<DialogContent className="max-w-sm">
+<DialogHeader>
+<DialogTitle className="flex items-center gap-2"><Link2 className="h-5 w-5 text-sky-600"/>Link de Pago</DialogTitle>
+<DialogDescription>Generar link de pago para {plClient?.name}</DialogDescription>
+</DialogHeader>
+<div className="space-y-4">
+<div>
+<Label className="text-sm font-semibold">Monto</Label>
+<Input type="number" step="0.01" min="0" placeholder="0.00" value={plAmount} onChange={e=>setPlAmount(e.target.value)} className="mt-1.5"/>
+</div>
+<div>
+<Label className="text-sm font-semibold">Enviar por</Label>
+<Select value={plSentVia} onValueChange={setPlSentVia}>
+<SelectTrigger className="mt-1.5"><SelectValue/></SelectTrigger>
+<SelectContent>
+<SelectItem value="yape">Yape</SelectItem>
+<SelectItem value="plin">Plin</SelectItem>
+<SelectItem value="transferencia">Transferencia</SelectItem>
+<SelectItem value="bancolombia">Bancolombia</SelectItem>
+</SelectContent>
+</Select>
+</div>
+<div className="flex gap-2 pt-2">
+<Button variant="outline" className="flex-1" onClick={()=>setPlOpen(false)}>Cancelar</Button>
+<Button className="flex-1 bg-sky-600 hover:bg-sky-700 text-white" disabled={plSubmitting||!plAmount||parseFloat(plAmount)<=0} onClick={async()=>{
+setPlSubmitting(true);
+try{
+const cid=plClient?.loans?.[0]?.id?null:plClient?.id;
+const lid=plClient?.loans?.[0]?.id||null;
+const res=await fetch('/api/payment-links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({loanId:lid,clientId:plClient?.id,amount:parseFloat(plAmount),sentVia:plSentVia})});
+if(res.ok){toast({title:'Link creado',description:'Link de pago generado exitosamente'});setPlOpen(false)}else{const d=await res.json();toast({title:'Error',description:d.error||'No se pudo crear',variant:'destructive'})}
+}catch{toast({title:'Error',description:'Error de conexión',variant:'destructive'})}finally{setPlSubmitting(false)}
+}}>
+{plSubmitting?<Loader2 className="h-4 w-4 animate-spin"/>:<Send className="h-4 w-4"/>}
+Generar Link
+</Button>
+</div>
+</div>
+</DialogContent>
+</Dialog>
 
 {/* Form Dialog */}
 <Dialog open={fOpen} onOpenChange={o=>{if(!o)reset();setFOpen(o)}}>

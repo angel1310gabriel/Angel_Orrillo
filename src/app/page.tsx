@@ -534,9 +534,10 @@ export default function KCobranzasDashboard() {
                   try {
                     const res = await fetch('/api/collectors', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id, name: profileName, email: profileEmail, documentNumber: profileDni || null, phone: profilePhone || null, photoUrl: user.photoUrl || undefined }) });
                     if (res.ok) {
+                      const updated = await res.json();
+                      if (updated && updated.id) useAuth.getState()._setUser(updated);
                       toast({ title: 'Actualizado correctamente', description: 'Perfil actualizado' });
                       setShowProfile(false);
-                      refreshRole();
                     } else {
                       const err = await res.json().catch(() => ({}));
                       toast({ title: 'Error al guardar', description: err.error || 'Error desconocido', variant: 'destructive' });

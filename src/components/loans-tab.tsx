@@ -71,7 +71,6 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import LoanChargeOffDialog from './loan-charge-off-dialog';
-import PaymentLinksPanel from './payment-links-panel';
 import PaymentScheduleView from './payment-schedule-view';
 
 // ============================================================
@@ -2330,11 +2329,6 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
       {/* PAYMENT SCHEDULE VIEW */}
       {/* ============================================================ */}
       <PaymentScheduleView open={scheduleOpen} onOpenChange={setScheduleOpen} loanId={selectedLoanId} loanAmount={detailLoan?.totalAmount} numInstallments={detailLoan?.numCuotas} />
-
-      {/* ============================================================ */}
-      {/* PAYMENT LINKS PANEL */}
-      {/* ============================================================ */}
-      <PaymentLinksPanel loanId={selectedLoanId} clientId={detailLoan?.clientId || null} />
 
       {/* ============================================================ */}
       {/* REFINANCE DIALOG */}
