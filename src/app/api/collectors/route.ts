@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { PrismaClient } from '@prisma/client';
+
 
 function getDocumentTypeLabel(type: string): string {
   switch (type) {
@@ -27,32 +27,19 @@ async function createFirebaseUser(email: string, password: string): Promise<{ lo
   return { localId: data.localId };
 }
 
-function buildFirebaseEmail(name: string, documentNumber: string | null, phone: string | null, loginMethod: string): string {
-  switch (loginMethod) {
-    case 'dni': return `${documentNumber}@kc-cobranzas.app`;
-    case 'phone': return `${phone}@phone.kc-cobranzas.app`;
-    case 'fingerprint': return `${documentNumber || phone}@bio.kc-cobranzas.app`;
-    default: return `${name.toLowerCase().replace(/\s+/g, '.')}@kc-cobranzas.app`;
-  }
-}
-
 // GET /api/collectors - List all staff
 export async function GET() {
   try {
-    const prisma = new PrismaClient();
-    const profiles = await prisma.profiles.findMany({
+    const profiles = await db.profiles.findMany({
       where: { role: { in: ['collector', 'supervisor', 'admin'] } },
       select: {
         id: true, email: true, name: true, role: true, phone: true, dni: true,
         is_active: true, created_at: true, document_type: true, address: true,
-        daily_goal: true,
-        _count: { select: { loans: true, payments: true } },
+        daily_goal: true, photo_url: true,
       },
       orderBy: { name: 'asc' },
     });
-    await prisma.$disconnect();
-
-    const zoneIds = await prisma.collector_zones.findMany({
+    const zoneIds = await db.collector_zones.findMany({
       select: { collector_id: true, zone_id: true },
     });
     const zoneMap: Record<string, string[]> = {};
@@ -71,11 +58,10 @@ export async function GET() {
       isActive: p.is_active ?? true,
       documentType: p.document_type || 'dni',
       documentNumber: p.dni || null,
-      photoUrl: null,
+      photoUrl: p.photo_url || null,
       createdAt: p.created_at?.toISOString() || new Date().toISOString(),
       zoneIds: zoneMap[p.id] || [],
       dailyGoal: p.daily_goal,
-      _count: p._count,
     }));
 
     return NextResponse.json({ collectors });
@@ -89,26 +75,21 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, password, documentType, documentNumber, phone, address, role, loginMethod, email } = body;
-    const lm = loginMethod || 'email';
+    const { name, password, documentType, documentNumber, phone, address, role, email } = body;
 
     if (!name || !name.trim()) return NextResponse.json({ error: 'El nombre es requerido' }, { status: 400 });
     if (!password || password.length < 4) return NextResponse.json({ error: 'La contraseña debe tener al menos 4 caracteres' }, { status: 400 });
     if (!role || !['admin', 'supervisor', 'collector'].includes(role)) return NextResponse.json({ error: 'Rol inválido' }, { status: 400 });
+    if (!email || !email.includes('@')) return NextResponse.json({ error: 'El correo es requerido' }, { status: 400 });
 
     const docType = documentType || 'dni';
     if (documentNumber) {
       if (docType === 'dni' && !/^\d{8}$/.test(documentNumber)) return NextResponse.json({ error: 'El DNI debe tener exactamente 8 dígitos' }, { status: 400 });
-      if ((docType === 'carnet_extranjeria' || docType === 'pasaporte') && !/^\d{9}$/.test(documentNumber)) return NextResponse.json({ error: 'El documento debe tener exactamente 9 dígitos' }, { status: 400 });
+      if ((docType === 'carnet_extranjeria' || docType === 'pasaporte') && (!/^\d+$/.test(documentNumber) || documentNumber.length < 9 || documentNumber.length > 25)) return NextResponse.json({ error: 'El documento debe tener entre 9 y 25 dígitos' }, { status: 400 });
     }
     if (phone && !/^9\d{8}$/.test(phone)) return NextResponse.json({ error: 'El teléfono debe tener 9 dígitos y empezar con 9' }, { status: 400 });
 
-    // Build Firebase email
-    const fbEmail = lm === 'email' && email ? email.trim().toLowerCase()
-      : lm === 'dni' ? `${documentNumber}@kc-cobranzas.app`
-      : lm === 'phone' ? `${phone}@phone.kc-cobranzas.app`
-      : lm === 'fingerprint' ? `${documentNumber || phone}@bio.kc-cobranzas.app`
-      : buildFirebaseEmail(name, documentNumber, phone, lm);
+    const fbEmail = email.trim().toLowerCase();
 
     // Create Firebase Auth user FIRST — fail if it doesn't work
     let firebaseUid: string;
@@ -120,22 +101,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Create profile in PostgreSQL with Firebase UID as id
-    const prisma = new PrismaClient();
     try {
-      const existing = await prisma.profiles.findFirst({
+      const existing = await db.profiles.findFirst({
         where: { OR: [{ email: fbEmail }, ...(documentNumber ? [{ dni: documentNumber }] : [])] },
       });
       if (existing) {
-        await prisma.$disconnect();
         return NextResponse.json({ error: 'Ya existe un usuario con ese email o documento' }, { status: 409 });
       }
 
-      const profile = await prisma.profiles.create({
+      const profile = await db.profiles.create({
         data: {
-          id: firebaseUid,
+          firebase_uid: firebaseUid,
           name: name.trim(),
           email: fbEmail,
-          password,
           document_type: docType,
           dni: documentNumber || null,
           phone: phone || null,
@@ -147,14 +125,11 @@ export async function POST(request: NextRequest) {
         select: {
           id: true, name: true, email: true, phone: true, address: true, role: true,
           is_active: true, document_type: true, dni: true, created_at: true, daily_goal: true,
-          _count: { select: { loans: true, payments: true } },
         },
       });
 
-      await prisma.$disconnect();
-
       // Audit log
-      await db.auditLog.create({
+      await db.audit_logs.create({
         data: {
           action: 'CREATE',
           entityType: 'staff',
@@ -177,7 +152,6 @@ export async function POST(request: NextRequest) {
         documentNumber: profile.dni,
         createdAt: profile.created_at?.toISOString(),
         dailyGoal: profile.daily_goal,
-        _count: profile._count,
       }, { status: 201 });
     } catch (dbErr: any) {
       // Rollback Firebase user if DB insert failed
@@ -188,7 +162,6 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify({ idToken: '', localId: firebaseUid }),
         });
       } catch {}
-      await prisma.$disconnect().catch(() => {});
       return NextResponse.json({ error: dbErr.message || 'Error al guardar en base de datos' }, { status: 500 });
     }
   } catch (error) {
@@ -201,44 +174,60 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, name, phone, address, role, isActive, zoneIds } = body;
+    const { id, name, phone, address, role, isActive, zoneIds, documentNumber, password } = body;
     if (!id) return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
     if (role && !['admin', 'supervisor', 'collector'].includes(role)) return NextResponse.json({ error: 'Rol inválido' }, { status: 400 });
     if (phone && !/^9\d{8}$/.test(phone)) return NextResponse.json({ error: 'Teléfono inválido' }, { status: 400 });
+    if (documentNumber != null && !/^\d{8}$/.test(String(documentNumber))) return NextResponse.json({ error: 'DNI inválido' }, { status: 400 });
 
-    const prisma = new PrismaClient();
     try {
-      const existing = await prisma.profiles.findUnique({ where: { id } });
-      if (!existing) { await prisma.$disconnect(); return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 }); }
+      let existing = await db.profiles.findUnique({ where: { id } }).catch(() => null);
+      if (!existing) existing = await db.profiles.findFirst({ where: { firebase_uid: id } });
+      if (!existing && body.email) existing = await db.profiles.findFirst({ where: { email: { equals: body.email.trim(), mode: 'insensitive' } } });
+      if (!existing) { return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 }); }
+      const profileId = existing.id;
 
-      const profile = await prisma.profiles.update({
-        where: { id },
+      const profile = await db.profiles.update({
+        where: { id: profileId },
         data: {
-          name: name !== undefined ? name.trim() : existing.name,
-          phone: phone !== undefined ? phone : existing.phone,
-          address: address !== undefined ? address : existing.address,
-          role: role !== undefined ? role : existing.role,
-          is_active: isActive !== undefined ? isActive : existing.is_active,
+          name: name != null ? name.trim() : existing.name,
+          email: body.email != null ? body.email.trim().toLowerCase() : existing.email,
+          phone: phone != null ? phone : existing.phone,
+          address: address != null ? address : existing.address,
+          role: role != null ? role : existing.role,
+          is_active: isActive != null ? isActive : existing.is_active,
+          dni: documentNumber != null ? documentNumber : existing.dni,
+          photo_url: body.photoUrl != null ? body.photoUrl : existing.photo_url,
+          daily_goal: body.dailyGoal != null ? parseFloat(body.dailyGoal) : existing.daily_goal,
         },
         select: {
           id: true, name: true, email: true, phone: true, address: true, role: true,
           is_active: true, document_type: true, dni: true, created_at: true, daily_goal: true,
-          _count: { select: { loans: true, payments: true } },
+          photo_url: true,
         },
       });
 
+      if (existing.firebase_uid && (body.email !== undefined || body.password)) {
+        const fbUpdate: Record<string, any> = { idToken: '', localId: existing.firebase_uid };
+        if (body.email !== undefined) fbUpdate.email = body.email.trim();
+        if (body.password) fbUpdate.password = body.password;
+        await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:update?key=${FIREBASE_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(fbUpdate),
+        }).catch(() => {});
+      }
+
       if (zoneIds !== undefined && Array.isArray(zoneIds)) {
-        await prisma.collector_zones.deleteMany({ where: { collector_id: id } });
+        await db.collector_zones.deleteMany({ where: { collector_id: profileId } });
         if (zoneIds.length > 0) {
-          await prisma.collector_zones.createMany({
-            data: zoneIds.map((zoneId: string) => ({ collector_id: id, zone_id: zoneId })),
+          await db.collector_zones.createMany({
+            data: zoneIds.map((zoneId: string) => ({ collector_id: profileId, zone_id: zoneId })),
           });
         }
       }
 
-      await prisma.$disconnect();
-
-      await db.auditLog.create({
+      await db.audit_logs.create({
         data: {
           action: 'UPDATE', entityType: 'staff', entityId: profile.id, entityName: profile.name,
           severity: 'info', notes: `Personal actualizado: ${profile.name}`,
@@ -250,10 +239,9 @@ export async function PUT(request: NextRequest) {
         address: profile.address, role: profile.role, isActive: profile.is_active,
         documentType: profile.document_type || 'dni', documentNumber: profile.dni,
         createdAt: profile.created_at?.toISOString(), dailyGoal: profile.daily_goal,
-        _count: profile._count,
+        photoUrl: profile.photo_url,
       });
     } catch (err: any) {
-      await prisma.$disconnect().catch(() => {});
       return NextResponse.json({ error: err.message || 'Error al actualizar' }, { status: 500 });
     }
   } catch (error) {
@@ -268,19 +256,28 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
 
-    const prisma = new PrismaClient();
     try {
-      const profile = await prisma.profiles.findUnique({ where: { id }, include: { loans: true } });
-      if (!profile) { await prisma.$disconnect(); return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 }); }
-      if (profile.loans.some((l) => l.status === 'active' || l.status === 'mora')) {
-        await prisma.$disconnect();
+      const profile = await db.profiles.findUnique({ where: { id } });
+      if (!profile) { return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 }); }
+      const activeLoans = await db.loans.findMany({
+        where: { collector_id: id, status: { in: ['active', 'mora'] } },
+        take: 1,
+      });
+      if (activeLoans.length > 0) {
         return NextResponse.json({ error: 'No se puede eliminar personal con préstamos activos' }, { status: 400 });
       }
 
-      await prisma.profiles.delete({ where: { id } });
-      await prisma.$disconnect();
+      if (profile.firebase_uid) {
+        await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:delete?key=${FIREBASE_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken: '', localId: profile.firebase_uid }),
+        }).catch(() => {});
+      }
 
-      await db.auditLog.create({
+      await db.profiles.delete({ where: { id } });
+
+      await db.audit_logs.create({
         data: {
           action: 'DELETE', entityType: 'staff', entityId: id, entityName: profile.name,
           severity: 'warning', notes: `Personal eliminado: ${profile.name}`,
@@ -289,7 +286,6 @@ export async function DELETE(request: NextRequest) {
 
       return NextResponse.json({ message: 'Personal eliminado' });
     } catch (err: any) {
-      await prisma.$disconnect().catch(() => {});
       return NextResponse.json({ error: err.message || 'Error al eliminar' }, { status: 500 });
     }
   } catch (error) {

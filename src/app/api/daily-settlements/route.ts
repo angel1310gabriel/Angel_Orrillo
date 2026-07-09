@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Audit log
-    await db.auditLog.create({
+    await db.audit_logs.create({
       data: {
         action: 'CREATE',
         entityType: 'settlement',
@@ -276,7 +276,7 @@ export async function PUT(request: NextRequest) {
     });
 
     // Audit log
-    await db.auditLog.create({
+    await db.audit_logs.create({
       data: {
         action: status === 'approved' ? 'APPROVE' : 'REJECT',
         entityType: 'settlement',

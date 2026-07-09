@@ -18,6 +18,7 @@ import DataToolsDialog from '@/components/data-tools';
 import ReportsDialog from '@/components/reports-dialog';
 import { useSupabaseRealtime } from '@/hooks/use-supabase-realtime';
 import { useAuth, ROLE_PERMISSIONS } from '@/hooks/use-auth';
+import { toast } from '@/hooks/use-toast';
 import { usePush } from '@/hooks/use-push';
 
 import ChangePassword from '@/components/change-password';
@@ -122,7 +123,11 @@ export default function KCobranzasDashboard() {
   const [showReports, setShowReports] = useState(false);
   const [profileName, setProfileName] = useState('');
   const [profileEmail, setProfileEmail] = useState('');
+  const [profileDni, setProfileDni] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined') {
       return new URLSearchParams(window.location.search).get('tab') || 'dashboard';
@@ -136,8 +141,7 @@ export default function KCobranzasDashboard() {
   const [notifications, setNotifications] = useState<{id:string;title:string;body:string|null;type:string|null;isRead:boolean;createdAt:string;referenceType:string|null;referenceId:string|null}[]>([]);
   const notifRef = useRef<HTMLDivElement>(null);
   const unreadCount = notifications.filter(n=>!n.isRead).length;
-  const [fabOpen, setFabOpen] = useState(false);
-  const fabRef = useRef<HTMLDivElement>(null);
+
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     panel: true, gestion: true, personal: true, finanzas: true, seguimiento: true, sistema: true,
   });
@@ -267,14 +271,13 @@ export default function KCobranzasDashboard() {
 
   // Close notifications / FAB on click outside
   useEffect(() => {
-    if (!notifOpen && !fabOpen) return;
+    if (!notifOpen) return;
     const handler = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
-      if (fabRef.current && !fabRef.current.contains(e.target as Node)) setFabOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [notifOpen, fabOpen]);
+  }, [notifOpen]);
 
   const markRead = async (ids: string[]) => {
     try {
@@ -327,7 +330,6 @@ export default function KCobranzasDashboard() {
       { value: 'daily-settlement', icon: Wallet, label: 'Cierre de Caja' },
     ]},
     { key: 'seguimiento', title: 'Seguimiento', items: [
-      { value: 'chat', icon: MessageCircle, label: 'Mensajes' },
       { value: 'map', icon: Map, label: 'Mapa' },
     ]},
     { key: 'sistema', title: 'Sistema', items: [
@@ -359,20 +361,8 @@ export default function KCobranzasDashboard() {
 
   const getActiveLabel = () => allNavItems.find(n => n.value === activeTab)?.label || 'Dashboard';
 
-  // Show loading until component mounts in browser (SSR guard)
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background/50">
-        <div className="flex items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-          <span className="text-muted-foreground">Cargando...</span>
-        </div>
-      </div>
-    );
-  }
-
   // Show login screen if not authenticated
-  if (!isAuthenticated || !user) {
+  if (!mounted || !isAuthenticated || !user) {
     return <LoginScreen />;
   }
 
@@ -387,7 +377,7 @@ export default function KCobranzasDashboard() {
       <div className="fixed bottom-[-200px] right-[-200px] w-[600px] h-[600px] bg-emerald-500/3 rounded-full blur-[120px] pointer-events-none z-0" />
       <InactivityTracker />
 {/* SIDEBAR - Desktop */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 backdrop-blur-2xl border-r border-emerald-500/10 shadow-[2px_0_20px_rgba(16,185,129,0.06)] fixed inset-y-0 left-0 z-30 bg-transparent">
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 border-r border-emerald-500/10 fixed inset-y-0 left-0 z-30 bg-transparent">
         {/* Logo - premium header */}
         <div className="h-14 px-5 flex items-center border-b border-emerald-500/20 shadow-[inset_0_-1px_20px_rgba(16,185,129,0.08)] bg-transparent">
           <div className="flex items-center gap-3">
@@ -435,12 +425,16 @@ export default function KCobranzasDashboard() {
         </nav>
 
         {/* Sidebar Footer - User Section */}
-        <div className="border-t border-emerald-500/20 shadow-[inset_0_1px_20px_rgba(16,185,129,0.08)] px-4 pt-4 pb-3">
+        <div className="border-t border-emerald-500/20 px-4 pt-4 pb-3 bg-transparent">
           <div className="flex items-center justify-center gap-3 mb-3">
             <div className="relative shrink-0">
-              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full blur-lg animate-pulse" />
-              <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 via-teal-400 to-emerald-500 flex items-center justify-center text-white text-base font-bold shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-500/40">
-                {user.name?.charAt(0)?.toUpperCase() || 'U'}
+              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full blur-sm opacity-60" />
+              <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 via-teal-400 to-emerald-500 flex items-center justify-center text-white text-base font-bold shadow shadow-emerald-500/20 overflow-hidden">
+                {user.photoUrl ? (
+                  <img src={user.photoUrl} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span>{user.name?.charAt(0)?.toUpperCase() || 'U'}</span>
+                )}
               </div>
             </div>
             <div className="text-left">
@@ -451,7 +445,7 @@ export default function KCobranzasDashboard() {
             </div>
           </div>
           <div className="flex items-center justify-center gap-1.5">
-            <button onClick={() => { setProfileName(user.name || ''); setProfileEmail(user.email || ''); setShowProfile(true); }} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-white hover:bg-white/10 hover:shadow-[0_0_20px_rgba(255,255,255,0.05)] transition-all duration-200" title="Perfil"><User className="h-3.5 w-3.5" />Perfil</button>
+            <button onClick={() => { setProfilePhotoPreview(null); setProfileName(user.name || ''); setProfileEmail(user.email || ''); setProfileDni((user as any).documentNumber || ''); setProfilePhone((user as any).phone || ''); setShowProfile(true); }} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-white hover:bg-white/10 hover:shadow-[0_0_20px_rgba(255,255,255,0.05)] transition-all duration-200" title="Perfil"><User className="h-3.5 w-3.5" />Perfil</button>
             <span className="w-px h-4 bg-emerald-500/20" />
             <button onClick={() => setShowChangePassword(true)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-amber-400 hover:bg-amber-500/10 hover:shadow-[0_0_20px_rgba(251,191,36,0.1)] transition-all duration-200" title="Cambiar Contraseña"><KeyRound className="h-3.5 w-3.5" />Clave</button>
             <span className="w-px h-4 bg-emerald-500/20" />
@@ -468,37 +462,48 @@ export default function KCobranzasDashboard() {
             <div className="space-y-4">
               {/* Photo Upload */}
               <div className="flex flex-col items-center gap-3">
-                <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-emerald-400 via-teal-400 to-emerald-500 flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-500/40 overflow-hidden">
-                  {user.photoUrl ? (
-                    <img src={user.photoUrl} alt={user.name} className="w-full h-full object-cover" />
+                <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-emerald-400 via-teal-400 to-emerald-500 flex items-center justify-center text-white text-2xl font-bold shadow shadow-emerald-500/20 overflow-hidden">
+                  {(profilePhotoPreview || user.photoUrl) ? (
+                    <img src={profilePhotoPreview || user.photoUrl} alt={user.name} className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-2xl font-bold">{user.name?.charAt(0)?.toUpperCase() || 'U'}</span>
                   )}
                 </div>
-                <label className="cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-sm font-medium transition-colors">
-                  <Camera className="h-4 w-4" />
-                  <span>Cambiar foto</span>
+                <label className={`cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-sm font-medium transition-colors ${uploadingPhoto ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {uploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                  <span>{uploadingPhoto ? 'Subiendo...' : 'Cambiar foto'}</span>
 <input
                     type="file"
                     accept="image/*"
                     capture="environment"
                     className="hidden"
+                    disabled={uploadingPhoto}
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
+                        setUploadingPhoto(true);
                         const reader = new FileReader();
                         reader.onload = async (e) => {
                           const base64 = e.target?.result as string;
+                          setProfilePhotoPreview(base64);
                           try {
                             const res = await fetch('/api/collectors', {
                               method: 'PUT',
                               headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ id: user.id, photoUrl: base64 })
+                              body: JSON.stringify({ id: user.id, email: user.email, photoUrl: base64 })
                             });
                             if (res.ok) {
-                              refreshRole();
+                              const data = await res.json();
+                              useAuth.getState()._setUser({ ...useAuth.getState().user!, photoUrl: data.photoUrl || base64 });
+                              toast({ title: 'Foto actualizada' });
+                            } else {
+                              toast({ title: 'Error al subir foto', variant: 'destructive' });
                             }
-                          } catch {}
+                          } catch {
+                            toast({ title: 'Error al subir foto', variant: 'destructive' });
+                          } finally {
+                            setUploadingPhoto(false);
+                          }
                         };
                         reader.readAsDataURL(file);
                       }
@@ -511,6 +516,14 @@ export default function KCobranzasDashboard() {
                 <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-input dark:border-emerald-500/5 bg-white dark:bg-[#05060b]/70 text-foreground dark:text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
               <div>
+                <label className="block text-sm font-medium text-foreground/80 dark:text-foreground/80 mb-1">DNI</label>
+                <input type="text" value={profileDni} onChange={e => setProfileDni(e.target.value.replace(/\D/g, '').slice(0, 8))} maxLength={8} className="w-full px-3 py-2 rounded-lg border border-input dark:border-emerald-500/5 bg-white dark:bg-[#05060b]/70 text-foreground dark:text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="12345678" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground/80 dark:text-foreground/80 mb-1">Celular</label>
+                <input type="text" value={profilePhone} onChange={e => setProfilePhone(e.target.value.replace(/\D/g, '').slice(0, 9))} maxLength={9} className="w-full px-3 py-2 rounded-lg border border-input dark:border-emerald-500/5 bg-white dark:bg-[#05060b]/70 text-foreground dark:text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="999888777" />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-foreground/80 dark:text-foreground/80 mb-1">Email</label>
                 <input type="email" value={profileEmail} onChange={e => setProfileEmail(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-input dark:border-emerald-500/5 bg-white dark:bg-[#05060b]/70 text-foreground dark:text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
@@ -519,12 +532,18 @@ export default function KCobranzasDashboard() {
                 <Button onClick={async () => {
                   setSavingProfile(true);
                   try {
-                    const res = await fetch('/api/collectors', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id, name: profileName, email: profileEmail }) });
+                    const res = await fetch('/api/collectors', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id, name: profileName, email: profileEmail, documentNumber: profileDni || null, phone: profilePhone || null, photoUrl: user.photoUrl || undefined }) });
                     if (res.ok) {
+                      toast({ title: 'Actualizado correctamente', description: 'Perfil actualizado' });
                       setShowProfile(false);
                       refreshRole();
+                    } else {
+                      const err = await res.json().catch(() => ({}));
+                      toast({ title: 'Error al guardar', description: err.error || 'Error desconocido', variant: 'destructive' });
                     }
-                  } catch {} finally {
+                  } catch {
+                    toast({ title: 'Error al guardar', description: 'Error de red', variant: 'destructive' });
+                  } finally {
                     setSavingProfile(false);
                   }
                 }} disabled={savingProfile}>
@@ -574,7 +593,7 @@ export default function KCobranzasDashboard() {
       <ReportsDialog open={showReports} onOpenChange={setShowReports} />
 
       {/* MOBILE HEADER */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 backdrop-blur-2xl border-b border-emerald-500/20 shadow-[inset_0_-1px_20px_rgba(16,185,129,0.08)]">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 backdrop-blur-xl border-b border-emerald-500/10 bg-transparent">
         <div className="flex items-center justify-between h-14 px-4">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="KC Cobranzas" className="w-7 h-7 rounded-md" />
@@ -590,8 +609,8 @@ export default function KCobranzasDashboard() {
                 {unreadCount>0&&<span className="absolute -top-0.5 -right-0.5 h-3.5 min-w-[14px] px-0.5 rounded-full bg-red-500 text-[9px] text-white flex items-center justify-center font-bold">{unreadCount>9?'9+':unreadCount}</span>}
               </button>
             </div>
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-[10px] font-bold">
-              {user.name?.charAt(0)?.toUpperCase() || 'U'}
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-[10px] font-bold overflow-hidden">
+              {user.photoUrl ? <img src={user.photoUrl} alt={user.name} className="w-full h-full object-cover" /> : (user.name?.charAt(0)?.toUpperCase() || 'U')}
             </div>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -693,7 +712,7 @@ export default function KCobranzasDashboard() {
       {/* MAIN CONTENT */}
       <main className="flex-1 lg:ml-64 min-h-screen flex flex-col relative z-10">
         {/* Desktop top bar */}
-<header className="hidden lg:flex items-center justify-between h-14 px-6 backdrop-blur-2xl border-b border-emerald-500/20 shadow-[inset_0_-1px_20px_rgba(16,185,129,0.08)] sticky top-0 z-20">
+<header className="hidden lg:flex items-center justify-between h-14 px-6 backdrop-blur-xl border-b border-emerald-500/10 bg-transparent sticky top-0 z-20">
           <div className="flex items-center gap-4">
             <h2 className="text-lg font-semibold text-foreground dark:text-foreground">{getActiveLabel()}</h2>
             <span className="h-4 w-px bg-emerald-500/20" />
@@ -712,9 +731,7 @@ export default function KCobranzasDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={()=>setActiveTab('chat')} className="relative h-8 w-8 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Mensajes">
-              <MessageSquare className="h-4 w-4" />
-            </Button>
+
             <div className="relative" ref={notifRef}>
               <Button variant="ghost" size="icon" onClick={()=>{setNotifOpen(!notifOpen);if(!notifOpen)markRead(notifications.filter(n=>!n.isRead).map(n=>n.id))}} className="relative h-8 w-8 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Notificaciones">
                 {unreadCount>0?<BellRing className="h-4 w-4 text-emerald-500"/>:<Bell className="h-4 w-4"/>}
@@ -752,8 +769,8 @@ export default function KCobranzasDashboard() {
               Datos
             </Button>
           <span className="w-px h-5 bg-slate-200 dark:bg-[#05060b]/70" />
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-[10px] font-bold shadow-sm">
-            {user.name?.charAt(0)?.toUpperCase() || 'U'}
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-[10px] font-bold shadow-sm overflow-hidden">
+            {user.photoUrl ? <img src={user.photoUrl} alt={user.name} className="w-full h-full object-cover" /> : (user.name?.charAt(0)?.toUpperCase() || 'U')}
           </div>
 <Button variant="ghost" size="icon" onClick={handleLogout} className="h-7 w-7 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950" title="Cerrar sesión">
               <LogOut className="h-3.5 w-3.5" />
@@ -797,33 +814,13 @@ export default function KCobranzasDashboard() {
           </div>
         </footer>
 
-        {/* FAB - Floating Action Button */}
-        <div ref={fabRef} className="fixed bottom-6 right-6 z-50">
-          <div className="flex flex-col items-end gap-3 mb-3">
-            {fabOpen && (
-              <>
-                <button onClick={() => { setFabOpen(false); setActiveTab('loans'); }} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-medium shadow-xl shadow-emerald-500/30 hover:bg-emerald-400 transition-all duration-200 animate-[fab-action_0.2s_ease-out] whitespace-nowrap" style={{ animationDelay: '0ms' }}>
-                  <DollarSign className="h-4 w-4" /><span>Nuevo Préstamo</span>
-                </button>
-                <button onClick={() => { setFabOpen(false); setActiveTab('clients'); }} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-medium shadow-xl shadow-emerald-500/30 hover:bg-emerald-400 transition-all duration-200 animate-[fab-action_0.25s_ease-out] whitespace-nowrap" style={{ animationDelay: '50ms' }}>
-                  <Users className="h-4 w-4" /><span>Nuevo Cliente</span>
-                </button>
-                <button onClick={() => { setFabOpen(false); setActiveTab('payments'); }} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-medium shadow-xl shadow-emerald-500/30 hover:bg-emerald-400 transition-all duration-200 animate-[fab-action_0.3s_ease-out] whitespace-nowrap" style={{ animationDelay: '100ms' }}>
-                  <CreditCard className="h-4 w-4" /><span>Registrar Pago</span>
-                </button>
-                <button onClick={() => { setFabOpen(false); setActiveTab('chat'); }} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-medium shadow-xl shadow-emerald-500/30 hover:bg-emerald-400 transition-all duration-200 animate-[fab-action_0.35s_ease-out] whitespace-nowrap" style={{ animationDelay: '150ms' }}>
-                  <MessageSquare className="h-4 w-4" /><span>Mensaje Rápido</span>
-                </button>
-              </>
-            )}
-          </div>
-          <button
-            onClick={() => setFabOpen(!fabOpen)}
-            className={`w-14 h-14 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-xl shadow-emerald-500/30 hover:shadow-2xl hover:shadow-emerald-500/40 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center ${fabOpen ? 'rotate-45' : ''}`}
-          >
-            <Plus className="h-6 w-6" />
-          </button>
-        </div>
+        {/* FAB - Opens chat directly */}
+        <button
+          onClick={() => setActiveTab('chat')}
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-xl shadow-emerald-500/30 hover:shadow-2xl hover:shadow-emerald-500/40 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center"
+        >
+          <MessageCircle className="h-6 w-6" />
+        </button>
       </main>
     </div>
     <style>{`

@@ -924,16 +924,17 @@ export default function LoansTab({ refreshTrigger }: LoansTabProps) {
 
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-stretch gap-2.5 flex-wrap">
           {statusFilters.map((filter) => (
             <Button
               key={filter.key}
               variant={statusFilter === filter.key ? 'default' : 'outline'}
               size="sm"
               className={
-                statusFilter === filter.key
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all'
-                  : 'border-input dark:border-emerald-500/5 hover:border-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-400 text-foreground/70 dark:text-foreground/80 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+                (statusFilter === filter.key
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all '
+                  : 'border-input dark:border-emerald-500/5 hover:border-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-400 text-foreground/70 dark:text-foreground/80 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 ') +
+                'px-4 flex-1 sm:flex-none'
               }
               onClick={() => { setStatusFilter(filter.key); setPage(1); }}
             >

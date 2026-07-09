@@ -351,7 +351,8 @@ model payments {
 }
 
 model profiles {
-  id              String                      @id @db.Uuid
+  id              String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  firebase_uid    String?                     @unique
   name            String?
   email           String?
   phone           String?

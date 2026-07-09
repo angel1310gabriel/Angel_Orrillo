@@ -132,7 +132,7 @@ export default function ReportsDialog({ open, onOpenChange }: ReportsDialogProps
                   </div>
                 </div>
 
-                <div className="rounded-xl glass-panel border border-emerald-500/10">
+                <div className="rounded-xl glass-panel border border-emerald-500/10 w-full overflow-hidden">
                   <div className="px-4 py-3 border-b border-emerald-500/10">
                     <h4 className="text-sm font-semibold text-foreground">Préstamos por Estado</h4>
                   </div>

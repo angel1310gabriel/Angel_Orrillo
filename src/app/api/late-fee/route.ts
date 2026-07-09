@@ -432,7 +432,7 @@ export async function POST(request: NextRequest) {
           }
 
           // Create audit log for mora status change
-          await db.auditLog.create({
+          await db.audit_logs.create({
             data: {
               action: 'UPDATE',
               entityType: 'loan',
@@ -622,7 +622,7 @@ export async function PUT(request: NextRequest) {
     await Promise.all(updates);
 
     // Create audit log for config change
-    await db.auditLog.create({
+    await db.audit_logs.create({
       data: {
         action: 'UPDATE',
         entityType: 'setting',

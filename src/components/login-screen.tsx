@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Loader2, Eye, EyeOff, Mail, Lock, IdCard, Smartphone, Fingerprint, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { auth } from '@/lib/firebase-client';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendPasswordResetEmail, type UserCredential } from 'firebase/auth';
 
 function detectLoginType(input: string): { type: string; icon: any; label: string; placeholder: string } {
   const clean = input.replace(/\D/g, '');
@@ -47,6 +47,7 @@ export default function LoginScreen() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [bioSupported, setBioSupported] = useState(false);
   const [bioLoading, setBioLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -76,11 +77,43 @@ export default function LoginScreen() {
     return `${input}@kc-cobranzas.app`;
   };
 
+  const tryEmailVariants = async (base: string, pw: string): Promise<UserCredential | null> => {
+    const variants = [base];
+    const at = base.lastIndexOf('@');
+    if (at > 0) {
+      const local = base.slice(0, at);
+      const domain = base.slice(at);
+      if (domain === '@kc-cobranzas.app') {
+        variants.push(`${local}@bio.kc-cobranzas.app`);
+      } else if (domain === '@bio.kc-cobranzas.app') {
+        variants.push(`${local}@kc-cobranzas.app`);
+      } else {
+        const clean = local.replace(/\D/g, '');
+        if (clean.length === 8) {
+          variants.push(`${local}@kc-cobranzas.app`, `${local}@bio.kc-cobranzas.app`);
+        }
+      }
+    }
+    const seen = new Set<string>();
+    let lastErr: any = null;
+    for (const v of variants) {
+      if (seen.has(v)) continue;
+      seen.add(v);
+      try {
+        return await signInWithEmailAndPassword(auth, v, pw);
+      } catch (e: any) {
+        lastErr = e;
+        if (e?.code !== 'auth/user-not-found' && e?.code !== 'auth/invalid-credential') throw e;
+      }
+    }
+    throw lastErr || new Error('Error al ingresar');
+  };
+
   const doLogin = async (email: string, pw: string) => {
     setLocalLoading(true);
     setLocalError(null);
     try {
-      const cred = await signInWithEmailAndPassword(auth, email, pw);
+      const cred = await tryEmailVariants(email, pw);
       let role = 'collector';
       let name = cred.user.email?.split('@')[0] || 'Usuario';
       try {
@@ -100,23 +133,38 @@ export default function LoginScreen() {
         documentNumber: null,
         isActive: true,
       });
-      saveBiometricCredential(email, pw);
+      saveBiometricCredential(cred.user.email || email, pw);
     } catch (err: any) {
       const msg = err?.code === 'auth/user-not-found' || err?.code === 'auth/invalid-credential'
         ? 'Usuario o contraseña incorrectos'
         : err?.code === 'auth/too-many-requests'
         ? 'Demasiados intentos. Espera un momento'
-        : err?.message || 'Error al iniciar sesión';
+        : err?.message || 'Error al ingresar';
       setLocalError(msg);
     } finally {
       setLocalLoading(false);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
     if (!username || !password) { setLocalError('Ingresa usuario y contraseña'); return; }
+    const clean = username.replace(/\D/g, '');
+    // If DNI or phone, try to look up the real Firebase email from DB first
+    if ((clean.length === 8 && /^\d{8}$/.test(clean)) || (clean.length === 9 && /^9\d{8}$/.test(clean))) {
+      const param = clean.length === 8 ? 'dni' : 'phone';
+      try {
+        const res = await fetch(`/api/profile/lookup?${param}=${clean}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.firebaseEmail) {
+            doLogin(data.firebaseEmail, password);
+            return;
+          }
+        }
+      } catch {}
+    }
     const email = buildEmail(username);
     doLogin(email, password);
   };
@@ -214,8 +262,8 @@ export default function LoginScreen() {
       <div ref={wrapperRef} className="relative z-10 w-full max-w-md mx-4" style={{ perspective: '800px' }}>
         <div ref={cardRef} className="backdrop-blur-2xl rounded-3xl border border-emerald-500/20 shadow-[0_8px_60px_rgba(16,185,129,0.15)] p-8 sm:p-10 transition-transform duration-200 ease-out" style={{ transform: 'perspective(800px) rotateX(0deg) rotateY(0deg)', background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(16,185,129,0.02))' }}>
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 shadow-lg shadow-emerald-500/30 mb-4">
-              <span className="text-2xl font-bold text-white">KC</span>
+            <div className="mb-4">
+              <img src="/logo.png" alt="KC Cobranzas" className="w-16 h-16 rounded-2xl mx-auto shadow-lg shadow-emerald-500/30" />
             </div>
             <h1 className="text-2xl font-bold text-white tracking-tight">KC Cobranzas</h1>
             <p className="text-sm text-emerald-400/80 mt-1 font-medium">Panel de Administración</p>
@@ -263,6 +311,24 @@ export default function LoginScreen() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+            </div>
+            <div className="flex justify-end -mt-1">
+              <button
+                type="button"
+                onClick={async () => {
+                  const e = buildEmail(username);
+                  if (!e.includes('@')) { setLocalError('Ingresa un usuario válido primero'); return; }
+                  try {
+                    await sendPasswordResetEmail(auth, e);
+                    setResetSent(true);
+                    setLocalError(null);
+                    setTimeout(() => setResetSent(false), 5000);
+                  } catch { setLocalError('Error al enviar correo de restablecimiento'); }
+                }}
+                className="text-[11px] text-emerald-400/50 hover:text-emerald-400 transition-colors"
+              >
+                {resetSent ? '✓ Correo enviado' : '¿Olvidaste tu contraseña?'}
+              </button>
             </div>
             <div className="flex gap-2">
               <Button

@@ -106,8 +106,9 @@ export default function StarfieldBg() {
     }
 
     function drawMeteor(m: typeof meteors[0]) {
-      const tailX = m.x - m.vx * (m.len / m.vx.length);
-      const tailY = m.y - m.vy * (m.len / m.vx.length);
+      const speed = Math.sqrt(m.vx * m.vx + m.vy * m.vy) || 1;
+      const tailX = m.x - (m.vx / speed) * m.len;
+      const tailY = m.y - (m.vy / speed) * m.len;
       const gradient = ctx!.createLinearGradient(m.x, m.y, tailX, tailY);
       gradient.addColorStop(0, `rgba(255,255,255,${m.alpha})`);
       gradient.addColorStop(0.3, `rgba(52,211,153,${m.alpha * 0.6})`);

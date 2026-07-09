@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Shield, Eye, UserCheck, Search, RefreshCw, Loader2, CheckCircle2, XCircle, User, Mail, Phone, MapPin, Trash2, UserPlus, KeyRound, IdCard, Globe, AlertTriangle, DollarSign, Wallet, Fingerprint, Smartphone } from 'lucide-react';
+import { Users, Shield, Eye, UserCheck, Search, RefreshCw, Loader2, CheckCircle2, XCircle, User, Mail, Phone, MapPin, Trash2, UserPlus, KeyRound, IdCard, Globe, AlertTriangle, DollarSign, Wallet } from 'lucide-react';
 import CollectorExpensesPanel from './collector-expenses-panel';
 import CollectorLocationsMap from './collector-locations-map';
 import { Card, CardContent } from '@/components/ui/card';
@@ -37,9 +37,14 @@ interface Props { refreshTrigger?: number }
 
 const DOC_TYPES = [
   { value: 'dni', label: 'DNI', digits: 8, icon: IdCard },
-  { value: 'carnet_extranjeria', label: 'Carnet Ext.', digits: 9, icon: Globe },
-  { value: 'pasaporte', label: 'Pasaporte', digits: 9, icon: Globe },
+  { value: 'carnet_extranjeria', label: 'Carnet de Extranjería', digits: 25, icon: Globe },
+  { value: 'pasaporte', label: 'Pasaporte', digits: 25, icon: Globe },
 ] as const;
+const DOC_TYPES_LABELS: Record<string, string> = {
+  dni: 'DNI',
+  carnet_extranjeria: 'Carnet de Extranjería',
+  pasaporte: 'Pasaporte',
+};
 
 const ROLES = [
   { value: 'admin', label: 'Admin', desc: 'Acceso total al sistema', color: 'red', icon: Shield },
@@ -85,25 +90,25 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
   const [search, setSearch] = useState('');
   const [regOpen, setRegOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [fLM, setFLM] = useState('email');
   const [fDT, setFDT] = useState('dni'), [fDN, setFDN] = useState(''), [fN, setFN] = useState(''), [fE, setFE] = useState('');
-  const [fPh, setFPh] = useState(''), [fAd, setFAd] = useState(''), [fDailyGoal, setFDailyGoal] = useState(''), [fR, setFR] = useState('collector'), [fPw, setFPw] = useState('');
+  const [fPh, setFPh] = useState(''), [fAd, setFAd] = useState(''), [fDailyGoal, setFDailyGoal] = useState(''), [fR, setFR] = useState('collector');
   const [phOk, setPhOk] = useState(false);
   const [vDoc, setVDoc] = useState(false), [dOk, setDOk] = useState(false), [dRes, setDRes] = useState<VerifyResult | null>(null);
   const [vPh, setVPh] = useState(false);
   const [sel, setSel] = useState<StaffMember | null>(null), [detOpen, setDetOpen] = useState(false), [expensesOpen, setExpensesOpen] = useState(false), [locationsOpen, setLocationsOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<StaffMember | null>(null);
   const [toggling, setToggling] = useState<string | null>(null), [deleting, setDeleting] = useState<string | null>(null);
   const [allZones, setAllZones] = useState<Zone[]>([]);
   const [selectedZoneIds, setSelectedZoneIds] = useState<string[]>([]);
   const [savingZones, setSavingZones] = useState(false);
 
   const maxDig = DOC_TYPES.find(d => d.value === fDT)?.digits ?? 8;
-  const docOk = fDN.length === maxDig && /^\d+$/.test(fDN);
-  const phOk_ = /^9\d{8}$/.test(fPh), emOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fE), nmOk = fN.trim().length >= 2, pwOk = fPw.length >= 4;
-  const lmNeedsEmail = fLM === 'email';
-  const lmNeedsDoc = fLM === 'dni';
-  const lmNeedsPh = fLM === 'phone';
-  const formOk = nmOk && pwOk && docOk && phOk_ && (lmNeedsEmail ? emOk : true);
+  const isDni = fDT === 'dni';
+  const docOk = isDni
+    ? fDN.length === 8 && /^\d{8}$/.test(fDN)
+    : fDN.length >= 9 && fDN.length <= 25 && /^\d+$/.test(fDN);
+  const phOk_ = /^9\d{8}$/.test(fPh), emOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fE), nmOk = fN.trim().length >= 2;
+  const formOk = nmOk && docOk && phOk_ && emOk;
 
   const fetchS = useCallback(async () => {
     setLoading(true);
@@ -121,7 +126,7 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
   const q = search.toLowerCase().trim();
   const filtered = q ? staff.filter(s => (s.name || '').toLowerCase().includes(q) || (s.documentNumber || '').includes(q) || s.email.toLowerCase().includes(q)) : staff;
 
-  const reset = () => { setFLM('email'); setFDT('dni'); setFDN(''); setFN(''); setFE(''); setFPh(''); setFAd(''); setFDailyGoal(''); setFR('collector'); setFPw(''); setPhOk(false); setDOk(false); setDRes(null); };
+  const reset = () => { setFDT('dni'); setFDN(''); setFN(''); setFE(''); setFPh(''); setFAd(''); setFDailyGoal(''); setFR('collector'); setPhOk(false); setDOk(false); setDRes(null); setEditingMember(null); };
 
   const onVerifyDoc = async () => {
     if (!docOk) return; setVDoc(true);
@@ -134,16 +139,41 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
 
   const onVerifyPh = async () => { if (!phOk_) return; setVPh(true); await new Promise(r => setTimeout(r, 600)); setPhOk(true); toast({ title: 'Teléfono verificado', description: `${fPh} es válido` }); setVPh(false); };
 
+  const generatePassword = (name: string): string => {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length < 2) return name.toUpperCase().slice(0, 3) + '@';
+    const firstLetter = parts[0][0] || '';
+    const firstSurname = parts[1] || '';
+    const secondLetter = parts.length > 2 ? (parts[2][0] || '') : '';
+    return (firstLetter + firstSurname + secondLetter + '@').toUpperCase();
+  };
+
   const onRegister = async () => {
     if (!formOk) { toast({ title: 'Error', description: 'Complete todos los campos', variant: 'destructive' }); return; }
     setSubmitting(true);
     try {
-      const body: Record<string, unknown> = { name: fN.trim(), password: fPw, documentType: fDT, documentNumber: fDN, phone: fPh, address: fAd || undefined, role: fR, dailyGoal: parseFloat(fDailyGoal) || 0, loginMethod: fLM };
-      if (fLM === 'email') body.email = fE.trim();
+      const password = generatePassword(fN);
+      const body: Record<string, unknown> = { name: fN.trim(), password, documentType: fDT, documentNumber: fDN, phone: fPh, address: fAd || undefined, role: fR, dailyGoal: parseFloat(fDailyGoal) || 0, email: fE.trim() };
       const r = await fetch('/api/collectors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const d = await r.json();
       if (!r.ok) { toast({ title: 'Error', description: d.error || 'No se pudo registrar', variant: 'destructive' }); return; }
-      toast({ title: 'Personal registrado', description: `${fN.trim()} como ${RS[fR]?.l || fR}` }); setRegOpen(false); reset(); fetchS();
+      toast({ title: 'Creado correctamente', description: `${fN.trim()} — ${RS[fR]?.l || fR} • Email: ${fE.trim()} • Contraseña: ${password}`, variant: 'default' }); setRegOpen(false); reset(); fetchS();
+    } catch { toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' }); } finally { setSubmitting(false); }
+  };
+
+  const onEdit = async () => {
+    if (!editingMember) return;
+    if (!nmOk) { toast({ title: 'Error', description: 'Complete los campos obligatorios', variant: 'destructive' }); return; }
+    setSubmitting(true);
+    try {
+      const r = await fetch('/api/collectors', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingMember.id, name: fN.trim(), email: fE.trim(), documentNumber: fDN || null, phone: fPh || null, address: fAd || null, role: fR, dailyGoal: parseFloat(fDailyGoal) || 0 }),
+      });
+      const d = await r.json();
+      if (!r.ok) { toast({ title: 'Error', description: d.error || 'No se pudo actualizar', variant: 'destructive' }); return; }
+      toast({ title: 'Actualizado correctamente', description: `${fN.trim()} actualizado` }); setRegOpen(false); reset(); fetchS();
     } catch { toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' }); } finally { setSubmitting(false); }
   };
 
@@ -158,11 +188,12 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
   };
 
   const onDel = async (m: StaffMember) => {
+    if (!confirm(`¿Desea eliminar a ${m.name || 'Sin nombre'}?`)) return;
     setDeleting(m.id);
     try {
       const r = await fetch(`/api/collectors?id=${m.id}`, { method: 'DELETE' }); const d = await r.json();
       if (!r.ok) { toast({ title: 'Error', description: d.error || 'No se pudo eliminar', variant: 'destructive' }); return; }
-      toast({ title: 'Eliminado', description: `${m.name || 'Sin nombre'} eliminado` }); setDetOpen(false); setSel(null); fetchS();
+      toast({ title: 'Eliminado correctamente', description: `${m.name || 'Sin nombre'} eliminado` }); setDetOpen(false); setSel(null); fetchS();
     } catch { toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' }); } finally { setDeleting(null); }
   };
 
@@ -190,6 +221,21 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
   };
 
   const openDet = (m: StaffMember) => { setSel(m); setDetOpen(true); setSelectedZoneIds(m.zoneIds || []); };
+  const openEdit = (m: StaffMember) => {
+    setEditingMember(m);
+    setFDT(m.documentType);
+    setFDN(m.documentNumber || '');
+    setFN(m.name || '');
+    setFE(m.email);
+    setFPh(m.phone || '');
+    setFAd(m.address || '');
+    setFDailyGoal(m.dailyGoal != null ? String(m.dailyGoal) : '');
+    setFR(m.role);
+    setPhOk(true);
+    setDOk(false);
+    setDRes(null);
+    setRegOpen(true);
+  };
   const actBadge = (a: boolean) => a ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200' : 'bg-background/70 dark:bg-[#05060b]/70 text-muted-foreground dark:text-muted-foreground border-input';
   const actLabel = (a: boolean) => a ? 'Activo' : 'Inactivo';
 
@@ -217,30 +263,36 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
             <Card key={m.id} className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => openDet(m)}>
               <CardContent className="p-3"><div className="flex items-center gap-3">
                 <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${m.isActive ? 'bg-emerald-100 dark:bg-emerald-900/50' : 'bg-background/70 dark:bg-[#05060b]/70'}`}><Ic className={`h-4 w-4 ${m.isActive ? 'text-emerald-600 dark:text-emerald-300' : 'text-muted-foreground'}`} /></div>
-                <div className="flex-1 min-w-0"><div className="flex items-center gap-2 flex-wrap"><span className="font-semibold text-foreground dark:text-foreground text-sm truncate">{m.name || 'Sin nombre'}</span><Badge variant="outline" className={`text-xs ${rs.c}`}>{rs.l}</Badge><Badge variant="outline" className={`text-xs ${ds.c}`}>{ds.l}: {m.documentNumber || '—'}</Badge><Badge variant="outline" className={`text-xs ${actBadge(m.isActive)}`}>{actLabel(m.isActive)}</Badge></div><div className="flex items-center gap-3 text-xs text-muted-foreground dark:text-muted-foreground mt-0.5"><span className="truncate">{m.email}</span>{m.phone && <span>{m.phone}</span>}{m.role === 'collector' && <span>Préstamos: {m._count.loans}</span>}</div>{allZones.filter(z => (m.zoneIds || []).includes(z.id)).length > 0 && <div className="flex flex-wrap gap-1 mt-1.5">{allZones.filter(z => (m.zoneIds || []).includes(z.id)).map(z => <Badge key={z.id} variant="outline" className="text-[10px] bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">{z.name}</Badge>)}</div>}</div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-emerald-600 dark:text-emerald-300 shrink-0" onClick={e => { e.stopPropagation(); openDet(m); }}><Eye className="h-4 w-4" /></Button>
+                <div className="flex-1 min-w-0"><div className="flex items-center gap-2 flex-wrap"><span className="font-semibold text-foreground dark:text-foreground text-sm truncate">{m.name || 'Sin nombre'}</span><Badge variant="outline" className={`text-xs ${rs.c}`}>{rs.l}</Badge><Badge variant="outline" className={`text-xs ${ds.c}`}>{ds.l}: {m.documentNumber || '—'}</Badge><Badge variant="outline" className={`text-xs ${actBadge(m.isActive)}`}>{actLabel(m.isActive)}</Badge></div><div className="flex items-center gap-3 text-xs text-muted-foreground dark:text-muted-foreground mt-0.5"><span className="truncate">{m.email}</span>{m.phone && <span>{m.phone}</span>}{m.role === 'collector' && <span>Préstamos: {m._count?.loans ?? 0}</span>}</div>{allZones.filter(z => (m.zoneIds || []).includes(z.id)).length > 0 && <div className="flex flex-wrap gap-1 mt-1.5">{allZones.filter(z => (m.zoneIds || []).includes(z.id)).map(z => <Badge key={z.id} variant="outline" className="text-[10px] bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">{z.name}</Badge>)}</div>}</div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-blue-500" onClick={e => { e.stopPropagation(); openDet(m); }} title="Ver"><Eye className="h-4 w-4" /></Button>
+                  {isAdmin && <><Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-amber-500" onClick={e => { e.stopPropagation(); openEdit(m); }} title="Editar"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500" onClick={e => { e.stopPropagation(); onDel(m); }} title="Eliminar"><Trash2 className="h-4 w-4" /></Button></>}
+                </div>
               </div></CardContent>
             </Card>); })}
         </div>
       )}
 
-      <Dialog open={regOpen} onOpenChange={setRegOpen}>
+      <Dialog open={regOpen} onOpenChange={o => { setRegOpen(o); if (!o) reset(); }}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] sm:max-h-[92vh] overflow-hidden flex flex-col p-0 gap-0">
           <DialogHeader className="px-6 pt-6 pb-3 border-b border-input/50">
-            <DialogTitle className="flex items-center gap-2 text-lg"><div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-sm"><UserPlus className="h-5 w-5 text-white" /></div> Registro Personal</DialogTitle>
-            <DialogDescription className="text-muted-foreground dark:text-muted-foreground">Registre un nuevo miembro. Los campos con * son obligatorios.</DialogDescription>
+            <DialogTitle className="flex items-center gap-2 text-lg"><div className={`w-9 h-9 rounded-lg bg-gradient-to-br flex items-center justify-center shadow-sm ${editingMember ? 'from-amber-500 to-orange-500' : 'from-emerald-500 to-teal-500'}`}>{editingMember ? <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg> : <UserPlus className="h-5 w-5 text-white" />}</div> {editingMember ? 'Editar Personal' : 'Registro Personal'}</DialogTitle>
+            <DialogDescription className="text-muted-foreground dark:text-muted-foreground">{editingMember ? 'Modifique los datos del personal.' : 'Registre un nuevo miembro. Los campos con * son obligatorios.'}</DialogDescription>
           </DialogHeader>
           <ScrollArea className="flex-1 min-h-0 overflow-y-auto">
             <div className="px-6 py-5 space-y-5">
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 flex items-center gap-2"><IdCard className="h-4 w-4 text-emerald-600 dark:text-emerald-300" /> Tipo de Documento *</Label>
-                <div className="grid grid-cols-3 gap-3">{DOC_TYPES.map(dt => { const s = fDT === dt.value; return <button key={dt.value} type="button" className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all cursor-pointer group ${s ? 'border-emerald-400 bg-emerald-50/80 dark:bg-emerald-950/30 ring-2 ring-emerald-200 shadow-sm' : 'border-input bg-white dark:bg-[#05060b]/80 hover:border-emerald-200 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/30'}`} onClick={() => { setFDT(dt.value); setFDN(''); setDOk(false); setDRes(null); }}>{s && <div className="absolute -top-1.5 -right-1.5"><CheckCircle2 className="h-5 w-5 text-emerald-500 fill-emerald-500 stroke-white" /></div>}<div className={`w-9 h-9 rounded-full flex items-center justify-center ${s ? 'bg-emerald-100 dark:bg-emerald-900/50' : 'bg-background/70 dark:bg-[#05060b]/70 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950/30'}`}><dt.icon className={`h-4 w-4 ${s ? 'text-emerald-600 dark:text-emerald-300' : 'text-muted-foreground group-hover:text-emerald-500'}`} /></div><div className="text-center"><p className={`font-semibold text-sm ${s ? 'text-emerald-700 dark:text-emerald-300' : 'text-foreground/80 dark:text-foreground/80'}`}>{dt.label}</p><p className="text-xs text-muted-foreground">{dt.digits} dígitos</p></div></button>; })}</div>
+                <select value={fDT} onChange={e => { setFDT(e.target.value); setFDN(''); setDOk(false); setDRes(null); }} className="w-full px-3 py-2.5 rounded-xl border border-input bg-white dark:bg-[#05060b]/80 text-foreground dark:text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm">
+                  {DOC_TYPES.map(dt => <option key={dt.value} value={dt.value}>{dt.label}</option>)}
+                </select>
               </div>
 
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 flex items-center gap-2"><IdCard className="h-4 w-4 text-muted-foreground" /> Número de Documento *</Label>
                 <div className="flex items-center gap-2">
-                  <div className="relative flex-1"><Input placeholder={fDT === 'dni' ? 'Ej: 12345678' : 'Ej: 123456789'} value={fDN} onChange={e => { setFDN(e.target.value.replace(/\D/g, '').slice(0, maxDig)); setDOk(false); setDRes(null); }} maxLength={maxDig} className={`pr-16 bg-white dark:bg-[#05060b]/80 font-mono tracking-wider ${vb(fDN, docOk)}`} /><div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">{fDN.length > 0 && (docOk ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <XCircle className="h-3.5 w-3.5 text-red-400" />)}<span className={`text-xs font-medium tabular-nums ${fDN.length === maxDig ? 'text-emerald-600 dark:text-emerald-300' : 'text-muted-foreground'}`}>{fDN.length}/{maxDig}</span></div></div>
+                  <div className="relative flex-1"><Input placeholder={fDT === 'dni' ? 'Ej: 12345678' : 'Ej: 123456789 (mín 9, máx 25)'} value={fDN} onChange={e => { setFDN(e.target.value.replace(/\D/g, '').slice(0, maxDig)); setDOk(false); setDRes(null); }} maxLength={maxDig} className={`pr-16 bg-white dark:bg-[#05060b]/80 font-mono tracking-wider ${vb(fDN, docOk)}`} /><div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">{fDN.length > 0 && (docOk ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <XCircle className="h-3.5 w-3.5 text-red-400" />)}<span className={`text-xs font-medium tabular-nums ${docOk ? 'text-emerald-600 dark:text-emerald-300' : 'text-muted-foreground'}`}>{fDN.length}/{maxDig}</span></div></div>
                   <Button type="button" variant="outline" className={`shrink-0 h-10 ${dOk && !dRes?.found ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50' : 'border-input'}`} disabled={!docOk || vDoc} onClick={onVerifyDoc}>{vDoc ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : dOk && !dRes?.found ? <CheckCircle2 className="h-4 w-4 mr-1.5" /> : null} Verificar</Button>
                 </div>
                 {dOk && dRes && (
@@ -251,29 +303,11 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
                 )}
               </div>
 
-              <Separator />
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 flex items-center gap-2"><KeyRound className="h-4 w-4 text-emerald-500" /> Método de Inicio de Sesión *</Label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {[
-                    { value: 'email', label: 'Email', Icon: Mail, desc: 'correo + contraseña' },
-                    { value: 'dni', label: 'DNI', Icon: IdCard, desc: 'documento + contraseña' },
-                    { value: 'phone', label: 'Celular', Icon: Smartphone, desc: 'teléfono + contraseña' },
-                    { value: 'fingerprint', label: 'Huella', Icon: Fingerprint, desc: 'biométrico (mobile)' },
-                  ].map(o => { const s = fLM === o.value; return (
-                    <button key={o.value} type="button" onClick={() => { setFLM(o.value); }} className={`relative flex flex-col items-center gap-1.5 p-2.5 rounded-xl border-2 transition-all cursor-pointer text-center group ${s ? 'border-emerald-400 bg-emerald-50/80 dark:bg-emerald-950/30 ring-2 ring-emerald-200 shadow-sm' : 'border-input bg-white dark:bg-[#05060b]/80 hover:border-emerald-200 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/30'}`}>
-                      {s && <div className="absolute -top-1.5 -right-1.5"><CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500 stroke-white" /></div>}
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${s ? 'bg-emerald-100 dark:bg-emerald-900/50' : 'bg-background/70 dark:bg-[#05060b]/70'}`}><o.Icon className={`h-4 w-4 ${s ? 'text-emerald-600 dark:text-emerald-300' : 'text-muted-foreground'}`} /></div>
-                      <div><p className={`font-semibold text-xs ${s ? 'text-emerald-700 dark:text-emerald-300' : 'text-foreground/80 dark:text-foreground/80'}`}>{o.label}</p><p className="text-[10px] text-muted-foreground leading-tight">{o.desc}</p></div>
-                    </button>
-                  );})}
-                </div>
-              </div>
               <div className="space-y-2"><Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 flex items-center gap-2"><User className="h-4 w-4 text-muted-foreground" /> Nombre Completo *</Label><VInput value={fN} valid={nmOk} placeholder="Ej: Juan Pérez García" onChange={e => setFN(e.target.value)} /></div>
-              {fLM === 'email' && <div className="space-y-2"><Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 flex items-center gap-2"><Mail className="h-4 w-4 text-muted-foreground" /> Email *</Label><VInput value={fE} valid={emOk} type="email" placeholder="correo@ejemplo.com" onChange={e => setFE(e.target.value)} /></div>}
+              <div className="space-y-2"><Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 flex items-center gap-2"><Mail className="h-4 w-4 text-muted-foreground" /> Correo *</Label><VInput value={fE} valid={emOk} type="email" placeholder="correo@ejemplo.com" onChange={e => setFE(e.target.value)} /></div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" /> Teléfono {fLM === 'phone' ? '*' : ''}</Label>
+                <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" /> Teléfono</Label>
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1"><Input placeholder="Ej: 999888777" value={fPh} onChange={e => { setFPh(e.target.value.replace(/\D/g, '').slice(0, 9)); setPhOk(false); }} className={`pr-14 bg-white dark:bg-[#05060b]/80 font-mono tracking-wider ${vb(fPh, phOk_)}`} /><div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">{fPh.length > 0 && (phOk_ ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <XCircle className="h-3.5 w-3.5 text-red-400" />)}<span className={`text-xs font-medium tabular-nums ${fPh.length === 9 ? 'text-emerald-600 dark:text-emerald-300' : 'text-muted-foreground'}`}>{fPh.length}/9</span></div></div>
                   <Button type="button" variant="outline" className={`shrink-0 h-10 ${phOk && phOk_ ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50' : 'border-input'}`} disabled={!phOk_ || vPh} onClick={onVerifyPh}>{vPh ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : phOk && phOk_ ? <CheckCircle2 className="h-4 w-4 mr-1.5" /> : null} Verificar</Button>
@@ -291,12 +325,14 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
                 <div className="grid grid-cols-3 gap-3">{ROLES.map(o => { const s = fR === o.value; const c = RC[o.color]; return <button key={o.value} type="button" className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all cursor-pointer text-center group ${s ? c.s : c.u}`} onClick={() => setFR(o.value)}>{s && <div className="absolute -top-1.5 -right-1.5"><CheckCircle2 className={`h-5 w-5 ${c.ck} fill-current stroke-white`} /></div>}<div className={`w-9 h-9 rounded-full flex items-center justify-center ${s ? c.ib : 'bg-background/70 dark:bg-[#05060b]/70'}`}><o.icon className={`h-4 w-4 ${s ? c.ic : 'text-muted-foreground'}`} /></div><div><p className={`font-semibold text-sm ${s ? c.lb : 'text-foreground/80 dark:text-foreground/80'}`}>{o.label}</p><p className="text-xs text-muted-foreground dark:text-muted-foreground mt-0.5 leading-tight">{o.desc}</p></div></button>; })}</div>
               </div>
 
-              <Separator />
-              <div className="space-y-2"><Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 flex items-center gap-2"><KeyRound className="h-4 w-4 text-muted-foreground" /> Contraseña *</Label><VInput value={fPw} valid={pwOk} type="password" placeholder="Mínimo 4 caracteres" onChange={e => setFPw(e.target.value)} /></div>
+              {!editingMember && <div className="rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30 p-3">
+                <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium flex items-center gap-1.5"><KeyRound className="h-3.5 w-3.5" /> Contraseña auto-generada</p>
+                <p className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 mt-0.5">Se genera automáticamente al registrar. Se mostrará en la confirmación.</p>
+              </div>}
 
               <div className="pt-3 flex items-center gap-3">
-                <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all h-11 text-sm font-semibold" onClick={onRegister} disabled={!formOk || submitting}>{submitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Registrando...</> : <><UserPlus className="h-4 w-4 mr-2" /> Registrar Personal</>}</Button>
-                <Button variant="outline" className="border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950 h-11" onClick={() => setRegOpen(false)} disabled={submitting}>Cancelar</Button>
+                <Button className={`flex-1 text-white border-0 shadow-lg transition-all h-11 text-sm font-semibold ${editingMember ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/25 hover:shadow-amber-600/40' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25 hover:shadow-emerald-600/40'}`} onClick={editingMember ? onEdit : onRegister} disabled={submitting || (!editingMember && !formOk)}>{submitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {editingMember ? 'Actualizando...' : 'Registrando...'}</> : <>{editingMember ? <><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg> Actualizar Personal</> : <><UserPlus className="h-4 w-4 mr-2" /> Registrar Personal</>}</>}</Button>
+                <Button variant="outline" className="border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950 h-11" onClick={() => { setRegOpen(false); reset(); }} disabled={submitting}>Cancelar</Button>
               </div>
             </div>
           </ScrollArea>
@@ -340,7 +376,7 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
                   {isAdmin && <Button size="sm" className="mt-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm" onClick={handleSaveZones} disabled={savingZones}>{savingZones ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Guardando...</> : 'Guardar Zona'}</Button>}
                 </div>
                 <Separator />
-                {sel.role === 'collector' && (<><div className="space-y-2"><h4 className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">Estadísticas</h4><div className="grid grid-cols-2 gap-3"><div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-100"><p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{sel._count.loans}</p><p className="text-xs text-emerald-600 dark:text-emerald-300">Préstamos</p></div><div className="p-3 rounded-xl bg-teal-50 dark:bg-teal-950/50 border border-teal-100"><p className="text-2xl font-bold text-teal-700 dark:text-teal-300">{sel._count.payments}</p><p className="text-xs text-teal-600 dark:text-teal-300">Pagos</p></div></div></div><Separator /></>)}
+                {sel.role === 'collector' && (<><div className="space-y-2"><h4 className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">Estadísticas</h4><div className="grid grid-cols-2 gap-3"><div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-100"><p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{sel._count?.loans ?? 0}</p><p className="text-xs text-emerald-600 dark:text-emerald-300">Préstamos</p></div><div className="p-3 rounded-xl bg-teal-50 dark:bg-teal-950/50 border border-teal-100"><p className="text-2xl font-bold text-teal-700 dark:text-teal-300">{sel._count?.payments ?? 0}</p><p className="text-xs text-teal-600 dark:text-teal-300">Pagos</p></div></div></div><Separator /></>)}
                 <p className="text-sm text-muted-foreground dark:text-muted-foreground">Registrado el {new Date(sel.createdAt).toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
                 <Separator />
                 <div className="space-y-3"><h4 className="text-sm font-semibold text-foreground/80 dark:text-foreground/80">Acciones</h4><div className="flex gap-2"><Button variant="outline" className="flex-1 border-input" onClick={() => setExpensesOpen(true)}><Wallet className="h-4 w-4 mr-2" /> Gastos</Button><Button variant="outline" className="flex-1 border-input" onClick={() => setLocationsOpen(true)}><MapPin className="h-4 w-4 mr-2" /> Ubicaciones</Button></div>{isAdmin && <div className="flex items-center justify-between p-3 rounded-xl bg-background/50 dark:bg-[#05060b]/70 border border-input/50 dark:border-emerald-500/10"><div><p className="text-sm font-medium text-slate-800 dark:text-foreground">{sel.isActive ? 'Desactivar' : 'Activar'} Personal</p><p className="text-xs text-muted-foreground dark:text-muted-foreground">{sel.isActive ? 'No podrá acceder al sistema' : 'Podrá acceder nuevamente'}</p></div><Switch checked={sel.isActive} onCheckedChange={() => onToggle(sel)} disabled={toggling === sel.id} className="data-[state=checked]:bg-emerald-500" /></div>}

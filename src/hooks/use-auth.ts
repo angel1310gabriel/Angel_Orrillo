@@ -52,9 +52,13 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
 
 const STORAGE_KEY = 'kc-cobranzas-auth-v3';
 
-async function fetchProfile(uid: string): Promise<AuthUser | null> {
+let _loggingIn = false;
+
+async function fetchProfile(uid: string, email?: string): Promise<AuthUser | null> {
   try {
-    const res = await fetch(`/api/profile?uid=${encodeURIComponent(uid)}`);
+    const params = new URLSearchParams({ uid });
+    if (email) params.set('email', email);
+    const res = await fetch(`/api/profile?${params.toString()}`);
     if (!res.ok) return null;
     const data = await res.json();
     return {
@@ -65,6 +69,7 @@ async function fetchProfile(uid: string): Promise<AuthUser | null> {
       phone: data.phone || null,
       documentNumber: data.documentNumber || null,
       isActive: data.isActive ?? true,
+      photoUrl: data.photoUrl || null,
     };
   } catch {
     return null;
@@ -77,11 +82,15 @@ export const useAuth = create<AuthState>()(
       if (typeof window !== 'undefined') {
         onAuthStateChanged(auth, async (fbUser) => {
           const state = get();
-          if (fbUser && !state._initialized) {
-            const profile = await fetchProfile(fbUser.uid);
+          if (fbUser) {
+            if (_loggingIn) { _loggingIn = false; return; }
+            if (fbUser.email) {
+              fetch('/api/profile/sync-uid', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: fbUser.email, firebaseUid: fbUser.uid }) }).catch(() => {});
+            }
+            const profile = await fetchProfile(fbUser.uid, fbUser.email || undefined);
             if (profile) {
               set({ user: profile, isAuthenticated: true, isLoading: false, _initialized: true });
-            } else {
+            } else if (!state._initialized) {
               const basicUser: AuthUser = {
                 id: fbUser.uid,
                 email: fbUser.email || '',
@@ -90,10 +99,13 @@ export const useAuth = create<AuthState>()(
                 phone: null,
                 documentNumber: null,
                 isActive: true,
+                photoUrl: null,
               };
               set({ user: basicUser, isAuthenticated: true, isLoading: false, _initialized: true });
+            } else {
+              set({ isLoading: false });
             }
-          } else if (!fbUser && !state._initialized) {
+          } else if (!state._initialized) {
             set({ user: null, isAuthenticated: false, isLoading: false, _initialized: true });
           }
         });
@@ -109,6 +121,7 @@ export const useAuth = create<AuthState>()(
 
         login: async (username: string, password: string) => {
           set({ isLoading: true, error: null });
+          _loggingIn = true;
           try {
             const clean = username.replace(/\D/g, '');
             const email = username.includes('@') ? username.trim().toLowerCase()
@@ -117,7 +130,9 @@ export const useAuth = create<AuthState>()(
               : `${username}@kc-cobranzas.app`;
 
             const cred = await signInWithEmailAndPassword(auth, email, password);
-            const profile = await fetchProfile(cred.user.uid);
+            const firebaseEmail = cred.user.email || email;
+            fetch('/api/profile/sync-uid', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: firebaseEmail, firebaseUid: cred.user.uid }) }).catch(() => {});
+            const profile = await fetchProfile(cred.user.uid, firebaseEmail);
             if (profile) {
               set({ user: profile, isAuthenticated: true, isLoading: false, error: null, lastActivity: Date.now() });
               return true;
@@ -130,6 +145,7 @@ export const useAuth = create<AuthState>()(
               phone: null,
               documentNumber: null,
               isActive: true,
+              photoUrl: null,
             };
             set({ user: basicUser, isAuthenticated: true, isLoading: false, error: null, lastActivity: Date.now() });
             return true;
@@ -138,7 +154,7 @@ export const useAuth = create<AuthState>()(
               ? 'Usuario o contraseña incorrectos'
               : err?.code === 'auth/too-many-requests'
               ? 'Demasiados intentos. Espera un momento'
-              : err?.message || 'Error al iniciar sesión';
+              : err?.message || 'Error al ingresar';
             set({ isLoading: false, error: msg });
             return false;
           }
@@ -152,7 +168,10 @@ export const useAuth = create<AuthState>()(
         checkSession: async () => {
           const fbUser = auth.currentUser;
           if (fbUser) {
-            const profile = await fetchProfile(fbUser.uid);
+            if (fbUser.email) {
+              fetch('/api/profile/sync-uid', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: fbUser.email, firebaseUid: fbUser.uid }) }).catch(() => {});
+            }
+            const profile = await fetchProfile(fbUser.uid, fbUser.email || undefined);
             if (profile) set({ user: profile, isAuthenticated: true, isLoading: false });
             else set({ isLoading: false });
           } else {
@@ -163,7 +182,10 @@ export const useAuth = create<AuthState>()(
         refreshRole: async () => {
           const fbUser = auth.currentUser;
           if (fbUser) {
-            const profile = await fetchProfile(fbUser.uid);
+            if (fbUser.email) {
+              fetch('/api/profile/sync-uid', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: fbUser.email, firebaseUid: fbUser.uid }) }).catch(() => {});
+            }
+            const profile = await fetchProfile(fbUser.uid, fbUser.email || undefined);
             if (profile) set({ user: profile, isAuthenticated: true });
           }
         },

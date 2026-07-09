@@ -488,7 +488,7 @@ async function getTrendsHandler() {
     const weekStart = new Date(today.getTime() - (i * 7 + 6) * 86400000);
     const weekEnd = new Date(today.getTime() - i * 7 * 86400000);
 
-    const moraChanges = await db.auditLog.count({
+    const moraChanges = await db.audit_logs.count({
       where: {
         action: 'UPDATE',
         entityType: 'loan',
@@ -497,7 +497,7 @@ async function getTrendsHandler() {
       },
     });
 
-    const loanCreations = await db.auditLog.count({
+    const loanCreations = await db.audit_logs.count({
       where: {
         action: 'CREATE',
         entityType: 'loan',
