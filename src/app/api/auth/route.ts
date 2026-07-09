@@ -316,7 +316,7 @@ async function handleLogin(body: { username: string; password: string }) {
       const prisma = new PrismaClient();
       const dbProfile = await prisma.profiles.findUnique({
         where: { id: authData.user.id },
-        select: { id: true, email: true, name: true, role: true, phone: true, dni: true, isActive: true },
+        select: { id: true, email: true, name: true, role: true, phone: true, documentNumber: true, isActive: true },
       });
       await prisma.$disconnect();
       if (dbProfile) {
@@ -326,7 +326,7 @@ async function handleLogin(body: { username: string; password: string }) {
           name: dbProfile.name,
           role: dbProfile.role,
           phone: dbProfile.phone,
-          dni: dbProfile.dni,
+          dni: dbProfile.documentNumber,
           isActive: dbProfile.isActive,
         };
         profileError = null;

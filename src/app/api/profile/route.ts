@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     let profile = await db.profiles.findFirst({
       where: { firebase_uid: uid },
       select: {
-        id: true, name: true, email: true, role: true, phone: true, dni: true,
+        id: true, name: true, email: true, role: true, phone: true, documentNumber: true,
         isActive: true, createdAt: true, documentType: true, address: true,
         photoUrl: true, dailyGoal: true,
       },
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       profile = await db.profiles.findUnique({
         where: { id: uid },
         select: {
-          id: true, name: true, email: true, role: true, phone: true, dni: true,
+          id: true, name: true, email: true, role: true, phone: true, documentNumber: true,
           isActive: true, createdAt: true, documentType: true, address: true,
           photoUrl: true, dailyGoal: true,
         },
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       profile = await db.profiles.findFirst({
         where: { email: { equals: email, mode: 'insensitive' } },
         select: {
-          id: true, name: true, email: true, role: true, phone: true, dni: true,
+          id: true, name: true, email: true, role: true, phone: true, documentNumber: true,
           isActive: true, createdAt: true, documentType: true, address: true,
           photoUrl: true, dailyGoal: true,
         },
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       email: profile.email || '',
       role: profile.role,
       phone: profile.phone || null,
-      documentNumber: profile.dni || null,
+      documentNumber: profile.documentNumber || null,
       documentType: profile.documentType || 'dni',
       isActive: profile.isActive ?? true,
       address: profile.address || null,

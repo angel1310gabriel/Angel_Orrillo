@@ -33,7 +33,7 @@ export async function GET() {
     const profiles = await db.profiles.findMany({
       where: { role: { in: ['collector', 'supervisor', 'admin'] } },
       select: {
-        id: true, email: true, name: true, role: true, phone: true, dni: true,
+        id: true, email: true, name: true, role: true, phone: true, documentNumber: true,
         isActive: true, createdAt: true, documentType: true, address: true,
         dailyGoal: true, photoUrl: true,
       },
@@ -57,7 +57,7 @@ export async function GET() {
       role: p.role,
       isActive: p.isActive ?? true,
       documentType: p.documentType || 'dni',
-      documentNumber: p.dni || null,
+      documentNumber: p.documentNumber || null,
       photoUrl: p.photoUrl || null,
       createdAt: p.createdAt?.toISOString() || new Date().toISOString(),
       zoneIds: zoneMap[p.id] || [],
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
     // Create profile in PostgreSQL with Firebase UID as id
     try {
       const existing = await db.profiles.findFirst({
-        where: { OR: [{ email: fbEmail }, ...(documentNumber ? [{ dni: documentNumber }] : [])] },
+        where: { OR: [{ email: fbEmail }, ...(documentNumber ? [{ documentNumber }] : [])] },
       });
       if (existing) {
         return NextResponse.json({ error: 'Ya existe un usuario con ese email o documento' }, { status: 409 });
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
           name: name.trim(),
           email: fbEmail,
           documentType: docType,
-          dni: documentNumber || null,
+          documentNumber: documentNumber || null,
           phone: phone || null,
           address: address || null,
           role,
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
         },
         select: {
           id: true, name: true, email: true, phone: true, address: true, role: true,
-          isActive: true, documentType: true, dni: true, createdAt: true, dailyGoal: true,
+          isActive: true, documentType: true, documentNumber: true, createdAt: true, dailyGoal: true,
         },
       });
 
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
           entityId: profile.id,
           entityName: profile.name,
           severity: 'info',
-           notes: `Personal registrado: ${profile.name} (${getDocumentTypeLabel(profile.documentType || 'dni')}: ${profile.dni || '—'}, Rol: ${profile.role}, Firebase: ${fbEmail})`,
+           notes: `Personal registrado: ${profile.name} (${getDocumentTypeLabel(profile.documentType || 'dni')}: ${profile.documentNumber || '—'}, Rol: ${profile.role}, Firebase: ${fbEmail})`,
         },
       }).catch(() => {});
 
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
         role: profile.role,
         isActive: profile.isActive,
         documentType: profile.documentType || 'dni',
-        documentNumber: profile.dni,
+        documentNumber: profile.documentNumber,
         createdAt: profile.createdAt?.toISOString(),
         dailyGoal: profile.dailyGoal,
       }, { status: 201 });
@@ -196,13 +196,13 @@ export async function PUT(request: NextRequest) {
           address: address != null ? address : existing.address,
           role: role != null ? role : existing.role,
           isActive: isActive != null ? isActive : existing.isActive,
-          dni: documentNumber != null ? documentNumber : existing.dni,
+          documentNumber: documentNumber != null ? documentNumber : existing.documentNumber,
           photoUrl: body.photoUrl != null ? body.photoUrl : existing.photoUrl,
           dailyGoal: body.dailyGoal != null ? parseFloat(body.dailyGoal) : existing.dailyGoal,
         },
         select: {
           id: true, name: true, email: true, phone: true, address: true, role: true,
-          isActive: true, documentType: true, dni: true, createdAt: true, dailyGoal: true,
+          isActive: true, documentType: true, documentNumber: true, createdAt: true, dailyGoal: true,
           photoUrl: true,
         },
       });
@@ -237,7 +237,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({
         id: profile.id, name: profile.name, email: profile.email, phone: profile.phone,
         address: profile.address, role: profile.role, isActive: profile.isActive,
-        documentType: profile.documentType || 'dni', documentNumber: profile.dni,
+        documentType: profile.documentType || 'dni', documentNumber: profile.documentNumber,
         createdAt: profile.createdAt?.toISOString(), dailyGoal: profile.dailyGoal,
         photoUrl: profile.photoUrl,
       });
