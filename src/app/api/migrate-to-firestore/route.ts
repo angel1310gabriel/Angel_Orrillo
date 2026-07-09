@@ -116,11 +116,11 @@ async function migrateCollection(name: string) {
 
 const COLLECTIONS = [
   'profiles', 'clients', 'loans', 'payments', 'guarantors',
-  'zones', 'collector_zones', 'audit_logs', 'daily_settlements',
-  'capital_movements', 'late_fees', 'notifications', 'chat_messages',
-  'payment_links', 'payment_schedule', 'collector_expenses',
-  'caja_movements', 'charge_off_history', 'client_notes',
-  'collector_locations', 'collector_current_location', 'settings',
+  'zone', 'collectorZone', 'auditLog', 'dailySettlement',
+  'capitalMovement', 'lateFee', 'notification', 'chatMessage',
+  'paymentLink', 'paymentSchedule', 'collectorExpense',
+  'cajaMovement', 'chargeOffHistory', 'clientNote',
+  'collectorLocation', 'collectorCurrentLocation', 'setting',
 ];
 
 export async function GET() {

@@ -13,10 +13,15 @@ model AuditLog {
   action      String
   entityType  String    @map("entity_type")
   entityId    String?   @map("entity_id") @db.Uuid
+  entityName  String?   @map("entity_name")
+  changes     Json?     @map("changes")
+  severity    String?   @default("info")
+  notes       String?
   oldData     Json?     @map("old_data")
   newData     Json?     @map("new_data")
   userId      String?   @map("user_id") @db.Uuid
   createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  user        profiles? @relation(fields: [userId], references: [id])
 
   @@index([entityType, entityId], map: "idx_audit_entity")
   @@schema("public")
@@ -384,7 +389,8 @@ model profiles {
   zoneId          String?   @map("zone_id") @db.Uuid
   documentType    String?   @map("document_type")
   address         String?
-  zone            Zone?     @relation(fields: [zoneId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  zone            Zone?       @relation(fields: [zoneId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  auditLogs       AuditLog[]
 
   @@index([dni], map: "idx_profiles_dni")
   @@index([phone], map: "idx_profiles_phone")

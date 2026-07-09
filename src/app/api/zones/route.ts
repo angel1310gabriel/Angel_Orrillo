@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const collectorId = searchParams.get('collectorId');
 
     const where = collectorId ? {
-      collector_zones: { some: { collector_id: collectorId } },
+      collectorZones: { some: { collectorId: collectorId } },
     } : {};
 
     const zones = await db.zone.findMany({
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     const zonesWithStats = await Promise.all(zones.map(async (zone) => {
       const loans = await db.loan.findMany({
-        where: { zone_id: zone.id },
+        where: { zoneId: zone.id },
         select: { id: true, status: true, amount: true },
       });
       const activeLoans = loans.filter((l) => l.status === 'active' || l.status === 'mora');

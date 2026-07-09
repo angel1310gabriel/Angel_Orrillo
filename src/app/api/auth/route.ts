@@ -316,7 +316,7 @@ async function handleLogin(body: { username: string; password: string }) {
       const prisma = new PrismaClient();
       const dbProfile = await prisma.profiles.findUnique({
         where: { id: authData.user.id },
-        select: { id: true, email: true, name: true, role: true, phone: true, dni: true, is_active: true },
+        select: { id: true, email: true, name: true, role: true, phone: true, dni: true, isActive: true },
       });
       await prisma.$disconnect();
       if (dbProfile) {
@@ -327,7 +327,7 @@ async function handleLogin(body: { username: string; password: string }) {
           role: dbProfile.role,
           phone: dbProfile.phone,
           dni: dbProfile.dni,
-          is_active: dbProfile.is_active,
+          isActive: dbProfile.isActive,
         };
         profileError = null;
         console.log('[Auth] Step 3 fallback 4 - found via Prisma:', { role: dbProfile.role });

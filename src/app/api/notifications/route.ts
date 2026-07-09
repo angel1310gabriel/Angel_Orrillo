@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     if (collectorId) {
       // collectorId could be a Firebase UID → resolve to profile UUID
       const profile = await db.profiles.findFirst({
-        where: { firebase_uid: collectorId },
+        where: { firebaseUid: collectorId },
         select: { id: true },
       });
       if (profile) {
@@ -22,25 +22,25 @@ export async function GET(request: NextRequest) {
     }
 
     const where: Record<string, unknown> = {};
-    if (uuid) where.user_id = uuid;
+    if (uuid) where.userId = uuid;
 
     const notifications = await db.notification.findMany({
       where,
-      orderBy: { created_at: 'desc' },
+      orderBy: { createdAt: 'desc' },
       take: 50,
     });
 
     return NextResponse.json(
       notifications.map((n) => ({
         id: n.id,
-        userId: n.user_id,
+        userId: n.userId,
         title: n.title,
         body: n.body,
         type: n.type,
-        referenceType: n.reference_type,
-        referenceId: n.reference_id,
-        isRead: n.is_read,
-        createdAt: n.created_at?.toISOString(),
+        referenceType: n.referenceType,
+        referenceId: n.referenceId,
+        isRead: n.isRead,
+        createdAt: n.createdAt?.toISOString(),
       }))
     );
   } catch (error) {

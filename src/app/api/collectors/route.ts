@@ -34,18 +34,18 @@ export async function GET() {
       where: { role: { in: ['collector', 'supervisor', 'admin'] } },
       select: {
         id: true, email: true, name: true, role: true, phone: true, dni: true,
-        is_active: true, created_at: true, document_type: true, address: true,
-        daily_goal: true, photo_url: true,
+        isActive: true, createdAt: true, documentType: true, address: true,
+        dailyGoal: true, photoUrl: true,
       },
       orderBy: { name: 'asc' },
     });
-    const zoneIds = await db.collector_zones.findMany({
-      select: { collector_id: true, zone_id: true },
+    const zoneIds = await db.collectorZone.findMany({
+      select: { collectorId: true, zoneId: true },
     });
     const zoneMap: Record<string, string[]> = {};
     for (const z of zoneIds) {
-      if (!zoneMap[z.collector_id]) zoneMap[z.collector_id] = [];
-      if (!zoneMap[z.collector_id].includes(z.zone_id)) zoneMap[z.collector_id].push(z.zone_id);
+      if (!zoneMap[z.collectorId]) zoneMap[z.collectorId] = [];
+      if (!zoneMap[z.collectorId].includes(z.zoneId)) zoneMap[z.collectorId].push(z.zoneId);
     }
 
     const collectors = profiles.map((p) => ({
@@ -55,13 +55,13 @@ export async function GET() {
       phone: p.phone || null,
       address: p.address || null,
       role: p.role,
-      isActive: p.is_active ?? true,
-      documentType: p.document_type || 'dni',
+      isActive: p.isActive ?? true,
+      documentType: p.documentType || 'dni',
       documentNumber: p.dni || null,
-      photoUrl: p.photo_url || null,
-      createdAt: p.created_at?.toISOString() || new Date().toISOString(),
+      photoUrl: p.photoUrl || null,
+      createdAt: p.createdAt?.toISOString() || new Date().toISOString(),
       zoneIds: zoneMap[p.id] || [],
-      dailyGoal: p.daily_goal,
+      dailyGoal: p.dailyGoal,
     }));
 
     return NextResponse.json({ collectors });
@@ -111,20 +111,20 @@ export async function POST(request: NextRequest) {
 
       const profile = await db.profiles.create({
         data: {
-          firebase_uid: firebaseUid,
+          firebaseUid: firebaseUid,
           name: name.trim(),
           email: fbEmail,
-          document_type: docType,
+          documentType: docType,
           dni: documentNumber || null,
           phone: phone || null,
           address: address || null,
           role,
-          is_active: true,
-          daily_goal: parseFloat(body.dailyGoal) || 0,
+          isActive: true,
+          dailyGoal: parseFloat(body.dailyGoal) || 0,
         },
         select: {
           id: true, name: true, email: true, phone: true, address: true, role: true,
-          is_active: true, document_type: true, dni: true, created_at: true, daily_goal: true,
+          isActive: true, documentType: true, dni: true, createdAt: true, dailyGoal: true,
         },
       });
 
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
           entityId: profile.id,
           entityName: profile.name,
           severity: 'info',
-          notes: `Personal registrado: ${profile.name} (${getDocumentTypeLabel(profile.document_type || 'dni')}: ${profile.dni || '—'}, Rol: ${profile.role}, Firebase: ${fbEmail})`,
+           notes: `Personal registrado: ${profile.name} (${getDocumentTypeLabel(profile.documentType || 'dni')}: ${profile.dni || '—'}, Rol: ${profile.role}, Firebase: ${fbEmail})`,
         },
       }).catch(() => {});
 
@@ -147,11 +147,11 @@ export async function POST(request: NextRequest) {
         phone: profile.phone,
         address: profile.address,
         role: profile.role,
-        isActive: profile.is_active,
-        documentType: profile.document_type || 'dni',
+        isActive: profile.isActive,
+        documentType: profile.documentType || 'dni',
         documentNumber: profile.dni,
-        createdAt: profile.created_at?.toISOString(),
-        dailyGoal: profile.daily_goal,
+        createdAt: profile.createdAt?.toISOString(),
+        dailyGoal: profile.dailyGoal,
       }, { status: 201 });
     } catch (dbErr: any) {
       // Rollback Firebase user if DB insert failed
@@ -182,7 +182,7 @@ export async function PUT(request: NextRequest) {
 
     try {
       let existing = await db.profiles.findUnique({ where: { id } }).catch(() => null);
-      if (!existing) existing = await db.profiles.findFirst({ where: { firebase_uid: id } });
+      if (!existing) existing = await db.profiles.findFirst({ where: { firebaseUid: id } });
       if (!existing && body.email) existing = await db.profiles.findFirst({ where: { email: { equals: body.email.trim(), mode: 'insensitive' } } });
       if (!existing) { return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 }); }
       const profileId = existing.id;
@@ -195,20 +195,20 @@ export async function PUT(request: NextRequest) {
           phone: phone != null ? phone : existing.phone,
           address: address != null ? address : existing.address,
           role: role != null ? role : existing.role,
-          is_active: isActive != null ? isActive : existing.is_active,
+          isActive: isActive != null ? isActive : existing.isActive,
           dni: documentNumber != null ? documentNumber : existing.dni,
-          photo_url: body.photoUrl != null ? body.photoUrl : existing.photo_url,
-          daily_goal: body.dailyGoal != null ? parseFloat(body.dailyGoal) : existing.daily_goal,
+          photoUrl: body.photoUrl != null ? body.photoUrl : existing.photoUrl,
+          dailyGoal: body.dailyGoal != null ? parseFloat(body.dailyGoal) : existing.dailyGoal,
         },
         select: {
           id: true, name: true, email: true, phone: true, address: true, role: true,
-          is_active: true, document_type: true, dni: true, created_at: true, daily_goal: true,
-          photo_url: true,
+          isActive: true, documentType: true, dni: true, createdAt: true, dailyGoal: true,
+          photoUrl: true,
         },
       });
 
-      if (existing.firebase_uid && (body.email !== undefined || body.password)) {
-        const fbUpdate: Record<string, any> = { idToken: '', localId: existing.firebase_uid };
+      if (existing.firebaseUid && (body.email !== undefined || body.password)) {
+        const fbUpdate: Record<string, any> = { idToken: '', localId: existing.firebaseUid };
         if (body.email !== undefined) fbUpdate.email = body.email.trim();
         if (body.password) fbUpdate.password = body.password;
         await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:update?key=${FIREBASE_API_KEY}`, {
@@ -219,10 +219,10 @@ export async function PUT(request: NextRequest) {
       }
 
       if (zoneIds !== undefined && Array.isArray(zoneIds)) {
-        await db.collector_zones.deleteMany({ where: { collector_id: profileId } });
+        await db.collectorZone.deleteMany({ where: { collectorId: profileId } });
         if (zoneIds.length > 0) {
-          await db.collector_zones.createMany({
-            data: zoneIds.map((zoneId: string) => ({ collector_id: profileId, zone_id: zoneId })),
+          await db.collectorZone.createMany({
+            data: zoneIds.map((zoneId: string) => ({ collectorId: profileId, zoneId: zoneId })),
           });
         }
       }
@@ -236,10 +236,10 @@ export async function PUT(request: NextRequest) {
 
       return NextResponse.json({
         id: profile.id, name: profile.name, email: profile.email, phone: profile.phone,
-        address: profile.address, role: profile.role, isActive: profile.is_active,
-        documentType: profile.document_type || 'dni', documentNumber: profile.dni,
-        createdAt: profile.created_at?.toISOString(), dailyGoal: profile.daily_goal,
-        photoUrl: profile.photo_url,
+        address: profile.address, role: profile.role, isActive: profile.isActive,
+        documentType: profile.documentType || 'dni', documentNumber: profile.dni,
+        createdAt: profile.createdAt?.toISOString(), dailyGoal: profile.dailyGoal,
+        photoUrl: profile.photoUrl,
       });
     } catch (err: any) {
       return NextResponse.json({ error: err.message || 'Error al actualizar' }, { status: 500 });
@@ -260,18 +260,18 @@ export async function DELETE(request: NextRequest) {
       const profile = await db.profiles.findUnique({ where: { id } });
       if (!profile) { return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 }); }
       const activeLoans = await db.loan.findMany({
-        where: { collector_id: id, status: { in: ['active', 'mora'] } },
+        where: { collectorId: id, status: { in: ['active', 'mora'] } },
         take: 1,
       });
       if (activeLoans.length > 0) {
         return NextResponse.json({ error: 'No se puede eliminar personal con préstamos activos' }, { status: 400 });
       }
 
-      if (profile.firebase_uid) {
+      if (profile.firebaseUid) {
         await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:delete?key=${FIREBASE_API_KEY}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken: '', localId: profile.firebase_uid }),
+          body: JSON.stringify({ idToken: '', localId: profile.firebaseUid }),
         }).catch(() => {});
       }
 

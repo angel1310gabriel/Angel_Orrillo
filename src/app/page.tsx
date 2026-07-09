@@ -53,7 +53,7 @@ import {
   ExternalLink,
   AlertTriangle,
 } from 'lucide-react';
-import { ChevronDown, Plus, Camera, Target, MessageSquare } from 'lucide-react';
+import { ChevronDown, Plus, Camera, Target, MessageCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {

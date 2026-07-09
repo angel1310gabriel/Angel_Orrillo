@@ -12,8 +12,8 @@ export async function GET(request: NextRequest) {
       where: { firebase_uid: uid },
       select: {
         id: true, name: true, email: true, role: true, phone: true, dni: true,
-        is_active: true, created_at: true, document_type: true, address: true,
-        photo_url: true, daily_goal: true,
+        isActive: true, createdAt: true, documentType: true, address: true,
+        photoUrl: true, dailyGoal: true,
       },
     });
     if (!profile) {
@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
         where: { id: uid },
         select: {
           id: true, name: true, email: true, role: true, phone: true, dni: true,
-          is_active: true, created_at: true, document_type: true, address: true,
-          photo_url: true, daily_goal: true,
+          isActive: true, createdAt: true, documentType: true, address: true,
+          photoUrl: true, dailyGoal: true,
         },
       });
     }
@@ -31,8 +31,8 @@ export async function GET(request: NextRequest) {
         where: { email: { equals: email, mode: 'insensitive' } },
         select: {
           id: true, name: true, email: true, role: true, phone: true, dni: true,
-          is_active: true, created_at: true, document_type: true, address: true,
-          photo_url: true, daily_goal: true,
+          isActive: true, createdAt: true, documentType: true, address: true,
+          photoUrl: true, dailyGoal: true,
         },
       });
     }
@@ -46,12 +46,12 @@ export async function GET(request: NextRequest) {
       role: profile.role,
       phone: profile.phone || null,
       documentNumber: profile.dni || null,
-      documentType: profile.document_type || 'dni',
-      isActive: profile.is_active ?? true,
+      documentType: profile.documentType || 'dni',
+      isActive: profile.isActive ?? true,
       address: profile.address || null,
-      photoUrl: profile.photo_url || null,
-      dailyGoal: profile.daily_goal,
-      createdAt: profile.created_at?.toISOString() || null,
+      photoUrl: profile.photoUrl || null,
+      dailyGoal: profile.dailyGoal,
+      createdAt: profile.createdAt?.toISOString() || null,
     });
   } catch (error) {
     console.error('Error fetching profile:', error);
