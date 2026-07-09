@@ -10,15 +10,15 @@ export async function POST(request: NextRequest) {
 
     const profile = await db.profiles.findFirst({
       where: { email: { equals: email, mode: 'insensitive' } },
-      select: { id: true, firebase_uid: true },
+      select: { id: true, firebaseUid: true },
     });
 
     if (!profile) return NextResponse.json({ error: 'Perfil no encontrado' }, { status: 404 });
 
-    if (profile.firebase_uid !== firebaseUid) {
+    if (profile.firebaseUid !== firebaseUid) {
       await db.profiles.update({
         where: { id: profile.id },
-        data: { firebase_uid: firebaseUid },
+        data: { firebaseUid },
       });
     }
 

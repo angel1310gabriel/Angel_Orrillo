@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
   try {
     let profile = await db.profiles.findFirst({
-      where: { firebase_uid: uid },
+      where: { firebaseUid: uid },
       select: {
         id: true, name: true, email: true, role: true, phone: true, documentNumber: true,
         isActive: true, createdAt: true, documentType: true, address: true,
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
           isActive: true, createdAt: true, documentType: true, address: true,
           photoUrl: true, dailyGoal: true,
         },
-      });
+      }).catch(() => null);
     }
     if (!profile && email) {
       profile = await db.profiles.findFirst({
