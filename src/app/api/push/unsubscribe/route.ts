@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { findMany, deleteDoc, collections } from '@/lib/firestore-db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,13 +10,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'endpoint y userId requeridos' }, { status: 400 });
     }
 
-    const { error } = await supabase
-      .from('push_subscriptions')
-      .delete()
-      .eq('user_id', userId)
-      .eq('endpoint', endpoint);
+    // Find matching subscription documents
+    const matches = await findMany(collections.pushSubscriptions, {
+      user_id: userId,
+      endpoint: endpoint,
+    });
 
-    if (error) throw error;
+    for (const doc of matches) {
+      await deleteDoc(collections.pushSubscriptions, doc.id);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

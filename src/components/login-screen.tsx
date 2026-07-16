@@ -116,12 +116,20 @@ export default function LoginScreen() {
       const cred = await tryEmailVariants(email, pw);
       let role = 'collector';
       let name = cred.user.email?.split('@')[0] || 'Usuario';
+      let phone: string | null = null;
+      let documentNumber: string | null = null;
+      let photoUrl: string | null = null;
+      let isActive = true;
       try {
         const res = await fetch(`/api/profile?uid=${encodeURIComponent(cred.user.uid)}`);
         if (res.ok) {
           const p = await res.json();
           role = p.role || 'collector';
           name = p.name || name;
+          phone = p.phone || null;
+          documentNumber = p.documentNumber || null;
+          photoUrl = p.photoUrl || null;
+          isActive = p.isActive ?? true;
         }
       } catch {}
       _setUser({
@@ -129,9 +137,10 @@ export default function LoginScreen() {
         email: cred.user.email || email,
         name,
         role: role as 'admin' | 'supervisor' | 'collector',
-        phone: null,
-        documentNumber: null,
-        isActive: true,
+        phone,
+        documentNumber,
+        isActive,
+        photoUrl: photoUrl || undefined,
       });
       saveBiometricCredential(cred.user.email || email, pw);
     } catch (err: any) {

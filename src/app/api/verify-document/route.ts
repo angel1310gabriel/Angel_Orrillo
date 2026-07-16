@@ -1,31 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, isVercel } from '@/lib/db';
-
-// ============================================================
-// Helper: Get Supabase client from env
-// ============================================================
-async function getSupabase() {
-  try {
-    const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const envKey = serviceKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (envUrl && envKey) {
-      const { createClient } = await import('@supabase/supabase-js');
-      return createClient(envUrl, envKey);
-    }
-  } catch {
-    // Not configured
-  }
-  return null;
-}
+import { findMany, findFirst, collections } from '@/lib/firestore-db';
 
 // GET /api/verify-document?documentType=X&documentNumber=Y
-// Verifies a document number and returns any matching records (clients, staff/collectors)
+// GET /api/verify-document?phone=999888777
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const documentType = searchParams.get('documentType');
     const documentNumber = searchParams.get('documentNumber');
+    const phone = searchParams.get('phone');
+
+    if (phone) {
+      const results: { clients: any[]; staff: any[] } = { clients: [], staff: [] };
+
+      const clients = await findMany(collections.clients, { phone }, undefined, 5);
+      results.clients = clients.map((c: any) => ({
+        id: c.id, name: c.name || '', phone: c.phone || '',
+        documentType: c.documentType || 'dni', documentNumber: c.documentNumber,
+        zone: null, creditScore: null, hasActiveLoans: false,
+      }));
+
+      try {
+        const profiles = await findMany(collections.profiles, { phone }, undefined, 5);
+        results.staff = profiles.map((p: any) => ({
+          id: p.id, name: p.name || 'Sin nombre', phone: p.phone || '',
+          role: p.role || 'staff', isActive: p.isActive ?? true,
+        }));
+      } catch {}
+
+      return NextResponse.json({
+        verified: true, phone,
+        found: results.clients.length > 0 || results.staff.length > 0,
+        results,
+      });
+    }
 
     if (!documentType || !documentNumber) {
       return NextResponse.json(
@@ -57,108 +65,43 @@ export async function GET(request: NextRequest) {
       staff: [],
     };
 
-    // On Vercel: use Supabase
-    if (isVercel) {
-      const supabase = await getSupabase();
-      if (!supabase) {
-        return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-      }
-
-      // Search clients by document number
-      let clientQuery = supabase.from('clients').select('id, name, phone, document_type, dni, credit_score, zone_id, loans(status)').eq('dni', documentNumber);
-      if (documentType !== 'all') {
-        clientQuery = clientQuery.eq('document_type', documentType);
-      }
-      clientQuery = clientQuery.limit(5);
-
-      const { data: clients } = await clientQuery;
-
-      results.clients = (clients || []).map((c: Record<string, unknown>) => ({
-        id: c.id as string,
-        name: (c.name as string) || '',
-        phone: (c.phone as string) || '',
-        documentType: (c.document_type as string) || 'dni',
-        documentNumber: c.dni as string,
-        zone: (c.zone_id as string) || null,
-        creditScore: (c.credit_score as number) ?? null,
-        hasActiveLoans: Array.isArray(c.loans) ? c.loans.some((l: Record<string, unknown>) => l.status === 'active' || l.status === 'mora') : false,
-      }));
-
-      // Search staff/collectors by document number (Supabase usa columna 'dni')
-      try {
-        const { data: profiles } = await supabase.from('profiles').select('id, name, phone, role, is_active').eq('dni', documentNumber).limit(5);
-
-        results.staff = (profiles || []).map((p: Record<string, unknown>) => ({
-          id: p.id as string,
-          name: (p.name as string) || 'Sin nombre',
-          phone: (p.phone as string) || '',
-          role: (p.role as string) || 'staff',
-          isActive: (p.is_active as boolean) ?? true,
-        }));
-      } catch {
-        // Profile table might not have dni field, skip silently
-      }
-
-      return NextResponse.json({
-        verified: true,
-        documentType,
-        documentNumber,
-        found: results.clients.length > 0 || results.staff.length > 0,
-        results,
-      });
+    const clientWhere: Record<string, unknown> = { documentNumber };
+    if (documentType !== 'all') {
+      clientWhere.documentType = documentType;
     }
+    const clients = await findMany(collections.clients, clientWhere, undefined, 5);
 
-    // Local: Prisma
-    // Search clients by document number
-    const clients = await db.client.findMany({
-      where: {
-        documentNumber,
-        ...(documentType !== 'all' ? { documentType } : {}),
-      },
-      include: {
-        zone: { select: { name: true } },
-        loans: { select: { status: true } },
-      },
-      take: 5,
-    });
+    results.clients = await Promise.all(
+      clients.map(async (c: any) => {
+        let zone = null;
+        if (c.zoneId) {
+          const zoneDoc = await findFirst(collections.zones, { id: c.zoneId });
+          zone = zoneDoc?.name ?? null;
+        }
+        const loans = await findMany(collections.loans, { clientId: c.id });
+        return {
+          id: c.id,
+          name: c.name || '',
+          phone: c.phone || '',
+          documentType: c.documentType || 'dni',
+          documentNumber: c.documentNumber,
+          zone,
+          creditScore: c.creditScore ?? null,
+          hasActiveLoans: loans.some((l: any) => l.status === 'active' || l.status === 'mora'),
+        };
+      })
+    );
 
-    results.clients = clients.map((c) => ({
-      id: c.id,
-      name: c.name,
-      phone: c.phone,
-      documentType: c.documentType,
-      documentNumber: c.documentNumber,
-      zone: c.zone?.name ?? null,
-      creditScore: c.creditScore,
-      hasActiveLoans: c.loans.some((l) => l.status === 'active' || l.status === 'mora'),
-    }));
-
-    // Search staff/collectors by document number if profile table has document fields
     try {
-      const profiles = await db.profile.findMany({
-        where: {
-          documentNumber,
-        },
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          role: true,
-          isActive: true,
-        },
-        take: 5,
-      });
-
-      results.staff = profiles.map((p) => ({
+      const profiles = await findMany(collections.profiles, { documentNumber }, undefined, 5);
+      results.staff = profiles.map((p: any) => ({
         id: p.id,
         name: p.name || 'Sin nombre',
         phone: p.phone || '',
         role: p.role || 'staff',
-        isActive: p.isActive,
+        isActive: p.isActive ?? true,
       }));
-    } catch {
-      // Profile table might not have documentNumber field, skip silently
-    }
+    } catch {}
 
     return NextResponse.json({
       verified: true,

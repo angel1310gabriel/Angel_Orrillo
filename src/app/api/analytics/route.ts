@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, isVercel } from '@/lib/db';
+import { findMany, findFirst, collections } from '@/lib/firestore-db';
 
 // GET /api/analytics - Get analytics data for dashboard
 export async function GET(request: NextRequest) {
@@ -35,157 +35,87 @@ export async function GET(request: NextRequest) {
 }
 
 async function getOverview() {
-  // Try Supabase first if configured (lazy-loaded)
-  try {
-    const { isSupabaseConfigured, getAnalyticsOverview } = await import('@/lib/supabase-server');
-    if (isSupabaseConfigured()) {
-      try {
-        const data = await Promise.race([
-          getAnalyticsOverview(),
-          new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), 2000)),
-        ]);
-        if (data === null) throw new Error('Supabase timeout');
-        // Only fall through to Prisma if Supabase returns an error or null
-        if (data) {
-          // Add dashboard-specific fields (overview wrapper, recentPayments, etc.)
-          // Derive overview from the detailed Supabase data
-          const overview = {
-            totalLoaned: data.financials.totalLoaned,
-            totalCollected: data.financials.totalCollected,
-            totalInterest: data.financials.totalInterest,
-            activeLoans: data.loans.active,
-            moraLoans: data.loans.mora,
-            completedLoans: data.loans.completed,
-          };
-          return NextResponse.json({
-            ...data,
-            overview,
-            recentPayments: [],
-            paymentMethods: [],
-            topClients: [],
-          });
-        }
-      } catch (error) {
-        console.error('Supabase getAnalyticsOverview failed, falling back to Prisma:', error);
-      }
-    }
-  } catch (error) {
-    console.error('Supabase not available, using Prisma fallback:', error);
-  }
-
-  // On Vercel, if Supabase failed, don't fall back to Prisma (no SQLite)
-  if (isVercel) {
-    return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-  }
-
-  // Fallback to Prisma
   const today = new Date();
   const thirtyDaysAgo = new Date(today.getTime() - 30 * 86400000);
   const sevenDaysAgo = new Date(today.getTime() - 7 * 86400000);
 
+  const allLoans = await findMany(collections.loans);
+  const allClients = await findMany(collections.clients);
+  const allPayments = await findMany(collections.payments);
+  const lateFees = await findMany(collections.lateFees);
+
   // Loan stats
-  const totalLoans = await db.loan.count();
-  const activeLoans = await db.loan.count({ where: { status: 'active' } });
-  const moraLoans = await db.loan.count({ where: { status: 'mora' } });
-  const completedLoans = await db.loan.count({ where: { status: 'completed' } });
-  const cancelledLoans = await db.loan.count({ where: { status: 'cancelled' } });
+  const totalLoans = allLoans.length;
+  const activeLoans = allLoans.filter((l: Record<string, unknown>) => l.status === 'active').length;
+  const moraLoans = allLoans.filter((l: Record<string, unknown>) => l.status === 'mora').length;
+  const completedLoans = allLoans.filter((l: Record<string, unknown>) => l.status === 'completed').length;
+  const cancelledLoans = allLoans.filter((l: Record<string, unknown>) => l.status === 'cancelled').length;
 
   // Financial stats
-  const loanFinancials = await db.loan.aggregate({
-    _sum: { amount: true, totalAmount: true, amountPaid: true, interest: true },
-    where: { status: { notIn: ['cancelled'] } },
-  });
+  const nonCancelled = allLoans.filter((l: Record<string, unknown>) => l.status !== 'cancelled');
+  const totalLoaned = nonCancelled.reduce((s: number, l: Record<string, unknown>) => s + (Number(l.amount) || 0), 0);
+  const totalCollected = nonCancelled.reduce((s: number, l: Record<string, unknown>) => s + (Number(l.amountPaid) || 0), 0);
+  const totalInterest = nonCancelled.reduce((s: number, l: Record<string, unknown>) => s + (Number(l.interest) || 0), 0);
+  const totalExpected = nonCancelled.reduce((s: number, l: Record<string, unknown>) => s + (Number(l.totalAmount) || 0), 0);
 
-  const moraFinancials = await db.loan.aggregate({
-    _sum: { amount: true, totalAmount: true, amountPaid: true },
-    where: { status: 'mora' },
-  });
+  const moraOnly = allLoans.filter((l: Record<string, unknown>) => l.status === 'mora');
+  const moraOutstanding = moraOnly.reduce((s: number, l: Record<string, unknown>) => s + ((Number(l.totalAmount) || 0) - (Number(l.amountPaid) || 0)), 0);
 
   // Payment stats
-  const totalPayments = await db.payment.count({ where: { status: 'completed' } });
-  const paymentsLast7Days = await db.payment.count({
-    where: {
-      status: 'completed',
-      paymentDate: { gte: sevenDaysAgo },
-    },
+  const completedPayments = allPayments.filter((p: Record<string, unknown>) => p.status === 'completed');
+  const totalPayments = completedPayments.length;
+
+  const paymentsLast7Days = completedPayments.filter((p: Record<string, unknown>) => {
+    const d = typeof p.paymentDate === 'string' ? new Date(p.paymentDate) : p.paymentDate instanceof Date ? p.paymentDate : new Date();
+    return d >= sevenDaysAgo;
   });
 
-  const paymentsLast30Days = await db.payment.count({
-    where: {
-      status: 'completed',
-      paymentDate: { gte: thirtyDaysAgo },
-    },
+  const paymentsLast30Days = completedPayments.filter((p: Record<string, unknown>) => {
+    const d = typeof p.paymentDate === 'string' ? new Date(p.paymentDate) : p.paymentDate instanceof Date ? p.paymentDate : new Date();
+    return d >= thirtyDaysAgo;
   });
 
-  const paymentAmountsLast30 = await db.payment.aggregate({
-    _sum: { amount: true },
-    where: {
-      status: 'completed',
-      paymentDate: { gte: thirtyDaysAgo },
-    },
-  });
+  const amountLast30Days = paymentsLast30Days.reduce((s: number, p: Record<string, unknown>) => s + (Number(p.amount) || 0), 0);
 
   // Client stats
-  const totalClients = await db.client.count();
-  const clientsWithActiveLoans = await db.client.count({
-    where: { loans: { some: { status: 'active' } } },
-  });
-  const clientsInMora = await db.client.count({
-    where: { loans: { some: { status: 'mora' } } },
-  });
+  const totalClients = allClients.length;
+  const clientsWithActiveLoans = allClients.filter((c: Record<string, unknown>) =>
+    allLoans.some((l: Record<string, unknown>) => l.clientId === c.id && l.status === 'active')
+  ).length;
+  const clientsInMora = allClients.filter((c: Record<string, unknown>) =>
+    allLoans.some((l: Record<string, unknown>) => l.clientId === c.id && l.status === 'mora')
+  ).length;
+
+  const avgCreditScore = allClients.length > 0
+    ? allClients.reduce((s: number, c: Record<string, unknown>) => s + (Number(c.creditScore) || 0), 0) / allClients.length
+    : 0;
 
   // Late fee stats
-  const pendingFees = await db.lateFee.aggregate({
-    _sum: { amount: true },
-    where: { status: 'pending' },
-  });
-
-  const paidFees = await db.lateFee.aggregate({
-    _sum: { amount: true },
-    where: { status: 'paid' },
-  });
-
-  const waivedFees = await db.lateFee.aggregate({
-    _sum: { amount: true },
-    where: { status: 'waived' },
-  });
+  const pendingFees = lateFees.filter((f: Record<string, unknown>) => f.status === 'pending')
+    .reduce((s: number, f: Record<string, unknown>) => s + (Number(f.amount) || 0), 0);
+  const paidFees = lateFees.filter((f: Record<string, unknown>) => f.status === 'paid')
+    .reduce((s: number, f: Record<string, unknown>) => s + (Number(f.amount) || 0), 0);
+  const waivedFees = lateFees.filter((f: Record<string, unknown>) => f.status === 'waived')
+    .reduce((s: number, f: Record<string, unknown>) => s + (Number(f.amount) || 0), 0);
 
   // Capital
-  const capitalMovements = await db.capitalMovement.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 1,
-  });
-
+  const capitalMovements = await findMany(collections.capitalMovements, {}, { field: 'createdAt', direction: 'desc' }, 1);
   const currentCapital = capitalMovements[0]?.newCapital || 0;
 
   // Mora rate
   const moraRate = totalLoans > 0 ? (moraLoans / (activeLoans + moraLoans)) * 100 : 0;
 
   // Collection efficiency (last 30 days)
-  const expectedCollection = await db.loan.aggregate({
-    _sum: { dailyPayment: true },
-    where: { status: { in: ['active', 'mora'] } },
-  });
-  const dailyExpected = expectedCollection._sum.dailyPayment || 0;
+  const activeOrMora = allLoans.filter((l: Record<string, unknown>) => l.status === 'active' || l.status === 'mora');
+  const dailyExpected = activeOrMora.reduce((s: number, l: Record<string, unknown>) => s + (Number(l.dailyPayment) || 0), 0);
   const expected30Days = dailyExpected * 30;
-  const actual30Days = paymentAmountsLast30._sum.amount || 0;
+  const actual30Days = amountLast30Days;
   const collectionEfficiency = expected30Days > 0 ? (actual30Days / expected30Days) * 100 : 0;
 
-  // Average credit score
-  const avgCreditScore = await db.client.aggregate({
-    _avg: { creditScore: true },
-  });
-
-  // --- DashboardTab expects: overview, recentPayments, paymentMethods, topClients ---
-
   // Recent payments (last 7 days, grouped by date)
-  const rawPayments7d = await db.payment.findMany({
-    where: {
-      status: 'completed',
-      paymentDate: { gte: sevenDaysAgo },
-    },
-    select: { amount: true, paymentDate: true },
-    orderBy: { paymentDate: 'asc' },
+  const rawPayments7d = completedPayments.filter((p: Record<string, unknown>) => {
+    const d = typeof p.paymentDate === 'string' ? new Date(p.paymentDate) : p.paymentDate instanceof Date ? p.paymentDate : new Date();
+    return d >= sevenDaysAgo;
   });
 
   const paymentsByDate: Record<string, number> = {};
@@ -194,52 +124,52 @@ async function getOverview() {
     const key = d.toISOString().split('T')[0];
     paymentsByDate[key] = 0;
   }
-  rawPayments7d.forEach((p) => {
-    const key = p.paymentDate instanceof Date
-      ? p.paymentDate.toISOString().split('T')[0]
-      : new Date(p.paymentDate).toISOString().split('T')[0];
+  rawPayments7d.forEach((p: Record<string, unknown>) => {
+    const key = typeof p.paymentDate === 'string'
+      ? p.paymentDate.split('T')[0]
+      : p.paymentDate instanceof Date
+        ? p.paymentDate.toISOString().split('T')[0]
+        : new Date(p.paymentDate as string).toISOString().split('T')[0];
     if (paymentsByDate[key] !== undefined) {
-      paymentsByDate[key] += p.amount;
+      paymentsByDate[key] += Number(p.amount) || 0;
     }
   });
   const recentPayments = Object.entries(paymentsByDate).map(([date, amount]) => ({ date, amount }));
 
   // Payment methods distribution
-  const methodAgg = await db.payment.groupBy({
-    by: ['paymentMethod'],
-    _sum: { amount: true },
-    _count: { paymentMethod: true },
-    where: { status: 'completed' },
+  const methodMap: Record<string, { amount: number; count: number }> = {};
+  completedPayments.forEach((p: Record<string, unknown>) => {
+    const method = p.paymentMethod as string || 'unknown';
+    if (!methodMap[method]) methodMap[method] = { amount: 0, count: 0 };
+    methodMap[method].amount += Number(p.amount) || 0;
+    methodMap[method].count += 1;
   });
-  const paymentMethods = methodAgg.map((m) => ({
-    method: m.paymentMethod,
-    amount: m._sum.amount || 0,
-    count: m._count.paymentMethod,
+  const paymentMethods = Object.entries(methodMap).map(([method, data]) => ({
+    method,
+    amount: data.amount,
+    count: data.count,
   }));
 
   // Top clients by total loaned
-  const topClientsRaw = await db.client.findMany({
-    select: {
-      name: true,
-      loans: {
-        select: { amount: true, amountPaid: true },
-      },
-    },
-    orderBy: { loans: { _count: 'desc' } },
-    take: 5,
+  const clientLoanMap: Record<string, { name: string; totalLoaned: number; totalPaid: number }> = {};
+  allLoans.forEach((l: Record<string, unknown>) => {
+    const clientId = l.clientId as string;
+    if (!clientLoanMap[clientId]) {
+      const client = allClients.find((c: Record<string, unknown>) => c.id === clientId);
+      clientLoanMap[clientId] = { name: (client?.name as string) || 'Desconocido', totalLoaned: 0, totalPaid: 0 };
+    }
+    clientLoanMap[clientId].totalLoaned += Number(l.amount) || 0;
+    clientLoanMap[clientId].totalPaid += Number(l.amountPaid) || 0;
   });
-  const topClients = topClientsRaw.map((c) => ({
-    name: c.name,
-    totalLoaned: c.loans.reduce((s, l) => s + l.amount, 0),
-    totalPaid: c.loans.reduce((s, l) => s + l.amountPaid, 0),
-  }));
-  topClients.sort((a, b) => b.totalLoaned - a.totalLoaned);
+  const topClients = Object.values(clientLoanMap)
+    .sort((a, b) => b.totalLoaned - a.totalLoaned)
+    .slice(0, 5);
 
   return NextResponse.json({
     overview: {
-      totalLoaned: loanFinancials._sum.amount || 0,
-      totalCollected: loanFinancials._sum.amountPaid || 0,
-      totalInterest: loanFinancials._sum.interest || 0,
+      totalLoaned,
+      totalCollected,
+      totalInterest,
       activeLoans,
       moraLoans,
       completedLoans,
@@ -247,7 +177,6 @@ async function getOverview() {
     recentPayments,
     paymentMethods,
     topClients,
-    // Keep original detailed keys for backward compatibility
     loans: {
       total: totalLoans,
       active: activeLoans,
@@ -256,28 +185,28 @@ async function getOverview() {
       cancelled: cancelledLoans,
     },
     financials: {
-      totalLoaned: loanFinancials._sum.amount || 0,
-      totalExpected: loanFinancials._sum.totalAmount || 0,
-      totalCollected: loanFinancials._sum.amountPaid || 0,
-      totalInterest: loanFinancials._sum.interest || 0,
-      moraOutstanding: (moraFinancials._sum.totalAmount || 0) - (moraFinancials._sum.amountPaid || 0),
+      totalLoaned,
+      totalExpected,
+      totalCollected,
+      totalInterest,
+      moraOutstanding,
     },
     payments: {
       total: totalPayments,
-      last7Days: paymentsLast7Days,
-      last30Days: paymentsLast30Days,
-      amountLast30Days: paymentAmountsLast30._sum.amount || 0,
+      last7Days: paymentsLast7Days.length,
+      last30Days: paymentsLast30Days.length,
+      amountLast30Days,
     },
     clients: {
       total: totalClients,
       withActiveLoans: clientsWithActiveLoans,
       inMora: clientsInMora,
-      avgCreditScore: avgCreditScore._avg.creditScore || 0,
+      avgCreditScore: Math.round(avgCreditScore * 100) / 100,
     },
     lateFees: {
-      pending: pendingFees._sum.amount || 0,
-      paid: paidFees._sum.amount || 0,
-      waived: waivedFees._sum.amount || 0,
+      pending: pendingFees,
+      paid: paidFees,
+      waived: waivedFees,
     },
     capital: {
       current: currentCapital,
@@ -290,56 +219,28 @@ async function getOverview() {
 }
 
 async function getMoraPredictionHandler() {
-  // Try Supabase first if configured (lazy-loaded)
-  try {
-    const { isSupabaseConfigured, getMoraPrediction } = await import('@/lib/supabase-server');
-    if (isSupabaseConfigured()) {
-      try {
-        const data = await Promise.race([
-          getMoraPrediction(),
-          new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), 5000)),
-        ]);
-        if (data === null) throw new Error('Supabase timeout');
-        // Return Supabase data even if empty (0 active loans is valid)
-        if (data) {
-          return NextResponse.json(data);
-        }
-      } catch (error) {
-        console.error('Supabase getMoraPrediction failed, falling back to Prisma:', error);
-      }
-    }
-  } catch (error) {
-    console.error('Supabase not available, using Prisma fallback:', error);
-  }
-
-  // On Vercel, if Supabase failed, don't fall back to Prisma (no SQLite)
-  if (isVercel) {
-    return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-  }
-
-  // Fallback to Prisma
   const today = new Date();
 
-  // Get all active loans with their client credit scores
-  const activeLoans = await db.loan.findMany({
-    where: { status: 'active' },
-    include: {
-      client: { select: { name: true, creditScore: true, id: true } },
-      payments: {
-        where: { status: 'completed' },
-        orderBy: { paymentDate: 'desc' },
-        take: 10,
-      },
-    },
-  });
+  const allLoans = await findMany(collections.loans, { status: 'active' });
+  const allClients = await findMany(collections.clients);
+  const allPayments = await findMany(collections.payments, { status: 'completed' });
 
-  // Risk scoring algorithm
-  const riskAssessments = activeLoans.map((loan) => {
-    let riskScore = 0; // 0-100, higher = more risk
+  const riskAssessments = allLoans.map((loan: Record<string, unknown>) => {
+    let riskScore = 0;
     const factors: { factor: string; impact: number; description: string }[] = [];
 
+    const client = allClients.find((c: Record<string, unknown>) => c.id === loan.clientId) || { creditScore: 50, name: 'Desconocido', id: '' };
+    const loanPayments = allPayments
+      .filter((p: Record<string, unknown>) => p.loanId === loan.id)
+      .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+        const da = typeof a.paymentDate === 'string' ? new Date(a.paymentDate) : a.paymentDate instanceof Date ? a.paymentDate : new Date();
+        const db = typeof b.paymentDate === 'string' ? new Date(b.paymentDate) : b.paymentDate instanceof Date ? b.paymentDate : new Date();
+        return db.getTime() - da.getTime();
+      })
+      .slice(0, 10);
+
     // Factor 1: Credit score (0-40 points)
-    const creditScore = loan.client.creditScore || 50;
+    const creditScore = (client.creditScore as number) || 50;
     const creditRisk = Math.max(0, (100 - creditScore) / 100) * 40;
     riskScore += creditRisk;
     factors.push({
@@ -349,8 +250,8 @@ async function getMoraPredictionHandler() {
     });
 
     // Factor 2: Payment consistency (0-25 points)
-    const totalExpected = loan.dailyPayment * loan.numCuotas;
-    const paymentRatio = totalExpected > 0 ? loan.amountPaid / totalExpected : 0;
+    const totalExpected = (loan.dailyPayment as number) * (loan.numCuotas as number);
+    const paymentRatio = totalExpected > 0 ? (loan.amountPaid as number) / totalExpected : 0;
     const consistencyRisk = Math.max(0, (1 - paymentRatio) * 25);
     riskScore += consistencyRisk;
     factors.push({
@@ -361,7 +262,7 @@ async function getMoraPredictionHandler() {
 
     // Factor 3: Time remaining (0-20 points)
     if (loan.endDate) {
-      const daysRemaining = Math.floor((new Date(loan.endDate).getTime() - today.getTime()) / 86400000);
+      const daysRemaining = Math.floor((new Date(loan.endDate as string).getTime() - today.getTime()) / 86400000);
       const timeRisk = daysRemaining < 0 ? 20 : daysRemaining < 5 ? 18 : daysRemaining < 10 ? 12 : daysRemaining < 15 ? 6 : 0;
       riskScore += timeRisk;
       factors.push({
@@ -372,11 +273,11 @@ async function getMoraPredictionHandler() {
     }
 
     // Factor 4: Recent payment gaps (0-15 points)
-    const recentPayments = loan.payments.filter((p) => {
-      const daysAgo = Math.floor((today.getTime() - new Date(p.paymentDate).getTime()) / 86400000);
+    const recentPayments = loanPayments.filter((p: Record<string, unknown>) => {
+      const daysAgo = Math.floor((today.getTime() - new Date(p.paymentDate as string).getTime()) / 86400000);
       return daysAgo <= 7;
     });
-    const expectedPaymentsWeek = 7; // Daily payments
+    const expectedPaymentsWeek = 7;
     const gapRisk = Math.max(0, (1 - recentPayments.length / expectedPaymentsWeek) * 15);
     riskScore += gapRisk;
     factors.push({
@@ -395,23 +296,21 @@ async function getMoraPredictionHandler() {
 
     return {
       loanId: loan.id,
-      clientName: loan.client.name,
-      clientId: loan.client.id,
+      clientName: client.name,
+      clientId: client.id,
       amount: loan.amount,
       totalAmount: loan.totalAmount,
       amountPaid: loan.amountPaid,
-      creditScore: loan.client.creditScore,
+      creditScore,
       riskScore,
       riskLevel,
       factors,
-      daysRemaining: loan.endDate ? Math.floor((new Date(loan.endDate).getTime() - today.getTime()) / 86400000) : null,
+      daysRemaining: loan.endDate ? Math.floor((new Date(loan.endDate as string).getTime() - today.getTime()) / 86400000) : null,
     };
   });
 
-  // Sort by risk score descending
   riskAssessments.sort((a, b) => b.riskScore - a.riskScore);
 
-  // Summary
   const summary = {
     total: riskAssessments.length,
     low: riskAssessments.filter((r) => r.riskLevel === 'low').length,
@@ -429,35 +328,13 @@ async function getMoraPredictionHandler() {
 }
 
 async function getTrendsHandler() {
-  // Try Supabase first if configured (lazy-loaded)
-  try {
-    const { isSupabaseConfigured, getTrends } = await import('@/lib/supabase-server');
-    if (isSupabaseConfigured()) {
-      try {
-        const data = await Promise.race([
-          getTrends(),
-          new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), 5000)),
-        ]);
-        if (data === null) throw new Error('Supabase timeout');
-        // Return Supabase data even if empty (no payments is valid)
-        if (data) {
-          return NextResponse.json(data);
-        }
-      } catch (error) {
-        console.error('Supabase getTrends failed, falling back to Prisma:', error);
-      }
-    }
-  } catch (error) {
-    console.error('Supabase not available, using Prisma fallback:', error);
-  }
-
-  // On Vercel, if Supabase failed, don't fall back to Prisma (no SQLite)
-  if (isVercel) {
-    return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-  }
-
-  // Fallback to Prisma
   const today = new Date();
+  const thirtyDaysAgo = new Date(today.getTime() - 30 * 86400000);
+
+  const allPayments = await findMany(collections.payments, { status: 'completed' });
+  const allLoans = await findMany(collections.loans);
+  const allZones = await findMany(collections.zones as any);
+  const auditLogs = await findMany(collections.auditLogs);
 
   // Daily payment amounts for last 30 days
   const dailyPayments = [];
@@ -466,19 +343,15 @@ async function getTrendsHandler() {
     date.setHours(0, 0, 0, 0);
     const nextDate = new Date(date.getTime() + 86400000);
 
-    const result = await db.payment.aggregate({
-      _sum: { amount: true },
-      _count: true,
-      where: {
-        status: 'completed',
-        paymentDate: { gte: date, lt: nextDate },
-      },
+    const dayPayments = allPayments.filter((p: Record<string, unknown>) => {
+      const pd = typeof p.paymentDate === 'string' ? new Date(p.paymentDate) : p.paymentDate instanceof Date ? p.paymentDate : new Date();
+      return pd >= date && pd < nextDate;
     });
 
     dailyPayments.push({
       date: date.toISOString().split('T')[0],
-      amount: result._sum.amount || 0,
-      count: result._count,
+      amount: dayPayments.reduce((s: number, p: Record<string, unknown>) => s + (Number(p.amount) || 0), 0),
+      count: dayPayments.length,
     });
   }
 
@@ -488,22 +361,15 @@ async function getTrendsHandler() {
     const weekStart = new Date(today.getTime() - (i * 7 + 6) * 86400000);
     const weekEnd = new Date(today.getTime() - i * 7 * 86400000);
 
-    const moraChanges = await db.auditLog.count({
-      where: {
-        action: 'UPDATE',
-        entityType: 'loan',
-        notes: { contains: 'mora' },
-        createdAt: { gte: weekStart, lt: weekEnd },
-      },
-    });
+    const moraChanges = auditLogs.filter((log: Record<string, unknown>) => {
+      const created = typeof log.createdAt === 'string' ? new Date(log.createdAt) : log.createdAt instanceof Date ? log.createdAt : new Date();
+      return log.action === 'UPDATE' && log.entityType === 'loan' && typeof log.notes === 'string' && log.notes.includes('mora') && created >= weekStart && created < weekEnd;
+    }).length;
 
-    const loanCreations = await db.auditLog.count({
-      where: {
-        action: 'CREATE',
-        entityType: 'loan',
-        createdAt: { gte: weekStart, lt: weekEnd },
-      },
-    });
+    const loanCreations = auditLogs.filter((log: Record<string, unknown>) => {
+      const created = typeof log.createdAt === 'string' ? new Date(log.createdAt) : log.createdAt instanceof Date ? log.createdAt : new Date();
+      return log.action === 'CREATE' && log.entityType === 'loan' && created >= weekStart && created < weekEnd;
+    }).length;
 
     weeklyActions.push({
       week: `Sem ${12 - i}`,
@@ -513,120 +379,81 @@ async function getTrendsHandler() {
   }
 
   // Payment method distribution
-  const paymentMethods = await db.payment.groupBy({
-    by: ['paymentMethod'],
-    _count: { paymentMethod: true },
-    _sum: { amount: true },
-    where: { status: 'completed' },
+  const methodMap: Record<string, { amount: number; count: number }> = {};
+  allPayments.forEach((p: Record<string, unknown>) => {
+    const method = p.paymentMethod as string || 'unknown';
+    if (!methodMap[method]) methodMap[method] = { amount: 0, count: 0 };
+    methodMap[method].amount += Number(p.amount) || 0;
+    methodMap[method].count += 1;
   });
+  const paymentMethods = Object.entries(methodMap).map(([method, data]) => ({
+    method,
+    count: data.count,
+    amount: data.amount,
+  }));
 
   // Mora trend by zone
-  const zones = await db.zone.findMany({
-    include: {
-      loans: {
-        select: { id: true, amount: true, totalAmount: true, amountPaid: true, status: true },
-      },
-    },
-  });
-
-  const zoneMora = zones.map((z) => {
-    const moraLoans = z.loans.filter((l) => l.status === 'mora');
+  const zoneMora = allZones.map((z: Record<string, unknown>) => {
+    const zoneLoans = allLoans.filter((l: Record<string, unknown>) => l.zoneId === z.id);
+    const moraLoans = zoneLoans.filter((l: Record<string, unknown>) => l.status === 'mora');
     return {
       zone: z.name,
-      totalLoans: z.loans.length,
+      totalLoans: zoneLoans.length,
       moraLoans: moraLoans.length,
-      moraAmount: moraLoans.reduce((sum, l) => sum + (l.totalAmount - l.amountPaid), 0),
-      moraRate: z.loans.length > 0 ? Math.round((moraLoans.length / z.loans.length) * 10000) / 100 : 0,
+      moraAmount: moraLoans.reduce((sum: number, l: Record<string, unknown>) => sum + ((Number(l.totalAmount) || 0) - (Number(l.amountPaid) || 0)), 0),
+      moraRate: zoneLoans.length > 0 ? Math.round((moraLoans.length / zoneLoans.length) * 10000) / 100 : 0,
     };
   });
 
   return NextResponse.json({
     dailyPayments,
     weeklyActions,
-    paymentMethods: paymentMethods.map((pm) => ({
-      method: pm.paymentMethod,
-      count: pm._count.paymentMethod,
-      amount: pm._sum.amount || 0,
-    })),
+    paymentMethods,
     zoneMora,
   });
 }
 
 async function getCollectorPerformanceHandler() {
-  // Try Supabase first if configured (lazy-loaded)
-  try {
-    const { isSupabaseConfigured, getCollectorPerformance } = await import('@/lib/supabase-server');
-    if (isSupabaseConfigured()) {
-      try {
-        const data = await Promise.race([
-          getCollectorPerformance(),
-          new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), 5000)),
-        ]);
-        if (data === null) throw new Error('Supabase timeout');
-        // Return Supabase data even if empty (no collectors is valid)
-        if (data) {
-          return NextResponse.json({ collectors: data });
-        }
-      } catch (error) {
-        console.error('Supabase getCollectorPerformance failed, falling back to Prisma:', error);
-      }
-    }
-  } catch (error) {
-    console.error('Supabase not available, using Prisma fallback:', error);
-  }
-
-  // On Vercel, if Supabase failed, don't fall back to Prisma (no SQLite)
-  if (isVercel) {
-    return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-  }
-
-  // Fallback to Prisma
-  const collectors = await db.profile.findMany({
-    where: { role: 'collector', isActive: true },
-    include: {
-      loans: {
-        select: { id: true, status: true, amount: true, totalAmount: true, amountPaid: true },
-      },
-    },
-  });
-
   const today = new Date();
   const sevenDaysAgo = new Date(today.getTime() - 7 * 86400000);
 
+  const collectors = await findMany(collections.profiles, { role: 'collector', isActive: true });
+  const allLoans = await findMany(collections.loans);
+  const allPayments = await findMany(collections.payments, { status: 'completed' });
+
   const performance = await Promise.all(
-    collectors.map(async (collector) => {
-      const payments7Days = await db.payment.aggregate({
-        _sum: { amount: true },
-        _count: true,
-        where: {
-          collectorId: collector.id,
-          status: 'completed',
-          paymentDate: { gte: sevenDaysAgo },
-        },
+    collectors.map(async (collector: Record<string, unknown>) => {
+      const collectorLoans = allLoans.filter((l: Record<string, unknown>) => l.collectorId === collector.id);
+      const collectorPayments = allPayments.filter((p: Record<string, unknown>) => p.collectorId === collector.id);
+
+      const payments7Days = collectorPayments.filter((p: Record<string, unknown>) => {
+        const pd = typeof p.paymentDate === 'string' ? new Date(p.paymentDate) : p.paymentDate instanceof Date ? p.paymentDate : new Date();
+        return pd >= sevenDaysAgo;
       });
+      const amount7Days = payments7Days.reduce((s: number, p: Record<string, unknown>) => s + (Number(p.amount) || 0), 0);
 
-      const activeOrMoraLoans = collector.loans.filter((l) => l.status === 'active' || l.status === 'mora');
-      const activeLoans = activeOrMoraLoans.filter((l) => l.status === 'active').length;
-      const moraLoans = collector.loans.filter((l) => l.status === 'mora').length;
-      const totalLoans = collector.loans.length;
-      const moraRate = totalLoans > 0 ? Math.round((moraLoans / totalLoans) * 100) : 0;
+      const activeOrMoraLoans = collectorLoans.filter((l: Record<string, unknown>) => l.status === 'active' || l.status === 'mora');
+      const activeLoans = activeOrMoraLoans.filter((l: Record<string, unknown>) => l.status === 'active').length;
+      const moraLoansCount = collectorLoans.filter((l: Record<string, unknown>) => l.status === 'mora').length;
+      const totalLoans = collectorLoans.length;
+      const moraRate = totalLoans > 0 ? Math.round((moraLoansCount / totalLoans) * 100) : 0;
 
-      const totalManaged = activeOrMoraLoans.reduce((sum, l) => sum + l.amount, 0);
-      const totalCollected = activeOrMoraLoans.reduce((sum, l) => sum + l.amountPaid, 0);
+      const totalManaged = activeOrMoraLoans.reduce((sum: number, l: Record<string, unknown>) => sum + (Number(l.amount) || 0), 0);
+      const totalCollected = activeOrMoraLoans.reduce((sum: number, l: Record<string, unknown>) => sum + (Number(l.amountPaid) || 0), 0);
       const collectionRate = totalManaged > 0 ? Math.round((totalCollected / totalManaged) * 100) : 0;
 
       return {
         id: collector.id,
         name: collector.name,
         activeLoans,
-        moraLoans,
+        moraLoans: moraLoansCount,
         totalLoans,
         moraRate,
         totalManaged,
         totalCollected,
         collectionRate,
-        payments7Days: payments7Days._count,
-        amount7Days: payments7Days._sum.amount || 0,
+        payments7Days: payments7Days.length,
+        amount7Days,
       };
     })
   );
@@ -637,98 +464,31 @@ async function getCollectorPerformanceHandler() {
 }
 
 async function getZoneAnalysis() {
-  // On Vercel, try Supabase for zone data
-  if (isVercel) {
-    try {
-      const { isSupabaseConfigured } = await import('@/lib/supabase-server');
-      if (isSupabaseConfigured()) {
-        const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-        const envKey = serviceKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-        if (envUrl && envKey) {
-          const { createClient } = await import('@supabase/supabase-js');
-          const supabase = createClient(envUrl, envKey);
+  const allZones = await findMany(collections.zones as any);
+  const allLoans = await findMany(collections.loans);
+  const allClients = await findMany(collections.clients);
 
-          const { data: zones } = await supabase.from('zones').select('id, name, clients(id, credit_score), loans(id, status, amount, total_amount, amount_paid)');
-          if (zones) {
-            const analysis = zones.map((zone: Record<string, unknown>) => {
-              const zoneClients = (zone.clients as Record<string, unknown>[]) || [];
-              const zoneLoans = (zone.loans as Record<string, unknown>[]) || [];
-              const activeLoans = zoneLoans.filter((l) => l.status === 'active');
-              const moraLoans = zoneLoans.filter((l) => l.status === 'mora');
-              const completedLoans = zoneLoans.filter((l) => l.status === 'completed');
+  const analysis = allZones.map((zone: Record<string, unknown>) => {
+    const zoneLoans = allLoans.filter((l: Record<string, unknown>) => l.zoneId === zone.id);
+    const zoneClients = allClients.filter((c: Record<string, unknown>) => c.zoneId === zone.id);
+    const activeLoans = zoneLoans.filter((l: Record<string, unknown>) => l.status === 'active');
+    const moraLoans = zoneLoans.filter((l: Record<string, unknown>) => l.status === 'mora');
+    const completedLoans = zoneLoans.filter((l: Record<string, unknown>) => l.status === 'completed');
 
-              const avgCreditScore = zoneClients.length > 0
-                ? zoneClients.reduce((sum: number, c: Record<string, unknown>) => sum + ((c.credit_score as number) || 0), 0) / zoneClients.length
-                : 0;
-
-              const totalLoaned = zoneLoans.reduce((sum: number, l: Record<string, unknown>) => sum + ((l.amount as number) || 0), 0);
-              const totalCollected = zoneLoans.reduce((sum: number, l: Record<string, unknown>) => sum + ((l.amount_paid as number) || 0), 0);
-              const moraOutstanding = moraLoans.reduce((sum: number, l: Record<string, unknown>) => sum + (((l.total_amount as number) || 0) - ((l.amount_paid as number) || 0)), 0);
-              const moraRate = zoneLoans.length > 0 ? Math.round((moraLoans.length / zoneLoans.length) * 10000) / 100 : 0;
-              const collectionRate = totalLoaned > 0 ? Math.round((totalCollected / totalLoaned) * 100) : 0;
-
-              return {
-                zone: zone.name,
-                totalClients: zoneClients.length,
-                totalLoans: zoneLoans.length,
-                activeLoans: activeLoans.length,
-                moraLoans: moraLoans.length,
-                completedLoans: completedLoans.length,
-                avgCreditScore: Math.round(avgCreditScore * 100) / 100,
-                totalLoaned,
-                totalCollected,
-                moraOutstanding,
-                moraRate,
-                collectionRate,
-              };
-            });
-
-            return NextResponse.json({ zones: analysis });
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Supabase getZoneAnalysis failed:', error);
-    }
-    return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-  }
-
-  // Local: Prisma fallback
-  const zones = await db.zone.findMany({
-    include: {
-      clients: { select: { id: true, creditScore: true } },
-      loans: {
-        select: {
-          id: true,
-          status: true,
-          amount: true,
-          totalAmount: true,
-          amountPaid: true,
-        },
-      },
-    },
-  });
-
-  const analysis = zones.map((zone) => {
-    const activeLoans = zone.loans.filter((l) => l.status === 'active');
-    const moraLoans = zone.loans.filter((l) => l.status === 'mora');
-    const completedLoans = zone.loans.filter((l) => l.status === 'completed');
-
-    const avgCreditScore = zone.clients.length > 0
-      ? zone.clients.reduce((sum, c) => sum + (c.creditScore || 0), 0) / zone.clients.length
+    const avgCreditScore = zoneClients.length > 0
+      ? zoneClients.reduce((sum: number, c: Record<string, unknown>) => sum + (Number(c.creditScore) || 0), 0) / zoneClients.length
       : 0;
 
-    const totalLoaned = zone.loans.reduce((sum, l) => sum + l.amount, 0);
-    const totalCollected = zone.loans.reduce((sum, l) => sum + l.amountPaid, 0);
-    const moraOutstanding = moraLoans.reduce((sum, l) => sum + (l.totalAmount - l.amountPaid), 0);
-    const moraRate = zone.loans.length > 0 ? Math.round((moraLoans.length / zone.loans.length) * 10000) / 100 : 0;
+    const totalLoaned = zoneLoans.reduce((sum: number, l: Record<string, unknown>) => sum + (Number(l.amount) || 0), 0);
+    const totalCollected = zoneLoans.reduce((sum: number, l: Record<string, unknown>) => sum + (Number(l.amountPaid) || 0), 0);
+    const moraOutstanding = moraLoans.reduce((sum: number, l: Record<string, unknown>) => sum + ((Number(l.totalAmount) || 0) - (Number(l.amountPaid) || 0)), 0);
+    const moraRate = zoneLoans.length > 0 ? Math.round((moraLoans.length / zoneLoans.length) * 10000) / 100 : 0;
     const collectionRate = totalLoaned > 0 ? Math.round((totalCollected / totalLoaned) * 100) : 0;
 
     return {
       zone: zone.name,
-      totalClients: zone.clients.length,
-      totalLoans: zone.loans.length,
+      totalClients: zoneClients.length,
+      totalLoans: zoneLoans.length,
       activeLoans: activeLoans.length,
       moraLoans: moraLoans.length,
       completedLoans: completedLoans.length,

@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { findMany, createDoc, collections } from '@/lib/firestore-db';
+
+function toISO(val: unknown): string {
+  if (!val) return new Date().toISOString();
+  if (typeof val === 'string') return val;
+  if (val instanceof Date) return val.toISOString();
+  if (val && typeof val === 'object' && 'toDate' in val) return (val as any).toDate().toISOString();
+  return String(val);
+}
 
 // GET /api/zones
 export async function GET(request: NextRequest) {
@@ -7,35 +15,36 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const collectorId = searchParams.get('collectorId');
 
-    const where = collectorId ? {
-      collectorZones: { some: { collectorId: collectorId } },
-    } : {};
+    let zones;
+    if (collectorId) {
+      const czDocs = await findMany(collections.collectorZones, { collectorId });
+      const zoneIds = czDocs.map((cz: any) => cz.zoneId).filter(Boolean);
+      if (zoneIds.length === 0) {
+        return NextResponse.json({ zones: [] });
+      }
+      const allZones = await findMany(collections.zones);
+      zones = allZones.filter((z: any) => zoneIds.includes(z.id));
+    } else {
+      zones = await findMany(collections.zones);
+    }
 
-    const zones = await db.zone.findMany({
-      where,
-      include: {
-        _count: { select: { clients: true, loans: true } },
-      },
-      orderBy: { name: 'asc' },
-    });
+    zones.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
 
-    const zonesWithStats = await Promise.all(zones.map(async (zone) => {
-      const loans = await db.loan.findMany({
-        where: { zoneId: zone.id },
-        select: { id: true, status: true, amount: true },
-      });
-      const activeLoans = loans.filter((l) => l.status === 'active' || l.status === 'mora');
-      const totalLoaned = loans.reduce((s, l) => s + l.amount, 0);
-      const moraLoans = loans.filter((l) => l.status === 'mora');
+    const zonesWithStats = await Promise.all(zones.map(async (zone: any) => {
+      const loans = await findMany(collections.loans, { zoneId: zone.id });
+      const clients = await findMany(collections.clients, { zoneId: zone.id });
+      const activeLoans = loans.filter((l: any) => l.status === 'active' || l.status === 'mora');
+      const totalLoaned = loans.reduce((s: number, l: any) => s + (l.amount || 0), 0);
+      const moraLoans = loans.filter((l: any) => l.status === 'mora');
 
       return {
         id: zone.id,
         name: zone.name,
-        createdAt: zone.createdAt,
-        updatedAt: zone.updatedAt,
+        createdAt: toISO(zone.createdAt),
+        updatedAt: toISO(zone.updatedAt),
         stats: {
-          totalClients: zone._count.clients,
-          totalLoans: zone._count.loans,
+          totalClients: clients.length,
+          totalLoans: loans.length,
           activeLoans: activeLoans.length,
           totalLoaned,
           moraLoans: moraLoans.length,
@@ -60,17 +69,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Nombre es requerido' }, { status: 400 });
     }
 
-    const zone = await db.zone.create({ data: { name } });
+    const zone = await createDoc(collections.zones, { name });
 
-    await db.auditLog.create({
-      data: {
-        action: 'CREATE',
-        entityType: 'zone',
-        entityId: zone.id,
-        entityName: zone.name,
-        severity: 'info',
-        notes: `Zona creada: ${zone.name}`,
-      },
+    await createDoc(collections.auditLogs, {
+      action: 'CREATE',
+      entityType: 'zone',
+      entityId: zone.id,
+      entityName: zone.name,
+      severity: 'info',
+      notes: `Zona creada: ${zone.name}`,
     }).catch(() => {});
 
     return NextResponse.json(zone, { status: 201 });

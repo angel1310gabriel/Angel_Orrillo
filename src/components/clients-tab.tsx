@@ -1,5 +1,5 @@
 'use client';
-import React,{useState,useEffect,useCallback,useMemo}from 'react';
+import React,{useState,useEffect,useCallback,useMemo,useRef}from 'react';
 import{Search,RefreshCw,Eye,Pencil,Trash2,ChevronLeft,ChevronRight,Loader2,User,Phone,MapPin,CreditCard,Users,AlertTriangle,CheckCircle2,XCircle,FileText,TrendingUp,Shield,Calendar,UserPlus,IdCard,Globe,CheckCheck,BadgeCheck,BookOpen,Fingerprint,ScanLine,DollarSign,StickyNote,Banknote,Wifi,ArrowRightLeft,Link2,Send}from'lucide-react';
 import{Card,CardContent}from'@/components/ui/card';
 import{Button}from'@/components/ui/button';
@@ -69,6 +69,8 @@ const[fZone,setFZone]=useState('');
 const[fScore,setFScore]=useState([50]);
 const[fCollector,setFCollector]=useState('');
 const[phOk,setPhOk]=useState(false);
+const[phVDocing,setPhVDocing]=useState(false);
+const[phVRes,setPhVRes]=useState<{found:boolean;results:{clients:any[];staff:any[]}}|null>(null);
 const[vDocing,setVDocing]=useState(false);
 const[vRes,setVRes]=useState<VR|null>(null);
 const[detC,setDetC]=useState<CWS|null>(null);
@@ -125,18 +127,24 @@ useEffect(()=>{fetchZ()},[fetchZ]);
 useEffect(()=>{fetchCollectors()},[fetchCollectors]);
 useEffect(()=>{if(refreshTrigger)fetchC()},[refreshTrigger,fetchC]);
 
+const verDoc=useCallback(async()=>{if(!dOk)return;setVDocing(true);setVRes(null);try{const r=await fetch(`/api/verify-document?documentType=${fDT}&documentNumber=${fDN}`);if(r.ok){const d:VR=await r.json();setVRes(d);toast(d.found?{title:'Documento encontrado',description:`${d.results.clients.length} cliente(s), ${d.results.staff.length} personal(es)`}:{title:'Verificado',description:'Sin registros previos'})}else toast({title:'Error',description:'No se pudo verificar',variant:'destructive'})}catch{toast({title:'Error',description:'Error de conexión',variant:'destructive'})}finally{setVDocing(false)}},[dOk,fDT,fDN,toast]);
+const autoVerRef=useRef<ReturnType<typeof setTimeout>>(undefined);
+useEffect(()=>{clearTimeout(autoVerRef.current);if(dOk&&!editing){autoVerRef.current=setTimeout(()=>{verDoc()},400)}else{setVRes(null)}},[fDN,fDT,dOk,editing,verDoc]);
 const wA=clients.filter(c=>c.stats.activeLoans>0).length;
 const iM=clients.filter(c=>c.stats.hasMora).length;
 const aS=clients.length?Math.round(clients.filter(c=>c.creditScore!==null).reduce((s,c)=>s+(c.creditScore||0),0)/Math.max(clients.filter(c=>c.creditScore!==null).length,1)):0;
 
-const reset=()=>{setFName('');setFDT('dni');setFDN('');setFPh('');setFAddr('');setFZone('');setFCollector('');setFScore([50]);setPhOk(false);setVDocing(false);setVRes(null);setEditing(null)};
+const reset=()=>{setFName('');setFDT('dni');setFDN('');setFPh('');setFAddr('');setFZone('');setFCollector('');setFScore([50]);setPhOk(false);setPhVRes(null);setVDocing(false);setVRes(null);setEditing(null)};
 const openNew=()=>{reset();setFOpen(true)};
-const openEdit=(c:CWS)=>{setEditing(c);setFName(c.name);let dt:DT='dni';if(c.documentType==='carnet_extranjeria'||c.documentType==='extranjero')dt='carnet_extranjeria';else if(c.documentType==='pasaporte')dt='pasaporte';setFDT(dt);setFDN(gDN(c));setFPh(c.phone);setFAddr(c.address||'');setFZone(c.zoneId||'');setFCollector(c.collectorId||'');setFScore([c.creditScore??50]);setPhOk(vPh(c.phone)[0]);setVRes(null);setFOpen(true)};
+const openEdit=(c:CWS)=>{setEditing(c);setFName(c.name);let dt:DT='dni';if(c.documentType==='carnet_extranjeria'||c.documentType==='extranjero')dt='carnet_extranjeria';else if(c.documentType==='pasaporte')dt='pasaporte';setFDT(dt);setFDN(gDN(c));setFPh(c.phone);setFAddr(c.address||'');setFZone(c.zoneId||'');setFCollector(c.collectorId||'');setFScore([c.creditScore??50]);setPhOk(vPh(c.phone)[0]);setPhVRes(null);setVRes(null);setFOpen(true)};
 const onDTC=(t:DT)=>{setFDT(t);setFDN('');setVRes(null)};
 const onDNC=(v:string)=>{setFDN(v.replace(/\D/g,'').slice(0,dtCfg(fDT).dg));setVRes(null)};
-const onPhC=(v:string)=>{setFPh(v.replace(/\D/g,'').slice(0,9));setPhOk(false)};
-const verPh=()=>{const v=vPh(fPh);if(v[0]){setPhOk(true);toast({title:'Teléfono verificado'})}else{setPhOk(false);toast({title:'Teléfono inválido',description:v[1],variant:'destructive'})}};
-const verDoc=async()=>{if(!dOk)return;setVDocing(true);setVRes(null);try{const r=await fetch(`/api/verify-document?documentType=${fDT}&documentNumber=${fDN}`);if(r.ok){const d:VR=await r.json();setVRes(d);toast(d.found?{title:'Documento encontrado',description:`${d.results.clients.length} cliente(s), ${d.results.staff.length} personal(es)`}:{title:'Verificado',description:'Sin registros previos'})}else toast({title:'Error',description:'No se pudo verificar',variant:'destructive'})}catch{toast({title:'Error',description:'Error de conexión',variant:'destructive'})}finally{setVDocing(false)}};
+const onPhC=(v:string)=>{setFPh(v.replace(/\D/g,'').slice(0,9));setPhOk(false);setPhVRes(null)};
+
+const verPh=useCallback(async()=>{const v=vPh(fPh);if(!v[0])return;setPhVDocing(true);setPhVRes(null);try{const r=await fetch(`/api/verify-document?phone=${fPh}`);if(r.ok){const d=await r.json();setPhVRes(d);setPhOk(!d.found);if(d.found)toast({title:'Teléfono registrado',description:`${d.results.clients.length} cliente(s), ${d.results.staff.length} personal(es)`,variant:'destructive'});else toast({title:'Teléfono verificado',description:'Disponible'})}else{setPhOk(true);toast({title:'Teléfono verificado',description:'Formato válido'})}}catch{setPhOk(true)}finally{setPhVDocing(false)}},[fPh,toast]);
+
+const autoPhRef=useRef<ReturnType<typeof setTimeout>>(undefined);
+useEffect(()=>{clearTimeout(autoPhRef.current);if(pOk&&!editing){autoPhRef.current=setTimeout(()=>{verPh()},400)}else{setPhOk(false);setPhVRes(null)}},[fPh,pOk,editing,verPh]);
 const save=async()=>{if(!fName.trim()){toast({title:'Campo requerido',description:'Nombre obligatorio',variant:'destructive'});return}const dv=vDoc(fDN,fDT);if(!dv[0]){toast({title:'Documento inválido',description:dv[1],variant:'destructive'});return}const pv=vPh(fPh);if(!pv[0]){toast({title:'Teléfono inválido',description:pv[1],variant:'destructive'});return}setSaving(true);try{const body={name:fName.trim(),documentType:fDT,documentNumber:fDN.trim(),phone:fPh.trim(),address:fAddr.trim()||null,zoneId:fZone||null,collectorId:fCollector||null,creditScore:fScore[0],...(editing?{id:editing.id}:{})};const r=await fetch('/api/clients',{method:editing?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(r.ok){toast({title:editing?'Cliente actualizado':'Cliente creado'});setFOpen(false);reset();fetchC()}else{const d=await r.json();toast({title:'Error',description:d.error||'Error al guardar',variant:'destructive'})}}catch{toast({title:'Error',description:'Error de conexión',variant:'destructive'})}finally{setSaving(false)}};
 const del=async()=>{if(!delC)return;setDeling(true);try{const r=await fetch(`/api/clients?id=${delC.id}`,{method:'DELETE'});if(r.ok){toast({title:'Eliminado',description:`${delC.name} eliminado`});setDelC(null);fetchC()}else{const d=await r.json();toast({title:'Error',description:d.error||'Error',variant:'destructive'})}}catch{toast({title:'Error',description:'Error de conexión',variant:'destructive'})}finally{setDeling(false)}};
 
@@ -245,12 +253,12 @@ Generar Link
 {/* Doc Type */}
 <div className="space-y-2">
 <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 flex items-center gap-2"><Fingerprint className="h-4 w-4 text-emerald-600 dark:text-emerald-300"/>Tipo de documento <span className="text-red-500">*</span></Label>
-<div className="grid grid-cols-3 gap-3">{DTs.map(dt=>{const sel=fDT===dt.v;const Ic=dt.ic;return(
-              <button key={dt.v} type="button" onClick={()=>onDTC(dt.v)} disabled={editing} className={`relative flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 ${sel?'border-emerald-500 bg-emerald-50 shadow-md ring-1 ring-emerald-500/30':'border-input bg-white dark:bg-[#05060b]/80 hover:border-emerald-300'} ${editing?'opacity-60 cursor-not-allowed':''}`}>
-{sel&&<div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center"><CheckCircle2 className="h-3 w-3 text-white"/></div>}
-<div className={`w-9 h-9 rounded-lg flex items-center justify-center ${sel?'bg-emerald-500':'bg-background/70 dark:bg-card/80'}`}><Ic className={`h-5 w-5 ${sel?'text-white':'text-muted-foreground dark:text-muted-foreground'}`}/></div>
-<span className={`text-sm font-bold ${sel?'text-emerald-700 dark:text-emerald-300':'text-foreground/80 dark:text-foreground/80'}`}>{DTL[dt.v]}</span>
-<span className={`text-[11px] ${sel?'text-emerald-600 dark:text-emerald-300':'text-muted-foreground'}`}>{dt.dg} dígitos</span>
+<div className="grid grid-cols-3 gap-2">{DTs.map(dt=>{const sel=fDT===dt.v;const Ic=dt.ic;return(
+              <button key={dt.v} type="button" onClick={()=>onDTC(dt.v)} disabled={editing} className={`relative flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 ${sel?'border-emerald-500 bg-emerald-50 shadow-md ring-1 ring-emerald-500/30':'border-input bg-white dark:bg-[#05060b]/80 hover:border-emerald-300'} ${editing?'opacity-60 cursor-not-allowed':''}`}>
+{sel&&<div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center"><CheckCircle2 className="h-2.5 w-2.5 text-white"/></div>}
+<div className={`w-7 h-7 rounded-lg flex items-center justify-center ${sel?'bg-emerald-500':'bg-background/70 dark:bg-card/80'}`}><Ic className={`h-4 w-4 ${sel?'text-white':'text-muted-foreground dark:text-muted-foreground'}`}/></div>
+<span className={`text-xs font-bold ${sel?'text-emerald-700 dark:text-emerald-300':'text-foreground/80 dark:text-foreground/80'}`}>{DTL[dt.v]}</span>
+<span className={`text-[10px] ${sel?'text-emerald-600 dark:text-emerald-300':'text-muted-foreground'}`}>{dt.dg} dígitos</span>
 </button>)})}</div>
 </div>
 {/* Doc Number */}
@@ -261,7 +269,7 @@ Generar Link
                               <Input id="dn" placeholder={curD.dg===8?'12345678':'123456789'} value={fDN} onChange={e=>onDNC(e.target.value)} maxLength={curD.dg} className={`bg-white dark:bg-[#05060b]/80 pr-20 h-11 font-mono tracking-wider ${vB(docV)}`} disabled={editing}/>
 <div className={`absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 ${docV?.[0]?'text-emerald-600 dark:text-emerald-300':'text-muted-foreground'}`}><span className="text-xs font-mono">{fDN.length}/{curD.dg}</span>{docV&&(docV[0]?<CheckCircle2 className="h-4 w-4 text-emerald-500"/>:<XCircle className="h-4 w-4 text-red-400"/>)}</div>
 </div>
-                              <Button type="button" variant="outline" className={`h-11 shrink-0 px-4 font-semibold ${dOk?'border-emerald-300 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30':'border-input text-muted-foreground'}`} onClick={verDoc} disabled={!dOk||vDocing||editing}>{vDocing?<Loader2 className="h-4 w-4 mr-1.5 animate-spin"/>:vRes?<CheckCheck className="h-4 w-4 mr-1.5 text-emerald-600 dark:text-emerald-300"/>:<ScanLine className="h-4 w-4 mr-1.5"/>}{vDocing?'Verif...':vRes?'Verificado':'Verificar'}</Button>
+                              <div className={`h-11 shrink-0 flex items-center gap-2 px-4 rounded-xl border font-semibold text-sm ${vRes?.found?'bg-amber-50 dark:bg-amber-950/50 border-amber-200 text-amber-700 dark:text-amber-300':vRes?'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 text-emerald-700 dark:text-emerald-300':dOk?'border-emerald-300 text-muted-foreground':'border-input text-muted-foreground'}`}>{vDocing?<><Loader2 className="h-4 w-4 animate-spin"/><span>Verificando...</span></>:vRes?<><CheckCheck className="h-4 w-4"/><span>{vRes.found?'Con incidentes':'Disponible'}</span></>:<><ScanLine className="h-4 w-4"/><span>Automático</span></>}</div>
 </div>
 {docV&&<p className={`text-xs ${docV[0]?'text-emerald-600 dark:text-emerald-300':'text-red-500'}`}>{docV[1]}</p>}
 {vRes&&<div className="mt-2 rounded-lg border border-input dark:border-emerald-500/5 overflow-hidden text-sm">
@@ -284,7 +292,7 @@ Generar Link
 <Input id="ph" placeholder="999888777" value={fPh} onChange={e=>onPhC(e.target.value)} maxLength={9} className={`bg-white dark:bg-[#05060b]/80 h-11 pr-20 font-mono tracking-wider ${vB(phV)}`}/>
 <div className={`absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 ${phV?.[0]?'text-emerald-600 dark:text-emerald-300':'text-muted-foreground'}`}><span className="text-xs font-mono">{fPh.length}/9</span>{phV&&(phOk?<BadgeCheck className="h-5 w-5 text-emerald-500"/>:phV[0]?<CheckCircle2 className="h-4 w-4 text-emerald-500"/>:<XCircle className="h-4 w-4 text-red-400"/>)}</div>
 </div>
-<Button type="button" variant="outline" className={`h-11 shrink-0 px-4 font-semibold ${phOk?'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 text-emerald-700 dark:text-emerald-300':pOk?'border-emerald-300 text-emerald-700 dark:text-emerald-300':'border-input text-muted-foreground'}`} onClick={verPh} disabled={!pOk}>{phOk?<><CheckCheck className="h-4 w-4 mr-1.5"/>Verificado</>:<><BadgeCheck className="h-4 w-4 mr-1.5"/>Verificar</>}</Button>
+                              <div className={`h-11 shrink-0 flex items-center gap-2 px-4 rounded-xl border font-semibold text-sm ${phVRes?.found?'bg-amber-50 dark:bg-amber-950/50 border-amber-200 text-amber-700 dark:text-amber-300':phOk?'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 text-emerald-700 dark:text-emerald-300':pOk?'border-emerald-300 text-muted-foreground':'border-input text-muted-foreground'}`}>{phVDocing?<><Loader2 className="h-4 w-4 animate-spin"/><span>Verificando...</span></>:phOk?<><CheckCheck className="h-4 w-4"/><span>{phVRes?.found?'Con incidentes':'Disponible'}</span></>:<><BadgeCheck className="h-4 w-4"/><span>Automático</span></>}</div>
 </div>
 {phV&&<p className={`text-xs ${phV[0]?'text-emerald-600 dark:text-emerald-300':'text-red-500'}`}>{phV[1]}</p>}
 </div>

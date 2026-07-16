@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { findById, collections } from '@/lib/firestore-db';
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN', minimumFractionDigits: 2 }).format(amount);
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 function formatDateTime(dateStr: string): string {
@@ -28,34 +19,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'paymentId requerido' }, { status: 400 });
     }
 
-    const { data: payment, error } = await supabase
-      .from('payments')
-      .select(`
-        *,
-        loans!loan_id (
-          id,
-          amount,
-          total_amount,
-          daily_payment,
-          num_cuotas,
-          clients!client_id (
-            name,
-            document_number,
-            phone
-          ),
-          collectors!collector_id (name),
-          zones!zone_id (name)
-        )
-      `)
-      .eq('id', paymentId)
-      .single();
-
-    if (error || !payment) {
+    const payment = await findById(collections.payments, paymentId);
+    if (!payment) {
       return NextResponse.json({ error: 'Pago no encontrado' }, { status: 404 });
     }
 
-    const loan = payment.loans;
-    const client = loan?.clients;
+    const loan = payment.loan_id ? await findById(collections.loans, payment.loan_id) : null;
+    const client = loan?.client_id ? await findById(collections.clients, loan.client_id) : null;
+    const collector = loan?.collector_id ? await findById(collections.profiles, loan.collector_id) : null;
 
     const pdfDoc = await PDFDocument.create();
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -121,8 +92,8 @@ export async function GET(request: NextRequest) {
     y -= 18;
 
     // Collector
-    if (loan?.collectors?.name) {
-      drawText(`Cobrador: ${loan.collectors.name}`, margin, y, 9);
+    if (collector?.name) {
+      drawText(`Cobrador: ${collector.name}`, margin, y, 9);
       y -= 15;
     }
 

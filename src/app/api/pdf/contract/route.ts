@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { findById, findMany, collections } from '@/lib/firestore-db';
 
 interface ContractData {
   loanId: string;
@@ -28,36 +23,20 @@ interface ContractData {
 }
 
 async function fetchContractData(loanId: string): Promise<ContractData | null> {
-  const { data: loan, error } = await supabase
-    .from('loans')
-    .select(`
-      *,
-      clients!client_id (
-        name,
-        document_number,
-        document_type,
-        phone,
-        address
-      ),
-      profiles!collector_id (name),
-      zones!zone_id (name)
-    `)
-    .eq('id', loanId)
-    .single();
+  const loan = await findById(collections.loans, loanId);
+  if (!loan) return null;
 
-  if (error || !loan) return null;
-
-  const { data: guarantors } = await supabase
-    .from('guarantors')
-    .select('name, document_number, phone')
-    .eq('loan_id', loanId);
+  const client = loan.client_id ? await findById(collections.clients, loan.client_id) : null;
+  const collector = loan.collector_id ? await findById(collections.profiles, loan.collector_id) : null;
+  const zone = loan.zone_id ? await findById(collections.zones, loan.zone_id) : null;
+  const guarantors = await findMany(collections.guarantors, { loan_id: loanId });
 
   return {
     loanId: loan.id,
-    clientName: loan.clients?.name || '',
-    clientDni: loan.clients?.document_number || '',
-    clientPhone: loan.clients?.phone || '',
-    clientAddress: loan.clients?.address || '',
+    clientName: client?.name || '',
+    clientDni: client?.document_number || '',
+    clientPhone: client?.phone || '',
+    clientAddress: client?.address || '',
     amount: loan.amount,
     interestRate: loan.interest_rate,
     totalAmount: loan.total_amount,
@@ -67,9 +46,9 @@ async function fetchContractData(loanId: string): Promise<ContractData | null> {
     startDate: loan.start_date,
     endDate: loan.end_date,
     paymentFrequency: loan.payment_frequency,
-    collectorName: loan.profiles?.name || '',
-    zoneName: loan.zones?.name || '',
-    guarantors: guarantors || [],
+    collectorName: collector?.name || '',
+    zoneName: zone?.name || '',
+    guarantors: guarantors?.map((g: any) => ({ name: g.name, dni: g.document_number, phone: g.phone })) || [],
   };
 }
 
@@ -104,7 +83,6 @@ export async function GET(request: NextRequest) {
     const margin = 50;
     let y = height - margin;
 
-    // Helper functions
     const drawText = (text: string, x: number, y: number, size = 10, bold = false, color = rgb(0, 0, 0)) => {
       page.drawText(text, { x, y, size, font: bold ? fontBold : font, color });
     };
@@ -196,7 +174,6 @@ export async function GET(request: NextRequest) {
     drawText('CRONOGRAMA RESUMIDO', margin, y, 12, true);
     y -= 20;
 
-    // Table header
     const colWidths = [40, 100, 100, 100, 100];
     const colStart = [margin, margin + 40, margin + 140, margin + 240, margin + 340];
     const headers = ['#', 'Fecha venc.', 'Monto', 'Estado', 'Observ.'];
@@ -208,15 +185,14 @@ export async function GET(request: NextRequest) {
     drawLine(y);
     y -= 10;
 
-    // Generate sample schedule (first 10)
-    const { data: schedule } = await supabase
-      .from('payment_schedule')
-      .select('installment_number, due_date, amount, status')
-      .eq('loan_id', loanId)
-      .order('installment_number', { ascending: true })
-      .limit(10);
+    const schedule = await findMany(
+      collections.paymentSchedules,
+      { loan_id: loanId },
+      { field: 'installment_number', direction: 'asc' },
+      10
+    );
 
-    schedule?.forEach((s) => {
+    schedule?.forEach((s: any) => {
       if (y < margin + 50) return;
       drawText(String(s.installment_number), colStart[0], y, 9);
       drawText(formatDate(s.due_date), colStart[1], y, 9);

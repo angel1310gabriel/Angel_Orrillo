@@ -1,33 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, isVercel } from '@/lib/db';
+import { findMany, collections } from '@/lib/firestore-db';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const format = searchParams.get('format') || 'json';
 
-    let data;
-
-    try {
-      const { isSupabaseConfigured } = await import('@/lib/supabase-server');
-      if (isSupabaseConfigured()) {
-        try {
-          data = await Promise.race([
-            getReportsFromSupabase(),
-            new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), 5000)),
-          ]);
-        } catch (error) {
-          console.error('Supabase getReports failed, falling back to Prisma:', error);
-        }
-      }
-    } catch (error) {
-      console.error('Supabase not available, using Prisma fallback:', error);
-    }
-
-    if (!data) {
-  
-      data = await getReportsFromPrisma();
-    }
+    const data = await getReportsFromFirestore();
 
     if (format === 'csv') {
       const csv = generateReportCsv(data);
@@ -90,32 +69,22 @@ function generateReportCsv(data: {
   return lines.join('\r\n');
 }
 
-async function getReportsFromSupabase() {
-  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const envKey = serviceKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!envUrl || !envKey) return null;
-
-  const { createClient } = await import('@supabase/supabase-js');
-  const supabase = createClient(envUrl, envKey);
-
+async function getReportsFromFirestore() {
   const today = new Date();
-  const thirtyDaysAgo = new Date(today.getTime() - 29 * 86400000).toISOString().split('T')[0];
+  const thirtyDaysAgo = new Date(today.getTime() - 29 * 86400000);
 
-  // Collections by day (last 30 days)
-  const { data: paymentsData } = await supabase
-    .from('payments')
-    .select('amount, payment_date')
-    .eq('status', 'completed')
-    .gte('payment_date', thirtyDaysAgo);
-
+  const payments = await findMany(collections.payments, { status: 'completed' });
   const dayBuckets: Record<string, { totalAmount: number; count: number }> = {};
   for (let i = 0; i < 30; i++) {
     const d = new Date(today.getTime() - i * 86400000);
     dayBuckets[d.toISOString().split('T')[0]] = { totalAmount: 0, count: 0 };
   }
-  (paymentsData || []).forEach((p: Record<string, unknown>) => {
-    const dateStr = p.payment_date as string;
+  payments.forEach((p: Record<string, unknown>) => {
+    const dateStr = typeof p.paymentDate === 'string'
+      ? p.paymentDate.split('T')[0]
+      : p.paymentDate instanceof Date
+        ? p.paymentDate.toISOString().split('T')[0]
+        : String(p.paymentDate || '').split('T')[0];
     if (dayBuckets[dateStr]) {
       dayBuckets[dateStr].totalAmount += Number(p.amount) || 0;
       dayBuckets[dateStr].count += 1;
@@ -125,140 +94,45 @@ async function getReportsFromSupabase() {
     .map(([date, data]) => ({ date, totalAmount: data.totalAmount, count: data.count }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  // Loans by status
-  const { data: loansData } = await supabase.from('loans').select('status');
-  const statusCounts = { active: 0, mora: 0, completed: 0, cancelled: 0, refinanced: 0 };
-  (loansData || []).forEach((l: Record<string, unknown>) => {
+  const loans = await findMany(collections.loans);
+  const statusCounts: Record<string, number> = { active: 0, mora: 0, completed: 0, cancelled: 0, refinanced: 0 };
+  loans.forEach((l: Record<string, unknown>) => {
     const s = l.status as string;
-    if (statusCounts[s as keyof typeof statusCounts] !== undefined) {
-      statusCounts[s as keyof typeof statusCounts] += 1;
+    if (statusCounts[s] !== undefined) {
+      statusCounts[s] += 1;
     }
   });
   const loansByStatus = { ...statusCounts };
 
-  // Collector ranking
-  const { data: collectors } = await supabase
-    .from('profiles')
-    .select('id, name')
-    .eq('role', 'collector')
-    .eq('is_active', true);
+  const collectors = await findMany(collections.profiles, { role: 'collector', isActive: true });
 
   const collectorRanking: { collectorId: string; collectorName: string; totalCollected: number; count: number; totalLoans: number }[] = [];
-  for (const collector of collectors || []) {
-    const { data: payments } = await supabase
-      .from('payments')
-      .select('amount')
-      .eq('collector_id', collector.id)
-      .eq('status', 'completed');
+  for (const collector of collectors) {
+    const collectorPayments = await findMany(collections.payments, { collectorId: collector.id, status: 'completed' });
+    const collectorLoans = await findMany(collections.loans, { collectorId: collector.id });
 
-    const { count: totalLoans } = await supabase
-      .from('loans')
-      .select('*', { count: 'exact', head: true })
-      .eq('collector_id', collector.id);
-
-    const totalCollected = (payments || []).reduce((s: number, p: Record<string, unknown>) => s + (Number(p.amount) || 0), 0);
+    const totalCollected = collectorPayments.reduce((s: number, p: Record<string, unknown>) => s + (Number(p.amount) || 0), 0);
     collectorRanking.push({
       collectorId: collector.id,
       collectorName: collector.name || 'Sin nombre',
       totalCollected,
-      count: payments?.length || 0,
-      totalLoans: totalLoans || 0,
+      count: collectorPayments.length,
+      totalLoans: collectorLoans.length,
     });
   }
   collectorRanking.sort((a, b) => b.totalCollected - a.totalCollected);
 
-  // Zone performance
-  const { data: zones } = await supabase.from('zones').select('id, name');
+  const zones = await findMany(collections.zones as any);
   const zonePerformance: { zoneName: string; activeLoans: number; moraLoans: number; totalLoaned: number }[] = [];
-  for (const zone of zones || []) {
-    const { data: zoneLoans } = await supabase
-      .from('loans')
-      .select('status, amount')
-      .eq('zone_id', zone.id);
+  for (const zone of zones) {
+    const zoneLoans = await findMany(collections.loans, { zoneId: zone.id });
 
-    const loans = zoneLoans || [];
-    const active = loans.filter((l: Record<string, unknown>) => l.status === 'active').length;
-    const mora = loans.filter((l: Record<string, unknown>) => l.status === 'mora').length;
-    const totalLoaned = loans.reduce((s: number, l: Record<string, unknown>) => s + (Number(l.amount) || 0), 0);
+    const active = zoneLoans.filter((l: Record<string, unknown>) => l.status === 'active').length;
+    const mora = zoneLoans.filter((l: Record<string, unknown>) => l.status === 'mora').length;
+    const totalLoaned = zoneLoans.reduce((s: number, l: Record<string, unknown>) => s + (Number(l.amount) || 0), 0);
 
     zonePerformance.push({ zoneName: zone.name, activeLoans: active, moraLoans: mora, totalLoaned });
   }
-
-  return { collectionsByDay, loansByStatus, collectorRanking: collectorRanking.slice(0, 5), zonePerformance };
-}
-
-async function getReportsFromPrisma() {
-  const today = new Date();
-  const thirtyDaysAgo = new Date(today.getTime() - 29 * 86400000);
-
-  // Collections by day (last 30 days)
-  const collectionsByDay: { date: string; totalAmount: number; count: number }[] = [];
-  for (let i = 29; i >= 0; i--) {
-    const date = new Date(today.getTime() - i * 86400000);
-    date.setHours(0, 0, 0, 0);
-    const nextDate = new Date(date.getTime() + 86400000);
-    const result = await db.payment.aggregate({
-      _sum: { amount: true },
-      _count: true,
-      where: {
-        status: 'completed',
-        paymentDate: { gte: date, lt: nextDate },
-      },
-    });
-    collectionsByDay.push({
-      date: date.toISOString().split('T')[0],
-      totalAmount: result._sum.amount || 0,
-      count: result._count,
-    });
-  }
-
-  // Loans by status
-  const [active, mora, completed, cancelled, refinanced] = await Promise.all([
-    db.loan.count({ where: { status: 'active' } }),
-    db.loan.count({ where: { status: 'mora' } }),
-    db.loan.count({ where: { status: 'completed' } }),
-    db.loan.count({ where: { status: 'cancelled' } }),
-    db.loan.count({ where: { status: 'refinanced' } }),
-  ]);
-  const loansByStatus = { active, mora, completed, cancelled, refinanced };
-
-  // Collector ranking (top 5 by total collected)
-  const collectors = await db.profile.findMany({
-    where: { role: 'collector', isActive: true },
-  });
-  const collectorRanking = await Promise.all(
-    collectors.map(async (c) => {
-      const agg = await db.payment.aggregate({
-        _sum: { amount: true },
-        _count: true,
-        where: { collectorId: c.id, status: 'completed' },
-      });
-      const loanCount = await db.loan.count({ where: { collectorId: c.id } });
-      return {
-        collectorId: c.id,
-        collectorName: c.name || 'Sin nombre',
-        totalCollected: agg._sum.amount || 0,
-        count: agg._count,
-        totalLoans: loanCount,
-      };
-    })
-  );
-  collectorRanking.sort((a, b) => b.totalCollected - a.totalCollected);
-
-  // Zone performance
-  const zones = await db.zone.findMany({
-    include: {
-      loans: {
-        select: { status: true, amount: true },
-      },
-    },
-  });
-  const zonePerformance = zones.map((z) => ({
-    zoneName: z.name,
-    activeLoans: z.loans.filter((l) => l.status === 'active').length,
-    moraLoans: z.loans.filter((l) => l.status === 'mora').length,
-    totalLoaned: z.loans.reduce((sum, l) => sum + l.amount, 0),
-  }));
 
   return { collectionsByDay, loansByStatus, collectorRanking: collectorRanking.slice(0, 5), zonePerformance };
 }

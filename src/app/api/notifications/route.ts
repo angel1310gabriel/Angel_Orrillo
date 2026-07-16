@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { findFirst, findMany, collections } from '@/lib/firestore-db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,15 +8,10 @@ export async function GET(request: NextRequest) {
 
     let uuid: string | undefined;
     if (collectorId) {
-      // collectorId could be a Firebase UID → resolve to profile UUID
-      const profile = await db.profiles.findFirst({
-        where: { firebaseUid: collectorId },
-        select: { id: true },
-      });
+      const profile = await findFirst(collections.profiles, { firebaseUid: collectorId });
       if (profile) {
         uuid = profile.id;
       } else {
-        // Maybe it's already a UUID
         uuid = collectorId;
       }
     }
@@ -24,11 +19,7 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = {};
     if (uuid) where.userId = uuid;
 
-    const notifications = await db.notification.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
+    const notifications = await findMany(collections.notifications, where, { field: 'createdAt', direction: 'desc' }, 50);
 
     return NextResponse.json(
       notifications.map((n) => ({
@@ -40,7 +31,7 @@ export async function GET(request: NextRequest) {
         referenceType: n.referenceType,
         referenceId: n.referenceId,
         isRead: n.isRead,
-        createdAt: n.createdAt?.toISOString(),
+        createdAt: n.createdAt,
       }))
     );
   } catch (error) {

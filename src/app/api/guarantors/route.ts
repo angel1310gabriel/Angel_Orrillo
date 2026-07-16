@@ -1,31 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isVercel } from '@/lib/db';
-
-async function getSupabase() {
-  try {
-    const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const envKey = serviceKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (envUrl && envKey) {
-      const { createClient } = await import('@supabase/supabase-js');
-      return createClient(envUrl, envKey);
-    }
-  } catch {
-    // Not configured
-  }
-  return null;
-}
+import { findMany, createDoc, deleteDoc, deleteMany, collections } from '@/lib/firestore-db';
 
 function mapGuarantor(record: Record<string, unknown>) {
   return {
     id: record.id,
-    clientId: record.client_id,
+    clientId: record.clientId,
     name: record.name,
-    documentNumber: record.document_number,
+    documentNumber: record.documentNumber,
     phone: record.phone,
     address: record.address,
-    photoUrl: record.photo_url,
-    createdAt: record.created_at,
+    photoUrl: record.photoUrl,
+    createdAt: record.createdAt,
   };
 }
 
@@ -38,41 +23,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'clientId es requerido' }, { status: 400 });
     }
 
-    if (isVercel) {
-      const supabase = await getSupabase();
-      if (!supabase) {
-        return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-      }
+    const data = await findMany(collections.guarantors, { clientId });
 
-      const { data, error } = await supabase
-        .from('guarantors')
-        .select('*')
-        .eq('client_id', clientId);
-
-      if (error) {
-        console.error('[Guarantors] Supabase query error:', error.message);
-        return NextResponse.json({ error: 'Error al obtener garantes' }, { status: 500 });
-      }
-
-      return NextResponse.json((data || []).map(mapGuarantor));
-    }
-
-    const supabase = await getSupabase();
-    if (!supabase) {
-      return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-    }
-
-    const { data, error } = await supabase
-      .from('guarantors')
-      .select('*')
-      .eq('client_id', clientId);
-
-    if (error) {
-      console.error('[Guarantors] Supabase query error:', error.message);
-      return NextResponse.json({ error: 'Error al obtener garantes' }, { status: 500 });
-    }
-
-    return NextResponse.json((data || []).map(mapGuarantor));
+    return NextResponse.json(data.map(mapGuarantor));
   } catch (error) {
     console.error('Error fetching guarantors:', error);
     return NextResponse.json({ error: 'Error al obtener garantes' }, { status: 500 });
@@ -88,53 +41,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'clientId y name son requeridos' }, { status: 400 });
     }
 
-    if (isVercel) {
-      const supabase = await getSupabase();
-      if (!supabase) {
-        return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-      }
-
-      const { data, error } = await supabase
-        .from('guarantors')
-        .insert({
-          client_id: clientId,
-          name,
-          document_number: documentNumber,
-          phone,
-          address,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('[Guarantors] Supabase insert error:', error.message);
-        return NextResponse.json({ error: 'Error al crear garante' }, { status: 500 });
-      }
-
-      return NextResponse.json(mapGuarantor(data as Record<string, unknown>), { status: 201 });
-    }
-
-    const supabase = await getSupabase();
-    if (!supabase) {
-      return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-    }
-
-    const { data, error } = await supabase
-      .from('guarantors')
-      .insert({
-        client_id: clientId,
-        name,
-        document_number: documentNumber,
-        phone,
-        address,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[Guarantors] Supabase insert error:', error.message);
-      return NextResponse.json({ error: 'Error al crear garante' }, { status: 500 });
-    }
+    const data = await createDoc(collections.guarantors, {
+      clientId,
+      name,
+      documentNumber,
+      phone,
+      address,
+    });
 
     return NextResponse.json(mapGuarantor(data as Record<string, unknown>), { status: 201 });
   } catch (error) {
@@ -152,33 +65,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'id es requerido' }, { status: 400 });
     }
 
-    if (isVercel) {
-      const supabase = await getSupabase();
-      if (!supabase) {
-        return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-      }
-
-      const { error } = await supabase.from('guarantors').delete().eq('id', id);
-
-      if (error) {
-        console.error('[Guarantors] Supabase delete error:', error.message);
-        return NextResponse.json({ error: 'Error al eliminar garante' }, { status: 500 });
-      }
-
-      return NextResponse.json({ success: true });
-    }
-
-    const supabase = await getSupabase();
-    if (!supabase) {
-      return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-    }
-
-    const { error } = await supabase.from('guarantors').delete().eq('id', id);
-
-    if (error) {
-      console.error('[Guarantors] Supabase delete error:', error.message);
-      return NextResponse.json({ error: 'Error al eliminar garante' }, { status: 500 });
-    }
+    await deleteDoc(collections.guarantors, id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

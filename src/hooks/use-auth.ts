@@ -84,6 +84,7 @@ export const useAuth = create<AuthState>()(
           const state = get();
           if (fbUser) {
             if (_loggingIn) { _loggingIn = false; return; }
+            if (state.user) return;
             if (fbUser.email) {
               fetch('/api/profile/sync-uid', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: fbUser.email, firebaseUid: fbUser.uid }) }).catch(() => {});
             }

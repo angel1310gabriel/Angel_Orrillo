@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { findMany, deleteDoc, findFirst, collections } from '@/lib/firestore-db';
 import webpush from 'web-push';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 webpush.setVapidDetails(
   'mailto:admin@kc-cobranzas.com',
@@ -32,30 +27,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'title y body requeridos' }, { status: 400 });
     }
 
-    let query = supabase.from('push_subscriptions').select('*');
+    let subscriptions: any[] = [];
 
     if (userIds && userIds.length > 0) {
-      query = query.in('user_id', userIds);
+      // Fetch subscriptions for specific users
+      for (const uid of userIds) {
+        const subs = await findMany(collections.pushSubscriptions, { user_id: uid });
+        subscriptions.push(...subs);
+      }
     } else if (role) {
-      const { data: users } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('role', role);
-      const ids = users?.map(u => u.id) || [];
+      const users = await findMany(collections.profiles, { role });
+      const ids = users.map((u: any) => u.id);
       if (ids.length === 0) {
         return NextResponse.json({ success: true, sent: 0 });
       }
-      query = query.in('user_id', ids);
+      for (const uid of ids) {
+        const subs = await findMany(collections.pushSubscriptions, { user_id: uid });
+        subscriptions.push(...subs);
+      }
+    } else {
+      subscriptions = await findMany(collections.pushSubscriptions);
     }
 
-    const { data: subscriptions, error } = await query;
-
-    if (error) throw error;
-    if (!subscriptions || subscriptions.length === 0) {
+    if (subscriptions.length === 0) {
       return NextResponse.json({ success: true, sent: 0 });
     }
 
-    const pushPromises = subscriptions.map(async (sub) => {
+    const pushPromises = subscriptions.map(async (sub: any) => {
       try {
         await webpush.sendNotification(
           {
@@ -67,10 +65,11 @@ export async function POST(request: NextRequest) {
         return { success: true };
       } catch (err: any) {
         if (err.statusCode === 410 || err.statusCode === 404) {
-          await supabase
-            .from('push_subscriptions')
-            .delete()
-            .eq('endpoint', sub.endpoint);
+          // Remove expired subscription
+          const existing = await findFirst(collections.pushSubscriptions, { endpoint: sub.endpoint });
+          if (existing) {
+            await deleteDoc(collections.pushSubscriptions, existing.id);
+          }
         }
         return { success: false, error: err.message };
       }

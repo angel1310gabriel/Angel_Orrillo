@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { findMany, findFirst, createDoc, updateDoc, deleteDoc, collections } from '@/lib/firestore-db';
+
+function toISO(val: unknown): string {
+  if (!val) return new Date().toISOString();
+  if (typeof val === 'string') return val;
+  if (val instanceof Date) return val.toISOString();
+  if (val && typeof val === 'object' && 'toDate' in val) return (val as any).toDate().toISOString();
+  return String(val);
+}
 
 async function resolveUid(input: string): Promise<string> {
-  // Try to resolve Firebase UID → profile UUID
-  const profile = await db.profiles.findFirst({
-    where: { firebaseUid: input },
-    select: { id: true },
-  });
+  const profile = await findFirst(collections.profiles, { firebaseUid: input });
   return profile ? profile.id : input;
 }
 
 function getUuid(input: string): string {
-  // Simple UUID format check (hex-hex-hex-hex-hex)
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input) ? input : '';
 }
 
@@ -25,38 +28,47 @@ export async function GET(request: NextRequest) {
 
     if (userId) {
       const uuid = await resolveUid(userId);
-      const messages = await db.chatMessage.findMany({
-        where: {
-          OR: [
-            { senderId: uuid },
-            { receiverId: uuid },
-          ],
-        },
-        orderBy: { createdAt: 'desc' },
+      const sent = await findMany(collections.chatMessages, { senderId: uuid });
+      const received = await findMany(collections.chatMessages, { receiverId: uuid });
+      const allMessages = [...sent, ...received];
+
+      const seen = new Set<string>();
+      const messages = allMessages.filter((m: any) => {
+        if (seen.has(m.id)) return false;
+        seen.add(m.id);
+        return true;
+      });
+      messages.sort((a: any, b: any) => {
+        const aDate = typeof a.createdAt === 'string' ? a.createdAt : '';
+        const bDate = typeof b.createdAt === 'string' ? b.createdAt : '';
+        return bDate.localeCompare(aDate);
       });
 
-      // Build contacts list
       const contactIds = new Set<string>();
-      messages.forEach((m) => {
+      messages.forEach((m: any) => {
         if (m.senderId !== uuid) contactIds.add(m.senderId);
         if (m.receiverId !== uuid) contactIds.add(m.receiverId);
       });
 
-      const profiles = await db.profiles.findMany({
-        where: { id: { in: Array.from(contactIds) } },
-        select: { id: true, name: true, email: true, role: true, isActive: true },
-      });
+      const profiles = await findMany(collections.profiles);
+      const filteredProfiles = profiles.filter((p: any) => contactIds.has(p.id));
 
-      // Track latest message per contact
-      const latestPerContact: Record<string, typeof messages[0]> = {};
-      messages.forEach((m) => {
+      const latestPerContact: Record<string, any> = {};
+      messages.forEach((m: any) => {
         const contactId = m.senderId === uuid ? m.receiverId : m.senderId;
-        if (!latestPerContact[contactId] || m.createdAt! > latestPerContact[contactId].createdAt!) {
+        const mDate = typeof m.createdAt === 'string' ? m.createdAt : '';
+        if (!latestPerContact[contactId]) {
           latestPerContact[contactId] = m;
+        } else {
+          const existingDate = typeof latestPerContact[contactId].createdAt === 'string'
+            ? latestPerContact[contactId].createdAt : '';
+          if (mDate > existingDate) {
+            latestPerContact[contactId] = m;
+          }
         }
       });
 
-      const contacts = profiles.map((p) => {
+      const contacts = filteredProfiles.map((p: any) => {
         const lastMsg = latestPerContact[p.id];
         return {
           id: p.id,
@@ -66,11 +78,11 @@ export async function GET(request: NextRequest) {
           isActive: p.isActive,
           lastMessage: lastMsg ? {
             message: lastMsg.message,
-            createdAt: lastMsg.createdAt?.toISOString(),
+            createdAt: toISO(lastMsg.createdAt),
             isRead: lastMsg.isRead,
             senderId: lastMsg.senderId,
           } : null,
-          unread: messages.filter((m) => m.senderId === p.id && !m.isRead).length,
+          unread: messages.filter((m: any) => m.senderId === p.id && !m.isRead).length,
         };
       });
 
@@ -80,24 +92,22 @@ export async function GET(request: NextRequest) {
     if (senderId && receiverId) {
       const uuid1 = await resolveUid(senderId);
       const uuid2 = await resolveUid(receiverId);
-      const messages = await db.chatMessage.findMany({
-        where: {
-          OR: [
-            { senderId: uuid1, receiverId: uuid2 },
-            { senderId: uuid2, receiverId: uuid1 },
-          ],
-        },
-        orderBy: { createdAt: 'asc' },
+      const msgs1 = await findMany(collections.chatMessages, { senderId: uuid1, receiverId: uuid2 });
+      const msgs2 = await findMany(collections.chatMessages, { senderId: uuid2, receiverId: uuid1 });
+      const messages = [...msgs1, ...msgs2].sort((a: any, b: any) => {
+        const aDate = typeof a.createdAt === 'string' ? a.createdAt : '';
+        const bDate = typeof b.createdAt === 'string' ? b.createdAt : '';
+        return aDate.localeCompare(bDate);
       });
 
       return NextResponse.json({
-        messages: messages.map((m) => ({
+        messages: messages.map((m: any) => ({
           id: m.id,
           senderId: m.senderId,
           receiverId: m.receiverId,
           message: m.message,
           isRead: m.isRead,
-          createdAt: m.createdAt?.toISOString(),
+          createdAt: toISO(m.createdAt),
         })),
       });
     }
@@ -122,13 +132,11 @@ export async function POST(request: NextRequest) {
     const uuidSender = await resolveUid(senderId);
     const uuidReceiver = await resolveUid(receiverId);
 
-    const msg = await db.chatMessage.create({
-      data: {
-        senderId: uuidSender,
-        receiverId: uuidReceiver,
-        message,
-        isRead: false,
-      },
+    const msg = await createDoc(collections.chatMessages, {
+      senderId: uuidSender,
+      receiverId: uuidReceiver,
+      message,
+      isRead: false,
     });
 
     return NextResponse.json({
@@ -137,7 +145,7 @@ export async function POST(request: NextRequest) {
       receiverId: msg.receiverId,
       message: msg.message,
       isRead: msg.isRead,
-      createdAt: msg.createdAt?.toISOString(),
+      createdAt: msg.createdAt,
     }, { status: 201 });
   } catch (error) {
     console.error('[ChatMessages] Error creating:', error);
@@ -155,10 +163,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'messageIds requerido' }, { status: 400 });
     }
 
-    await db.chatMessage.updateMany({
-      where: { id: { in: messageIds } },
-      data: { isRead: true },
-    });
+    await Promise.all(
+      messageIds.map((id: string) => updateDoc(collections.chatMessages, id, { isRead: true }))
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -181,14 +188,11 @@ export async function DELETE(request: NextRequest) {
     const uuidUser = await resolveUid(userId);
     const uuidContact = await resolveUid(contactId);
 
-    await db.chatMessage.deleteMany({
-      where: {
-        OR: [
-          { senderId: uuidUser, receiverId: uuidContact },
-          { senderId: uuidContact, receiverId: uuidUser },
-        ],
-      },
-    });
+    const msgs1 = await findMany(collections.chatMessages, { senderId: uuidUser, receiverId: uuidContact });
+    const msgs2 = await findMany(collections.chatMessages, { senderId: uuidContact, receiverId: uuidUser });
+    const allIds = [...msgs1.map((m: any) => m.id), ...msgs2.map((m: any) => m.id)];
+
+    await Promise.all(allIds.map((id: string) => deleteDoc(collections.chatMessages, id)));
 
     return NextResponse.json({ success: true });
   } catch (error) {

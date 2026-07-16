@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-
+import { findMany, createDoc, findById, updateDoc, deleteDoc, findFirst, collections, findManyProfiles } from '@/lib/firestore-db';
+import { requireRole } from '@/lib/route-guard';
 
 function getDocumentTypeLabel(type: string): string {
   switch (type) {
@@ -30,25 +30,19 @@ async function createFirebaseUser(email: string, password: string): Promise<{ lo
 // GET /api/collectors - List all staff
 export async function GET() {
   try {
-    const profiles = await db.profiles.findMany({
-      where: { role: { in: ['collector', 'supervisor', 'admin'] } },
-      select: {
-        id: true, email: true, name: true, role: true, phone: true, documentNumber: true,
-        isActive: true, createdAt: true, documentType: true, address: true,
-        dailyGoal: true, photoUrl: true,
-      },
-      orderBy: { name: 'asc' },
+    const profiles = await findManyProfiles({
+      role: ['in', ['collector', 'supervisor', 'admin']],
     });
-    const zoneIds = await db.collectorZone.findMany({
-      select: { collectorId: true, zoneId: true },
-    });
+
+    const allProfiles = profiles.filter(p => ['collector', 'supervisor', 'admin'].includes(p.role));
+    const zoneIds = await findMany(collections.collectorZones);
     const zoneMap: Record<string, string[]> = {};
     for (const z of zoneIds) {
       if (!zoneMap[z.collectorId]) zoneMap[z.collectorId] = [];
       if (!zoneMap[z.collectorId].includes(z.zoneId)) zoneMap[z.collectorId].push(z.zoneId);
     }
 
-    const collectors = profiles.map((p) => ({
+    const collectors = allProfiles.map((p) => ({
       id: p.id,
       name: p.name,
       email: p.email || '',
@@ -59,9 +53,10 @@ export async function GET() {
       documentType: p.documentType || 'dni',
       documentNumber: p.documentNumber || null,
       photoUrl: p.photoUrl || null,
-      createdAt: p.createdAt?.toISOString() || new Date().toISOString(),
+      createdAt: p.createdAt ? (typeof p.createdAt === 'string' ? p.createdAt : p.createdAt.toDate?.()?.toISOString() || new Date().toISOString()) : new Date().toISOString(),
       zoneIds: zoneMap[p.id] || [],
-      dailyGoal: p.dailyGoal,
+      dailyGoal: p.dailyGoal || 0,
+      _count: { loans: 0, payments: 0 },
     }));
 
     return NextResponse.json({ collectors });
@@ -73,6 +68,9 @@ export async function GET() {
 
 // POST /api/collectors - Create new staff member
 export async function POST(request: NextRequest) {
+  const auth = await requireRole(request, ['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = await request.json();
     const { name, password, documentType, documentNumber, phone, address, role, email } = body;
@@ -91,7 +89,15 @@ export async function POST(request: NextRequest) {
 
     const fbEmail = email.trim().toLowerCase();
 
-    // Create Firebase Auth user FIRST — fail if it doesn't work
+    // Check existing in Firestore
+    const existing = await findFirst(collections.profiles, {
+      OR: [{ email: fbEmail }, ...(documentNumber ? [{ documentNumber }] : [])] as any,
+    }).catch(() => null);
+    if (existing) {
+      return NextResponse.json({ error: 'Ya existe un usuario con ese email o documento' }, { status: 409 });
+    }
+
+    // Create Firebase Auth user
     let firebaseUid: string;
     try {
       const result = await createFirebaseUser(fbEmail, password);
@@ -100,61 +106,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Firebase: ${fbErr.message}` }, { status: 400 });
     }
 
-    // Create profile in PostgreSQL with Firebase UID as id
+    // Create in Firestore
     try {
-      const existing = await db.profiles.findFirst({
-        where: { OR: [{ email: fbEmail }, ...(documentNumber ? [{ documentNumber }] : [])] },
-      });
-      if (existing) {
-        return NextResponse.json({ error: 'Ya existe un usuario con ese email o documento' }, { status: 409 });
-      }
-
-      const profile = await db.profiles.create({
-        data: {
-          firebaseUid: firebaseUid,
-          name: name.trim(),
-          email: fbEmail,
-          documentType: docType,
-          documentNumber: documentNumber || null,
-          phone: phone || null,
-          address: address || null,
-          role,
-          isActive: true,
-          dailyGoal: parseFloat(body.dailyGoal) || 0,
-        },
-        select: {
-          id: true, name: true, email: true, phone: true, address: true, role: true,
-          isActive: true, documentType: true, documentNumber: true, createdAt: true, dailyGoal: true,
-        },
-      });
+      const profile = await createDoc(collections.profiles, {
+        firebaseUid,
+        id: firebaseUid,
+        name: name.trim(),
+        email: fbEmail,
+        documentType: docType,
+        documentNumber: documentNumber || null,
+        phone: phone || null,
+        address: address || null,
+        role,
+        isActive: true,
+        dailyGoal: parseFloat(body.dailyGoal) || 0,
+        photoUrl: null,
+      }, firebaseUid);
 
       // Audit log
-      await db.auditLog.create({
-        data: {
-          action: 'CREATE',
-          entityType: 'staff',
-          entityId: profile.id,
-          entityName: profile.name,
-          severity: 'info',
-           notes: `Personal registrado: ${profile.name} (${getDocumentTypeLabel(profile.documentType || 'dni')}: ${profile.documentNumber || '—'}, Rol: ${profile.role}, Firebase: ${fbEmail})`,
-        },
+      await createDoc(collections.auditLogs, {
+        action: 'CREATE',
+        entityType: 'staff',
+        entityId: profile.id,
+        entityName: profile.name,
+        severity: 'info',
+        notes: `Personal registrado: ${profile.name} (${getDocumentTypeLabel(profile.documentType || 'dni')}: ${profile.documentNumber || '—'}, Rol: ${profile.role}, Firebase: ${fbEmail})`,
       }).catch(() => {});
 
-      return NextResponse.json({
-        id: profile.id,
-        name: profile.name,
-        email: profile.email,
-        phone: profile.phone,
-        address: profile.address,
-        role: profile.role,
-        isActive: profile.isActive,
-        documentType: profile.documentType || 'dni',
-        documentNumber: profile.documentNumber,
-        createdAt: profile.createdAt?.toISOString(),
-        dailyGoal: profile.dailyGoal,
-      }, { status: 201 });
+      return NextResponse.json(profile, { status: 201 });
     } catch (dbErr: any) {
-      // Rollback Firebase user if DB insert failed
+      // Rollback Firebase user
       try {
         await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:delete?key=${FIREBASE_API_KEY}`, {
           method: 'POST',
@@ -172,6 +153,9 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/collectors - Update staff member
 export async function PUT(request: NextRequest) {
+  const auth = await requireRole(request, ['admin', 'supervisor']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = await request.json();
     const { id, name, phone, address, role, isActive, zoneIds, documentNumber, password } = body;
@@ -181,32 +165,27 @@ export async function PUT(request: NextRequest) {
     if (documentNumber != null && !/^\d{8}$/.test(String(documentNumber))) return NextResponse.json({ error: 'DNI inválido' }, { status: 400 });
 
     try {
-      let existing = await db.profiles.findUnique({ where: { id } }).catch(() => null);
-      if (!existing) existing = await db.profiles.findFirst({ where: { firebaseUid: id } });
-      if (!existing && body.email) existing = await db.profiles.findFirst({ where: { email: { equals: body.email.trim(), mode: 'insensitive' } } });
-      if (!existing) { return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 }); }
+      let existing = await findById(collections.profiles, id);
+      if (!existing && body.email) {
+        existing = await findFirst(collections.profiles, { email: body.email.trim().toLowerCase() });
+      }
+      if (!existing) return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 });
+
       const profileId = existing.id;
+      const updateData: Record<string, unknown> = {};
+      if (name != null) updateData.name = name.trim();
+      if (body.email != null) updateData.email = body.email.trim().toLowerCase();
+      if (phone != null) updateData.phone = phone;
+      if (address != null) updateData.address = address;
+      if (role != null) updateData.role = role;
+      if (isActive != null) updateData.isActive = isActive;
+      if (documentNumber != null) updateData.documentNumber = documentNumber;
+      if (body.photoUrl != null) updateData.photoUrl = body.photoUrl;
+      if (body.dailyGoal != null) updateData.dailyGoal = parseFloat(body.dailyGoal);
 
-      const profile = await db.profiles.update({
-        where: { id: profileId },
-        data: {
-          name: name != null ? name.trim() : existing.name,
-          email: body.email != null ? body.email.trim().toLowerCase() : existing.email,
-          phone: phone != null ? phone : existing.phone,
-          address: address != null ? address : existing.address,
-          role: role != null ? role : existing.role,
-          isActive: isActive != null ? isActive : existing.isActive,
-          documentNumber: documentNumber != null ? documentNumber : existing.documentNumber,
-          photoUrl: body.photoUrl != null ? body.photoUrl : existing.photoUrl,
-          dailyGoal: body.dailyGoal != null ? parseFloat(body.dailyGoal) : existing.dailyGoal,
-        },
-        select: {
-          id: true, name: true, email: true, phone: true, address: true, role: true,
-          isActive: true, documentType: true, documentNumber: true, createdAt: true, dailyGoal: true,
-          photoUrl: true,
-        },
-      });
+      const profile = await updateDoc(collections.profiles, profileId, updateData);
 
+      // Update Firebase Auth if email or password changed
       if (existing.firebaseUid && (body.email !== undefined || body.password)) {
         const fbUpdate: Record<string, any> = { idToken: '', localId: existing.firebaseUid };
         if (body.email !== undefined) fbUpdate.email = body.email.trim();
@@ -218,29 +197,26 @@ export async function PUT(request: NextRequest) {
         }).catch(() => {});
       }
 
+      // Handle zones
       if (zoneIds !== undefined && Array.isArray(zoneIds)) {
-        await db.collectorZone.deleteMany({ where: { collectorId: profileId } });
-        if (zoneIds.length > 0) {
-          await db.collectorZone.createMany({
-            data: zoneIds.map((zoneId: string) => ({ collectorId: profileId, zoneId: zoneId })),
-          });
+        const existingZones = await findMany(collections.collectorZones, { collectorId: profileId });
+        for (const z of existingZones) {
+          await deleteDoc(collections.collectorZones, z.id).catch(() => {});
+        }
+        for (const zoneId of zoneIds) {
+          await createDoc(collections.collectorZones, {
+            collectorId: profileId,
+            zoneId,
+          }).catch(() => {});
         }
       }
 
-      await db.auditLog.create({
-        data: {
-          action: 'UPDATE', entityType: 'staff', entityId: profile.id, entityName: profile.name,
-          severity: 'info', notes: `Personal actualizado: ${profile.name}`,
-        },
+      await createDoc(collections.auditLogs, {
+        action: 'UPDATE', entityType: 'staff', entityId: profile.id, entityName: profile.name,
+        severity: 'info', notes: `Personal actualizado: ${profile.name}`,
       }).catch(() => {});
 
-      return NextResponse.json({
-        id: profile.id, name: profile.name, email: profile.email, phone: profile.phone,
-        address: profile.address, role: profile.role, isActive: profile.isActive,
-        documentType: profile.documentType || 'dni', documentNumber: profile.documentNumber,
-        createdAt: profile.createdAt?.toISOString(), dailyGoal: profile.dailyGoal,
-        photoUrl: profile.photoUrl,
-      });
+      return NextResponse.json(profile);
     } catch (err: any) {
       return NextResponse.json({ error: err.message || 'Error al actualizar' }, { status: 500 });
     }
@@ -251,22 +227,28 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/collectors - Delete staff member
 export async function DELETE(request: NextRequest) {
+  const auth = await requireRole(request, ['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
 
     try {
-      const profile = await db.profiles.findUnique({ where: { id } });
-      if (!profile) { return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 }); }
-      const activeLoans = await db.loan.findMany({
-        where: { collectorId: id, status: { in: ['active', 'mora'] } },
-        take: 1,
-      });
+      const profile = await findById(collections.profiles, id);
+      if (!profile) return NextResponse.json({ error: 'Personal no encontrado' }, { status: 404 });
+
+      // Check active loans
+      const activeLoans = await findMany(collections.loans, {
+        collectorId: id,
+        status: ['in', ['active', 'mora']] as any,
+      }).catch(() => []);
       if (activeLoans.length > 0) {
         return NextResponse.json({ error: 'No se puede eliminar personal con préstamos activos' }, { status: 400 });
       }
 
+      // Delete Firebase Auth user
       if (profile.firebaseUid) {
         await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:delete?key=${FIREBASE_API_KEY}`, {
           method: 'POST',
@@ -275,13 +257,12 @@ export async function DELETE(request: NextRequest) {
         }).catch(() => {});
       }
 
-      await db.profiles.delete({ where: { id } });
+      // Delete from Firestore
+      await deleteDoc(collections.profiles, id);
 
-      await db.auditLog.create({
-        data: {
-          action: 'DELETE', entityType: 'staff', entityId: id, entityName: profile.name,
-          severity: 'warning', notes: `Personal eliminado: ${profile.name}`,
-        },
+      await createDoc(collections.auditLogs, {
+        action: 'DELETE', entityType: 'staff', entityId: id, entityName: profile.name,
+        severity: 'warning', notes: `Personal eliminado: ${profile.name}`,
       }).catch(() => {});
 
       return NextResponse.json({ message: 'Personal eliminado' });

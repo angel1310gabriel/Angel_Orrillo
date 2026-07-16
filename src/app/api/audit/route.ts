@@ -1,23 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, isVercel } from '@/lib/db';
-
-// ============================================================
-// Helper: Get Supabase client from env
-// ============================================================
-async function getSupabase() {
-  try {
-    const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const envKey = serviceKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (envUrl && envKey) {
-      const { createClient } = await import('@supabase/supabase-js');
-      return createClient(envUrl, envKey);
-    }
-  } catch {
-    // Not configured
-  }
-  return null;
-}
+import { findMany, findFirst, createDoc, collections } from '@/lib/firestore-db';
 
 // GET /api/audit - List audit logs with filtering and pagination
 export async function GET(request: NextRequest) {
@@ -33,140 +15,58 @@ export async function GET(request: NextRequest) {
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
 
-    const skip = (page - 1) * limit;
-
-    // On Vercel: use Supabase
-    if (isVercel) {
-      const supabase = await getSupabase();
-      if (!supabase) {
-        return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-      }
-
-      // Build Supabase query
-      let query = supabase.from('audit_logs').select('*', { count: 'exact' });
-
-      if (action) query = query.eq('action', action);
-      if (entityType) query = query.eq('entity_type', entityType);
-      if (severity) query = query.eq('severity', severity);
-      if (userId) query = query.eq('user_id', userId);
-      if (search) query = query.or(`entity_name.ilike.%${search}%,notes.ilike.%${search}%,entity_id.ilike.%${search}%`);
-      if (dateFrom) query = query.gte('created_at', dateFrom);
-      if (dateTo) query = query.lte('created_at', dateTo);
-
-      const { data: logs, count, error } = await query
-        .order('created_at', { ascending: false })
-        .range(skip, skip + limit - 1);
-
-      if (error) {
-        console.error('[Audit] Supabase query error:', error.message);
-        return NextResponse.json({ error: 'Error al obtener logs de auditoría' }, { status: 500 });
-      }
-
-      // Get stats via separate queries
-      const [actionStats, severityStats, entityTypeStats] = await Promise.all([
-        supabase.from('audit_logs').select('action'),
-        supabase.from('audit_logs').select('severity'),
-        supabase.from('audit_logs').select('entity_type'),
-      ]);
-
-      // Aggregate stats client-side
-      const byAction: Record<string, number> = {};
-      (actionStats.data || []).forEach((s: { action: string }) => {
-        byAction[s.action] = (byAction[s.action] || 0) + 1;
-      });
-
-      const bySeverity: Record<string, number> = {};
-      (severityStats.data || []).forEach((s: { severity: string }) => {
-        bySeverity[s.severity] = (bySeverity[s.severity] || 0) + 1;
-      });
-
-      const byEntityType: Record<string, number> = {};
-      (entityTypeStats.data || []).forEach((s: { entity_type: string }) => {
-        byEntityType[s.entity_type] = (byEntityType[s.entity_type] || 0) + 1;
-      });
-
-      // Map Supabase column names to expected format
-      const mappedLogs = (logs || []).map((log: Record<string, unknown>) => ({
-        id: log.id,
-        userId: log.user_id,
-        action: log.action,
-        entityType: log.entity_type,
-        entityId: log.entity_id,
-        entityName: log.entity_name,
-        changes: log.changes,
-        severity: log.severity,
-        notes: log.notes,
-        createdAt: log.created_at,
-        user: log.user_id ? { id: log.user_id } : null,
-      }));
-
-      return NextResponse.json({
-        logs: mappedLogs,
-        pagination: {
-          page,
-          limit,
-          total: count || 0,
-          totalPages: Math.ceil((count || 0) / limit),
-        },
-        stats: {
-          byAction: Object.entries(byAction).map(([action, count]) => ({ action, count })),
-          bySeverity: Object.entries(bySeverity).map(([severity, count]) => ({ severity, count })),
-          byEntityType: Object.entries(byEntityType).map(([entityType, count]) => ({ entityType, count })),
-        },
-      });
-    }
-
-    // Local: Prisma
     const where: Record<string, unknown> = {};
-
     if (action) where.action = action;
     if (entityType) where.entityType = entityType;
     if (severity) where.severity = severity;
     if (userId) where.userId = userId;
 
+    let allLogs = await findMany(collections.auditLogs, Object.keys(where).length ? where : undefined, { field: 'createdAt', direction: 'desc' });
+
+    // Client-side search filter
     if (search) {
-      where.OR = [
-        { entityName: { contains: search } },
-        { notes: { contains: search } },
-        { entityId: { contains: search } },
-      ];
+      const q = search.toLowerCase();
+      allLogs = allLogs.filter(
+        (log: any) =>
+          (log.entityName && log.entityName.toLowerCase().includes(q)) ||
+          (log.notes && log.notes.toLowerCase().includes(q)) ||
+          (log.entityId && log.entityId.toLowerCase().includes(q))
+      );
     }
 
-    if (dateFrom || dateTo) {
-      where.createdAt = {};
-      if (dateFrom) (where.createdAt as Record<string, unknown>).gte = new Date(dateFrom);
-      if (dateTo) (where.createdAt as Record<string, unknown>).lte = new Date(dateTo);
+    // Date range filter
+    if (dateFrom) {
+      allLogs = allLogs.filter((log: any) => log.createdAt && new Date(log.createdAt) >= new Date(dateFrom));
+    }
+    if (dateTo) {
+      allLogs = allLogs.filter((log: any) => log.createdAt && new Date(log.createdAt) <= new Date(dateTo));
     }
 
-    const [logs, total] = await Promise.all([
-      db.auditLog.findMany({
-        where,
-        include: {
-          user: {
-            select: { id: true, name: true, email: true, role: true },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      db.auditLog.count({ where }),
-    ]);
+    const total = allLogs.length;
+    const paginatedLogs = allLogs.slice((page - 1) * limit, page * limit);
 
-    // Stats for audit summary
-    const stats = await db.auditLog.groupBy({
-      by: ['action'],
-      _count: { action: true },
-    });
+    // Resolve user info for each log
+    const logs = await Promise.all(
+      paginatedLogs.map(async (log: any) => {
+        let user = null;
+        if (log.userId) {
+          const profile = await findFirst(collections.profiles, { id: log.userId });
+          if (profile) {
+            user = { id: profile.id, name: profile.name, email: profile.email, role: profile.role };
+          }
+        }
+        return { ...log, user };
+      })
+    );
 
-    const severityStats = await db.auditLog.groupBy({
-      by: ['severity'],
-      _count: { severity: true },
-    });
-
-    const entityTypeStats = await db.auditLog.groupBy({
-      by: ['entityType'],
-      _count: { entityType: true },
+    // Stats from all logs
+    const byAction: Record<string, number> = {};
+    const bySeverity: Record<string, number> = {};
+    const byEntityType: Record<string, number> = {};
+    allLogs.forEach((log: any) => {
+      if (log.action) byAction[log.action] = (byAction[log.action] || 0) + 1;
+      if (log.severity) bySeverity[log.severity] = (bySeverity[log.severity] || 0) + 1;
+      if (log.entityType) byEntityType[log.entityType] = (byEntityType[log.entityType] || 0) + 1;
     });
 
     return NextResponse.json({
@@ -178,9 +78,9 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil(total / limit),
       },
       stats: {
-        byAction: stats.map((s) => ({ action: s.action, count: s._count.action })),
-        bySeverity: severityStats.map((s) => ({ severity: s.severity, count: s._count.severity })),
-        byEntityType: entityTypeStats.map((s) => ({ entityType: s.entityType, count: s._count.entityType })),
+        byAction: Object.entries(byAction).map(([action, count]) => ({ action, count })),
+        bySeverity: Object.entries(bySeverity).map(([severity, count]) => ({ severity, count })),
+        byEntityType: Object.entries(byEntityType).map(([entityType, count]) => ({ entityType, count })),
       },
     });
   } catch (error) {
@@ -199,65 +99,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Action y entityType son requeridos' }, { status: 400 });
     }
 
-    // On Vercel: push to Supabase (audit logs are non-critical on Vercel)
-    if (isVercel) {
-      const supabase = await getSupabase();
-      if (supabase) {
-        const { data, error } = await supabase.from('audit_logs').insert({
-          user_id: userId || null,
-          action,
-          entity_type: entityType,
-          entity_id: entityId || null,
-          entity_name: entityName || null,
-          changes: changes ? JSON.stringify(changes) : null,
-          severity: severity || 'info',
-          notes: notes || null,
-        }).select().single();
-
-        if (!error && data) {
-          return NextResponse.json({
-            id: data.id,
-            userId: data.user_id,
-            action: data.action,
-            entityType: data.entity_type,
-            entityId: data.entity_id,
-            entityName: data.entity_name,
-            changes: data.changes,
-            severity: data.severity,
-            notes: data.notes,
-            createdAt: data.created_at,
-          }, { status: 201 });
-        }
-      }
-
-      // If Supabase not available, just acknowledge (audit logs are non-critical)
-      return NextResponse.json({
-        message: 'Audit log recorded',
-        action,
-        entityType,
-      }, { status: 201 });
-    }
-
-    // Local: Prisma
-    const log = await db.auditLog.create({
-      data: {
-        userId: userId || null,
-        action,
-        entityType,
-        entityId: entityId || null,
-        entityName: entityName || null,
-        changes: changes ? JSON.stringify(changes) : null,
-        severity: severity || 'info',
-        notes: notes || null,
-      },
-      include: {
-        user: {
-          select: { id: true, name: true, email: true, role: true },
-        },
-      },
+    const log = await createDoc(collections.auditLogs, {
+      userId: userId || null,
+      action,
+      entityType,
+      entityId: entityId || null,
+      entityName: entityName || null,
+      changes: changes ? JSON.stringify(changes) : null,
+      severity: severity || 'info',
+      notes: notes || null,
     });
 
-    return NextResponse.json(log, { status: 201 });
+    const user = log.userId
+      ? await findFirst(collections.profiles, { id: log.userId })
+      : null;
+
+    return NextResponse.json(
+      { ...log, user: user ? { id: user.id, name: user.name, email: user.email, role: user.role } : null },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Error creating audit log:', error);
     return NextResponse.json({ error: 'Error al crear log de auditoría' }, { status: 500 });

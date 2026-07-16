@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { findById, updateDoc, createDoc, collections } from '@/lib/firestore-db';
 
 interface BulkLoanAction {
   action: 'remind' | 'reschedule' | 'cancel' | 'export' | 'reassign' | 'send_link';
@@ -27,7 +22,7 @@ export async function POST(request: NextRequest) {
       try {
         switch (action) {
           case 'remind': {
-            await supabase.from('notifications').insert({
+            await createDoc(collections.notifications, {
               loan_id: id,
               type: 'reminder',
               title: 'Recordatorio de pago',
@@ -38,9 +33,9 @@ export async function POST(request: NextRequest) {
             break;
           }
           case 'send_link': {
-            const { data: loan } = await supabase.from('loans').select('client_id').eq('id', id).single();
+            const loan = await findById(collections.loans, id);
             if (loan?.client_id) {
-              await supabase.from('payment_links').insert({
+              await createDoc(collections.paymentLinks, {
                 loan_id: id,
                 client_id: loan.client_id,
                 amount: params?.amount,
@@ -53,29 +48,28 @@ export async function POST(request: NextRequest) {
           case 'reschedule': {
             const { days, reason } = params || {};
             if (days) {
-              await supabase.from('loans').update({
+              await updateDoc(collections.loans, id, {
                 end_date: new Date(Date.now() + days * 86400000).toISOString(),
-                notes: `${loanId} | Refinanciado: ${reason || 'Bulk action'}`,
-              }).eq('id', id);
+                notes: `${id} | Refinanciado: ${reason || 'Bulk action'}`,
+              });
             }
             break;
           }
           case 'cancel': {
-            await supabase.from('loans').update({
+            await updateDoc(collections.loans, id, {
               status: 'cancelled',
-              notes: `${loanId} | Cancelado en bulk: ${params?.reason || 'Bulk action'}`,
-            }).eq('id', id);
+              notes: `${id} | Cancelado en bulk: ${params?.reason || 'Bulk action'}`,
+            });
             break;
           }
           case 'reassign': {
             const { collectorId } = params || {};
             if (collectorId) {
-              await supabase.from('loans').update({ collector_id: collectorId }).eq('id', id);
+              await updateDoc(collections.loans, id, { collector_id: collectorId });
             }
             break;
           }
           case 'export': {
-            // Handled client-side
             break;
           }
           default:

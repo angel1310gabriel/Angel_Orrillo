@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { findFirst, createDoc, updateDoc, collections } from '@/lib/firestore-db';
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY!;
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,18 +12,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'subscription y userId requeridos' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
-      .from('push_subscriptions')
-      .upsert({
+    // Find existing subscription for this user+endpoint
+    const existing = await findFirst(collections.pushSubscriptions, {
+      user_id: userId,
+      endpoint: subscription.endpoint,
+    });
+
+    if (existing) {
+      await updateDoc(collections.pushSubscriptions, existing.id, {
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth,
+        user_agent: request.headers.get('user-agent') || '',
+      });
+    } else {
+      await createDoc(collections.pushSubscriptions, {
         user_id: userId,
         endpoint: subscription.endpoint,
         p256dh: subscription.keys.p256dh,
         auth: subscription.keys.auth,
         user_agent: request.headers.get('user-agent') || '',
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id,endpoint' });
-
-    if (error) throw error;
+      });
+    }
 
     return NextResponse.json({ success: true, vapidPublicKey: VAPID_PUBLIC_KEY });
   } catch (error) {

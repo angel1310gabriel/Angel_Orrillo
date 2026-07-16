@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { findById, deleteDoc, updateDoc, createDoc, collections } from '@/lib/firestore-db';
 
 interface BulkPaymentAction {
   action: 'delete' | 'export' | 'resend_receipt' | 'approve';
@@ -26,21 +21,20 @@ export async function POST(request: NextRequest) {
       try {
         switch (action) {
           case 'delete': {
-            const { data: payment } = await supabase.from('payments').select('loan_id, amount').eq('id', id).single();
+            const payment = await findById(collections.payments, id);
             if (payment) {
-              await supabase.from('payments').delete().eq('id', id);
-              // Recalculate loan
-              const { data: loan } = await supabase.from('loans').select('amount_paid').eq('id', payment.loan_id).single();
+              await deleteDoc(collections.payments, id);
+              const loan = await findById(collections.loans, payment.loan_id);
               if (loan) {
                 const newPaid = Math.max(0, (loan.amount_paid || 0) - payment.amount);
-                const newStatus = newPaid === 0 ? 'active' : newPaid >= (await supabase.from('loans').select('total_amount').eq('id', payment.loan_id).single()).data?.total_amount ? 'completed' : 'active';
-                await supabase.from('loans').update({ amount_paid: newPaid, status: newStatus }).eq('id', payment.loan_id);
+                const newStatus = newPaid === 0 ? 'active' : newPaid >= loan.total_amount ? 'completed' : 'active';
+                await updateDoc(collections.loans, payment.loan_id, { amount_paid: newPaid, status: newStatus });
               }
             }
             break;
           }
           case 'resend_receipt': {
-            await supabase.from('notifications').insert({
+            await createDoc(collections.notifications, {
               payment_id: id,
               type: 'receipt',
               title: 'Recibo de pago',
@@ -51,7 +45,7 @@ export async function POST(request: NextRequest) {
             break;
           }
           case 'approve': {
-            await supabase.from('daily_settlements').update({ status: 'approved' }).eq('id', id);
+            await updateDoc(collections.dailySettlements, id, { status: 'approved' });
             break;
           }
           case 'export': {

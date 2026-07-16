@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { findFirst, collections } from '@/lib/firestore-db';
+import { requireAuth } from '@/lib/route-guard';
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if (auth instanceof NextResponse) return auth;
+
   const { searchParams } = new URL(request.url);
   const dni = searchParams.get('dni');
   const phone = searchParams.get('phone');
@@ -11,11 +15,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const where = dni ? { dni } : { phone };
-    const profile = await db.profiles.findFirst({
-      where: where as any,
-      select: { email: true, firebase_uid: true, name: true, id: true },
-    });
+    const where = dni ? { documentNumber: dni } : { phone };
+    const profile = await findFirst(collections.profiles, where as Record<string, unknown>);
 
     if (!profile) {
       return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       firebaseEmail: profile.email,
-      firebaseUid: profile.firebase_uid,
+      firebaseUid: profile.firebaseUid,
       name: profile.name,
       id: profile.id,
     });

@@ -1,22 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, isVercel } from '@/lib/db';
+import { findMany, findById, createDoc, updateDoc, collections } from '@/lib/firestore-db';
 
-// ============================================================
-// Helper: Get Supabase client from env
-// ============================================================
-async function getSupabase() {
-  try {
-    const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const envKey = serviceKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (envUrl && envKey) {
-      const { createClient } = await import('@supabase/supabase-js');
-      return createClient(envUrl, envKey);
-    }
-  } catch {
-    // Not configured
-  }
-  return null;
+function toISO(val: unknown): string {
+  if (!val) return new Date().toISOString();
+  if (typeof val === 'string') return val;
+  if (val instanceof Date) return val.toISOString();
+  if (val && typeof val === 'object' && 'toDate' in val) return (val as any).toDate().toISOString();
+  return String(val);
 }
 
 // GET /api/payment-schedule - List payment schedule entries
@@ -26,54 +16,23 @@ export async function GET(request: NextRequest) {
     const loanId = searchParams.get('loanId');
     const status = searchParams.get('status');
 
-    // On Vercel: use Supabase
-    if (isVercel) {
-      const supabase = await getSupabase();
-      if (!supabase) {
-        return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-      }
-
-      let query = supabase.from('payment_schedule').select('*').order('installment_number', { ascending: true });
-
-      if (loanId) {
-        query = query.eq('loan_id', loanId);
-      }
-
-      if (status) {
-        query = query.eq('status', status);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('[PaymentSchedule] Supabase query error:', error.message);
-        return NextResponse.json({ error: 'Error al obtener calendario de pagos' }, { status: 500 });
-      }
-
-      const mapped = (data || []).map((item: Record<string, unknown>) => ({
-        id: item.id,
-        loanId: item.loan_id,
-        installmentNumber: item.installment_number,
-        amount: item.amount,
-        dueDate: item.due_date,
-        status: item.status,
-        createdAt: item.created_at,
-      }));
-
-      return NextResponse.json(mapped);
-    }
-
-    // Local: Prisma
     const where: Record<string, unknown> = {};
     if (loanId) where.loanId = loanId;
     if (status) where.status = status;
 
-    const schedules = await db.paymentSchedule.findMany({
-      where,
-      orderBy: { installmentNumber: 'asc' },
-    });
+    const schedules = await findMany(collections.paymentSchedules, where, { field: 'installmentNumber', direction: 'asc' });
 
-    return NextResponse.json(schedules);
+    const mapped = schedules.map((item: any) => ({
+      id: item.id,
+      loanId: item.loanId,
+      installmentNumber: item.installmentNumber,
+      amount: item.amount,
+      dueDate: toISO(item.dueDate),
+      status: item.status,
+      createdAt: toISO(item.createdAt),
+    }));
+
+    return NextResponse.json(mapped);
   } catch (error) {
     console.error('Error fetching payment schedules:', error);
     return NextResponse.json({ error: 'Error al obtener calendario de pagos' }, { status: 500 });
@@ -104,57 +63,26 @@ export async function POST(request: NextRequest) {
       } else if (frequency === 'weekly') {
         dueDate.setDate(dueDate.getDate() + 7 * i);
       } else {
-        // Default: monthly
         dueDate.setMonth(dueDate.getMonth() + i);
       }
 
       entries.push({
-        loan_id: loanId,
-        installment_number: i + 1,
+        loanId,
+        installmentNumber: i + 1,
         amount: installmentAmount,
-        due_date: dueDate.toISOString(),
+        dueDate: dueDate.toISOString(),
         status: 'pending',
       });
     }
 
-    // On Vercel: use Supabase
-    if (isVercel) {
-      const supabase = await getSupabase();
-      if (!supabase) {
-        return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-      }
-
-      const { data, error } = await supabase.from('payment_schedule').insert(entries).select();
-
-      if (error) {
-        console.error('[PaymentSchedule] Supabase insert error:', error.message);
-        return NextResponse.json({ error: 'Error al generar calendario de pagos' }, { status: 500 });
-      }
-
-      const mapped = (data || []).map((item: Record<string, unknown>) => ({
-        id: item.id,
-        loanId: item.loan_id,
-        installmentNumber: item.installment_number,
-        amount: item.amount,
-        dueDate: item.due_date,
-        status: item.status,
-        createdAt: item.created_at,
-      }));
-
-      return NextResponse.json(mapped, { status: 201 });
-    }
-
-    // Local: Prisma
     const created = await Promise.all(
       entries.map((entry) =>
-        db.paymentSchedule.create({
-          data: {
-            loanId: entry.loan_id as string,
-            installmentNumber: entry.installment_number as number,
-            amount: entry.amount as number,
-            dueDate: new Date(entry.due_date as string),
-            status: entry.status as string,
-          },
+        createDoc(collections.paymentSchedules, {
+          loanId: entry.loanId,
+          installmentNumber: entry.installmentNumber,
+          amount: entry.amount,
+          dueDate: entry.dueDate,
+          status: entry.status,
         })
       )
     );
@@ -183,28 +111,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Se requiere el campo status' }, { status: 400 });
     }
 
-    // On Vercel: use Supabase
-    if (isVercel) {
-      const supabase = await getSupabase();
-      if (!supabase) {
-        return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-      }
-
-      const { error } = await supabase.from('payment_schedule').update({ status }).eq('id', id);
-
-      if (error) {
-        console.error('[PaymentSchedule] Supabase update error:', error.message);
-        return NextResponse.json({ error: 'Error al actualizar calendario de pagos' }, { status: 500 });
-      }
-
-      return NextResponse.json({ success: true });
-    }
-
-    // Local: Prisma
-    await db.paymentSchedule.update({
-      where: { id },
-      data: { status },
-    });
+    await updateDoc(collections.paymentSchedules, id, { status });
 
     return NextResponse.json({ success: true });
   } catch (error) {

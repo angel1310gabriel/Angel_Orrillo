@@ -23,6 +23,8 @@ import { usePush } from '@/hooks/use-push';
 
 import ChangePassword from '@/components/change-password';
 import StarfieldBg from '@/components/starfield-bg';
+import FloatingChat from '@/components/floating-chat';
+import LiquidBg from '@/components/liquid-bg';
 import { InactivityTracker } from '@/components/inactivity-tracker';
 import {
   ShieldCheck,
@@ -121,6 +123,7 @@ export default function KCobranzasDashboard() {
   const [showDataTools, setShowDataTools] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showReports, setShowReports] = useState(false);
+  const [showFloatingChat, setShowFloatingChat] = useState(false);
   const [profileName, setProfileName] = useState('');
   const [profileEmail, setProfileEmail] = useState('');
   const [profileDni, setProfileDni] = useState('');
@@ -372,14 +375,17 @@ export default function KCobranzasDashboard() {
     <ErrorBoundary>
     <div className="min-h-screen flex relative bg-[#05060b] overflow-hidden">
       <StarfieldBg />
+      <LiquidBg />
       {/* Ambient glows */}
       <div className="fixed top-[-200px] left-[-200px] w-[600px] h-[600px] bg-emerald-500/4 rounded-full blur-[120px] pointer-events-none z-0" />
       <div className="fixed bottom-[-200px] right-[-200px] w-[600px] h-[600px] bg-emerald-500/3 rounded-full blur-[120px] pointer-events-none z-0" />
       <InactivityTracker />
 {/* SIDEBAR - Desktop */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 border-r border-emerald-500/10 fixed inset-y-0 left-0 z-30 bg-transparent">
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 border-r border-emerald-500/10 fixed inset-y-0 left-0 z-30 bg-transparent backdrop-blur-2xl">
         {/* Logo - premium header */}
-        <div className="h-14 px-5 flex items-center border-b border-emerald-500/20 shadow-[inset_0_-1px_20px_rgba(16,185,129,0.08)] bg-transparent">
+        <div className="h-14 px-5 flex items-center border-b border-emerald-500/20 shadow-[inset_0_-1px_20px_rgba(16,185,129,0.08)] bg-transparent relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-transparent" />
+          <div className="absolute top-0 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent" />
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="KC Cobranzas" className="w-10 h-10 rounded-lg shadow-lg shadow-black/30" />
             <div>
@@ -394,10 +400,10 @@ export default function KCobranzasDashboard() {
           {filteredGroups.map((group) => {
             const isExpanded = expandedGroups[group.key];
             return (
-              <div key={group.key} className="mb-2">
+              <div key={group.key} className="mb-2 entrance-fade-up">
                 <button
                   onClick={() => toggleGroup(group.key)}
-                  className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hover:text-white/80 transition-colors"
+                  className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hover:text-white/80 transition-colors ripple-btn"
                 >
                   <span>{group.title}</span>
                   <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${isExpanded ? 'rotate-0' : '-rotate-90'}`} />
@@ -409,8 +415,8 @@ export default function KCobranzasDashboard() {
                     <button
                       key={item.value}
                       onClick={() => setActiveTab(item.value)}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 mb-0.5 group relative overflow-hidden ${isActive
-                        ? 'gradient-border-active text-emerald-100 shadow-lg shadow-emerald-500/10'
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 mb-0.5 group relative overflow-hidden hover-scale ${isActive
+                        ? 'gradient-border-active text-emerald-100 shadow-lg shadow-emerald-500/10 clay'
                         : 'text-muted-foreground hover:bg-white/5 hover:text-white'
                       }`}
                     >
@@ -427,9 +433,9 @@ export default function KCobranzasDashboard() {
         {/* Sidebar Footer - User Section */}
         <div className="border-t border-emerald-500/20 px-4 pt-4 pb-3 bg-transparent">
           <div className="flex items-center justify-center gap-3 mb-3">
-            <div className="relative shrink-0">
+            <div className="relative shrink-0 clay-pill p-0.5">
               <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full blur-sm opacity-60" />
-              <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 via-teal-400 to-emerald-500 flex items-center justify-center text-white text-base font-bold shadow shadow-emerald-500/20 overflow-hidden">
+              <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 via-teal-400 to-emerald-500 flex items-center justify-center text-white text-base font-bold shadow-lg shadow-emerald-500/30 overflow-hidden hover-lift">
                 {user.photoUrl ? (
                   <img src={user.photoUrl} alt={user.name} className="w-full h-full object-cover" />
                 ) : (
@@ -445,19 +451,19 @@ export default function KCobranzasDashboard() {
             </div>
           </div>
           <div className="flex items-center justify-center gap-1.5">
-            <button onClick={() => { setProfilePhotoPreview(null); setProfileName(user.name || ''); setProfileEmail(user.email || ''); setProfileDni((user as any).documentNumber || ''); setProfilePhone((user as any).phone || ''); setShowProfile(true); }} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-white hover:bg-white/10 hover:shadow-[0_0_20px_rgba(255,255,255,0.05)] transition-all duration-200" title="Perfil"><User className="h-3.5 w-3.5" />Perfil</button>
+            <button onClick={() => { setProfilePhotoPreview(null); setProfileName(user.name || ''); setProfileEmail(user.email || ''); setProfileDni((user as any).documentNumber || ''); setProfilePhone((user as any).phone || ''); setShowProfile(true); }} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-white hover:bg-white/10 hover:shadow-[0_0_20px_rgba(255,255,255,0.05)] transition-all duration-200 ripple-btn" title="Perfil"><User className="h-3.5 w-3.5" />Perfil</button>
             <span className="w-px h-4 bg-emerald-500/20" />
-            <button onClick={() => setShowChangePassword(true)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-amber-400 hover:bg-amber-500/10 hover:shadow-[0_0_20px_rgba(251,191,36,0.1)] transition-all duration-200" title="Cambiar Contraseña"><KeyRound className="h-3.5 w-3.5" />Clave</button>
+            <button onClick={() => setShowChangePassword(true)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-amber-400 hover:bg-amber-500/10 hover:shadow-[0_0_20px_rgba(251,191,36,0.1)] transition-all duration-200 ripple-btn" title="Cambiar Contraseña"><KeyRound className="h-3.5 w-3.5" />Clave</button>
             <span className="w-px h-4 bg-emerald-500/20" />
-            <button onClick={handleLogout} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-red-400 hover:bg-red-500/10 hover:shadow-[0_0_20px_rgba(239,68,68,0.1)] transition-all duration-200" title="Cerrar sesión"><LogOut className="h-3.5 w-3.5" />Salir</button>
+            <button onClick={handleLogout} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-red-400 hover:bg-red-500/10 hover:shadow-[0_0_20px_rgba(239,68,68,0.1)] transition-all duration-200 ripple-btn" title="Cerrar sesión"><LogOut className="h-3.5 w-3.5" />Salir</button>
           </div>
         </div>
       </aside>
 
       {/* Profile Dialog */}
       {showProfile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-[#05060b]/90 rounded-2xl shadow-2xl w-full max-w-sm mx-4 border border-input/50 dark:border-emerald-500/10 p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md entrance-scale">
+          <div className="bg-white dark:bg-[#05060b]/90 rounded-2xl shadow-2xl w-full max-w-sm mx-4 border border-emerald-500/10 p-6 clay backdrop-blur-2xl">
             <h3 className="text-lg font-semibold text-foreground dark:text-foreground mb-4">Editar Perfil</h3>
             <div className="space-y-4">
               {/* Photo Upload */}
@@ -472,40 +478,51 @@ export default function KCobranzasDashboard() {
                 <label className={`cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-sm font-medium transition-colors ${uploadingPhoto ? 'opacity-50 pointer-events-none' : ''}`}>
                   {uploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
                   <span>{uploadingPhoto ? 'Subiendo...' : 'Cambiar foto'}</span>
-<input
+                  <input
                     type="file"
                     accept="image/*"
                     capture="environment"
                     className="hidden"
                     disabled={uploadingPhoto}
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const file = e.target.files?.[0];
-                      if (file) {
-                        setUploadingPhoto(true);
-                        const reader = new FileReader();
-                        reader.onload = async (e) => {
-                          const base64 = e.target?.result as string;
-                          setProfilePhotoPreview(base64);
-                          try {
-                            const res = await fetch('/api/collectors', {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ id: user.id, email: user.email, photoUrl: base64 })
-                            });
-                            if (res.ok) {
-                              const data = await res.json();
-                              useAuth.getState()._setUser({ ...useAuth.getState().user!, photoUrl: data.photoUrl || base64 });
-                              toast({ title: 'Foto actualizada' });
-                            } else {
-                              toast({ title: 'Error al subir foto', variant: 'destructive' });
-                            }
-                          } catch {
-                            toast({ title: 'Error al subir foto', variant: 'destructive' });
-                          } finally {
-                            setUploadingPhoto(false);
-                          }
-                        };
-                        reader.readAsDataURL(file);
+                      if (!file) return;
+                      setUploadingPhoto(true);
+                      try {
+                        const toBase64 = (f: File): Promise<string> => new Promise((resolve, reject) => {
+                          const reader = new FileReader();
+                          reader.onload = () => { const r = reader.result as string; resolve(r.split(',')[1]); };
+                          reader.onerror = reject;
+                          reader.readAsDataURL(f);
+                        });
+                        const base64 = await toBase64(file);
+                        const ext = file.name.split('.').pop() || 'png';
+                        const fileName = `${Date.now()}_${user.id}.${ext}`;
+                        const uploadRes = await fetch('/api/upload', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ profileId: user.id, base64, contentType: file.type }),
+                        });
+                        if (!uploadRes.ok) { const err = await uploadRes.json(); throw new Error(err.error); }
+                        const { url } = await uploadRes.json();
+                        setProfilePhotoPreview(url);
+                        const res = await fetch('/api/collectors', {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ id: user.id, email: user.email, photoUrl: url })
+                        });
+                        if (res.ok) {
+                          const data = await res.json();
+                          useAuth.getState()._setUser({ ...useAuth.getState().user!, photoUrl: data.photoUrl || url });
+                          toast({ title: 'Foto actualizada' });
+                        } else {
+                          toast({ title: 'Error al guardar foto', variant: 'destructive' });
+                        }
+                      } catch (err) {
+                        console.error('Upload error:', err);
+                        toast({ title: 'Error al subir foto', description: 'Error al subir la imagen', variant: 'destructive' });
+                      } finally {
+                        setUploadingPhoto(false);
                       }
                     }}
                   />
@@ -528,8 +545,8 @@ export default function KCobranzasDashboard() {
                 <input type="email" value={profileEmail} onChange={e => setProfileEmail(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-input dark:border-emerald-500/5 bg-white dark:bg-[#05060b]/70 text-foreground dark:text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setShowProfile(false)}>Cancelar</Button>
-                <Button onClick={async () => {
+                <Button variant="neu" onClick={() => setShowProfile(false)}>Cancelar</Button>
+                <Button variant="clay" onClick={async () => {
                   setSavingProfile(true);
                   try {
                     const res = await fetch('/api/collectors', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id, name: profileName, email: profileEmail, documentNumber: profileDni || null, phone: profilePhone || null, photoUrl: user.photoUrl || undefined }) });
@@ -558,15 +575,15 @@ export default function KCobranzasDashboard() {
 
       {/* Change Password Dialog */}
       {showChangePassword && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-[#05060b]/90 rounded-2xl shadow-2xl w-full max-w-sm mx-4 border border-input/50 dark:border-emerald-500/10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md entrance-scale">
+          <div className="bg-white dark:bg-[#05060b]/90 rounded-2xl shadow-2xl w-full max-w-sm mx-4 border border-emerald-500/10 clay backdrop-blur-2xl">
             <ChangePassword onClose={() => setShowChangePassword(false)} />
           </div>
         </div>
       )}
       {/* Logout Confirmation */}
       <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
-        <AlertDialogContent>
+        <AlertDialogContent className="clay backdrop-blur-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-lg shadow-red-500/20">
@@ -594,7 +611,7 @@ export default function KCobranzasDashboard() {
       <ReportsDialog open={showReports} onOpenChange={setShowReports} />
 
       {/* MOBILE HEADER */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 backdrop-blur-xl border-b border-emerald-500/10 bg-transparent">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 backdrop-blur-2xl border-b border-emerald-500/10 bg-transparent glass-panel rounded-none border-t-0 border-l-0 border-r-0">
         <div className="flex items-center justify-between h-14 px-4">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="KC Cobranzas" className="w-7 h-7 rounded-md" />
@@ -629,7 +646,7 @@ export default function KCobranzasDashboard() {
       {mobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-[10000]">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={() => setMobileMenuOpen(false)} />
-          <div className="absolute right-0 top-0 bottom-0 w-72 backdrop-blur-2xl shadow-2xl flex flex-col animate-[slideInRight_200ms_ease-out]">
+          <div className="absolute right-0 top-0 bottom-0 w-72 backdrop-blur-2xl shadow-2xl flex flex-col animate-[slideInRight_200ms_ease-out] glass-panel rounded-none border-y-0 border-r-0">
             {/* Header with gradient */}
             <div className="px-5 py-4 border-b border-emerald-500/20">
               <div className="flex items-center justify-between">
@@ -690,18 +707,18 @@ export default function KCobranzasDashboard() {
             <div className="px-3 pt-3 border-t border-emerald-500/20">
               <p className="px-3 mb-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Acciones</p>
               <div className="space-y-0.5">
-                <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); setShowReports(true); }} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-foreground/70 dark:text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
+                <Button variant="neu" onClick={() => { setMobileMenuOpen(false); setShowReports(true); }} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-foreground/70 dark:text-foreground">
                   <BarChart3 className="h-4 w-4 mr-2.5" /> Reportes
                 </Button>
-                <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); setShowDataTools(true); }} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-foreground/70 dark:text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
+                <Button variant="neu" onClick={() => { setMobileMenuOpen(false); setShowDataTools(true); }} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-foreground/70 dark:text-foreground">
                   <Download className="h-4 w-4 mr-2.5" /> Exportar / Importar
                 </Button>
-                <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); setShowChangePassword(true); }} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-foreground/70 dark:text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
+                <Button variant="neu" onClick={() => { setMobileMenuOpen(false); setShowChangePassword(true); }} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-foreground/70 dark:text-foreground">
                   <KeyRound className="h-4 w-4 mr-2.5" /> Cambiar Contraseña
                 </Button>
               </div>
               <div className="mt-1 pt-2 border-t border-emerald-500/10">
-                <Button variant="ghost" onClick={handleLogout} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50">
+                <Button variant="neu" onClick={handleLogout} className="w-full justify-start rounded-lg px-3 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50">
                   <LogOut className="h-4 w-4 mr-2.5" /> Cerrar Sesión
                 </Button>
               </div>
@@ -713,7 +730,7 @@ export default function KCobranzasDashboard() {
       {/* MAIN CONTENT */}
       <main className="flex-1 lg:ml-64 min-h-screen flex flex-col relative z-10">
         {/* Desktop top bar */}
-<header className="hidden lg:flex items-center justify-between h-14 px-6 backdrop-blur-xl border-b border-emerald-500/10 bg-transparent sticky top-0 z-20">
+<header className="hidden lg:flex items-center justify-between h-14 px-6 backdrop-blur-2xl border-b border-emerald-500/10 bg-transparent sticky top-0 z-20 glass-panel rounded-none border-l-0 border-r-0">
           <div className="flex items-center gap-4">
             <h2 className="text-lg font-semibold text-foreground dark:text-foreground">{getActiveLabel()}</h2>
             <span className="h-4 w-px bg-emerald-500/20" />
@@ -734,7 +751,7 @@ export default function KCobranzasDashboard() {
           <div className="flex items-center gap-2">
 
             <div className="relative" ref={notifRef}>
-              <Button variant="ghost" size="icon" onClick={()=>{setNotifOpen(!notifOpen);if(!notifOpen)markRead(notifications.filter(n=>!n.isRead).map(n=>n.id))}} className="relative h-8 w-8 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Notificaciones">
+              <Button variant="neu" size="icon" onClick={()=>{setNotifOpen(!notifOpen);if(!notifOpen)markRead(notifications.filter(n=>!n.isRead).map(n=>n.id))}} className="relative h-8 w-8 text-muted-foreground hover:text-emerald-500" title="Notificaciones">
                 {unreadCount>0?<BellRing className="h-4 w-4 text-emerald-500"/>:<Bell className="h-4 w-4"/>}
                 {unreadCount>0&&<span className="absolute -top-0.5 -right-0.5 h-3.5 min-w-[14px] px-1 rounded-full bg-red-500 text-[9px] text-white flex items-center justify-center font-bold">{unreadCount>9?'9+':unreadCount}</span>}
               </Button>
@@ -762,10 +779,10 @@ export default function KCobranzasDashboard() {
                 </div>
               </div>}
             </div>
-<Button variant="ghost" size="sm" onClick={()=>setShowReports(true)} className="h-8 text-xs text-muted-foreground hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Ver Reportes">
+<Button variant="neu" size="sm" onClick={()=>setShowReports(true)} className="h-8 text-xs text-muted-foreground hover:text-emerald-500" title="Ver Reportes">
               <BarChart3 className="h-3.5 w-3.5 mr-1"/>Reportes
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setShowDataTools(true)} className="h-8 text-xs text-muted-foreground hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950" title="Exportar / Importar">
+            <Button variant="neu" size="sm" onClick={() => setShowDataTools(true)} className="h-8 text-xs text-muted-foreground hover:text-emerald-500" title="Exportar / Importar">
               <Download className="h-3.5 w-3.5 mr-1" />
               Datos
             </Button>
@@ -780,7 +797,7 @@ export default function KCobranzasDashboard() {
         </header>
 
         {/* Content */}
-        <div className="flex-1 px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pt-16 lg:pt-6">
+        <div className="flex-1 px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pt-16 lg:pt-6 overflow-x-hidden">
           <div key={activeTab} style={{animation:'pageIn 0.35s ease-out both'}}>
             {activeTab === 'dashboard' && <ErrorBoundary><DashboardTab key={`dashboard-${refreshKey}`} /></ErrorBoundary>}
             {activeTab === 'loans' && <LoansTab key={`loans-${refreshKey}`} />}
@@ -799,7 +816,7 @@ export default function KCobranzasDashboard() {
         </div>
 
         {/* Footer */}
-        <footer className="backdrop-blur-2xl border-t border-emerald-500/20 shadow-[inset_0_1px_20px_rgba(16,185,129,0.08)] py-3 mt-auto">
+        <footer className="backdrop-blur-2xl border-t border-emerald-500/20 shadow-[inset_0_1px_20px_rgba(16,185,129,0.08)] py-3 mt-auto glass-panel rounded-none border-b-0 border-l-0 border-r-0">
           <div className="px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
             <p className="text-[10px] text-muted-foreground">© 2025 KC Cobranzas - Sistema de Gestión de Cobranzas</p>
             <div className="flex items-center gap-4">
@@ -815,19 +832,22 @@ export default function KCobranzasDashboard() {
           </div>
         </footer>
 
-        {/* FAB - Opens chat directly */}
+        {/* Floating Chat */}
+        <FloatingChat open={showFloatingChat} onClose={() => setShowFloatingChat(false)} />
+
+        {/* FAB - Toggles floating chat */}
         <button
-          onClick={() => setActiveTab('chat')}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-xl shadow-emerald-500/30 hover:shadow-2xl hover:shadow-emerald-500/40 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center"
+          onClick={() => setShowFloatingChat(!showFloatingChat)}
+          className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-xl shadow-emerald-500/30 hover:shadow-2xl hover:shadow-emerald-500/40 hover:scale-110 active:scale-95 transition-all duration-300 flex items-center justify-center clay hover:animate-[blob_4s_ease-in-out_infinite] ${showFloatingChat ? 'ring-2 ring-emerald-300 scale-110' : ''}`}
         >
-          <MessageCircle className="h-6 w-6" />
+          {showFloatingChat ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
         </button>
       </main>
     </div>
     <style>{`
       @keyframes pageIn {
-        from { opacity: 0; transform: translateY(12px); }
-        to { opacity: 1; transform: translateY(0); }
+        from { opacity: 0; transform: translateY(16px) scale(0.98); filter: blur(4px); }
+        to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
       }
     `}</style>
     </ErrorBoundary>

@@ -196,12 +196,12 @@ export default function LateFeeTab() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Run Calculation */}
         <Card className="shadow-lg border-0">
-          <CardHeader className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-t-lg">
-            <CardTitle className="flex items-center gap-2">
-              <Play className="h-5 w-5" />
+          <CardHeader className="bg-transparent rounded-t-lg">
+            <CardTitle className="flex items-center gap-2 text-foreground">
+              <Play className="h-5 w-5 text-emerald-500" />
               Ejecutar Cálculo de Mora
             </CardTitle>
-            <CardDescription className="text-emerald-100">
+            <CardDescription className="text-muted-foreground">
               Ejecutar manualmente el cálculo de mora y recargos
             </CardDescription>
           </CardHeader>

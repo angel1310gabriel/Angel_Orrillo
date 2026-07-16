@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Users, Shield, Eye, UserCheck, Search, RefreshCw, Loader2, CheckCircle2, XCircle, User, Mail, Phone, MapPin, Trash2, UserPlus, KeyRound, IdCard, Globe, AlertTriangle, DollarSign, Wallet } from 'lucide-react';
 import CollectorExpensesPanel from './collector-expenses-panel';
 import CollectorLocationsMap from './collector-locations-map';
@@ -93,8 +93,9 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
   const [fDT, setFDT] = useState('dni'), [fDN, setFDN] = useState(''), [fN, setFN] = useState(''), [fE, setFE] = useState('');
   const [fPh, setFPh] = useState(''), [fAd, setFAd] = useState(''), [fDailyGoal, setFDailyGoal] = useState(''), [fR, setFR] = useState('collector');
   const [phOk, setPhOk] = useState(false);
+  const [phVDocing, setPhVDocing] = useState(false);
+  const [phVRes, setPhVRes] = useState<{found:boolean;results:{clients:any[];staff:any[]}}|null>(null);
   const [vDoc, setVDoc] = useState(false), [dOk, setDOk] = useState(false), [dRes, setDRes] = useState<VerifyResult | null>(null);
-  const [vPh, setVPh] = useState(false);
   const [sel, setSel] = useState<StaffMember | null>(null), [detOpen, setDetOpen] = useState(false), [expensesOpen, setExpensesOpen] = useState(false), [locationsOpen, setLocationsOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<StaffMember | null>(null);
   const [toggling, setToggling] = useState<string | null>(null), [deleting, setDeleting] = useState<string | null>(null);
@@ -126,18 +127,41 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
   const q = search.toLowerCase().trim();
   const filtered = q ? staff.filter(s => (s.name || '').toLowerCase().includes(q) || (s.documentNumber || '').includes(q) || s.email.toLowerCase().includes(q)) : staff;
 
-  const reset = () => { setFDT('dni'); setFDN(''); setFN(''); setFE(''); setFPh(''); setFAd(''); setFDailyGoal(''); setFR('collector'); setPhOk(false); setDOk(false); setDRes(null); setEditingMember(null); };
+  const reset = () => { setFDT('dni'); setFDN(''); setFN(''); setFE(''); setFPh(''); setFAd(''); setFDailyGoal(''); setFR('collector'); setPhOk(false); setPhVRes(null); setDOk(false); setDRes(null); setEditingMember(null); };
 
-  const onVerifyDoc = async () => {
+  const onVerifyDoc = useCallback(async () => {
     if (!docOk) return; setVDoc(true);
     try {
       const r = await fetch(`/api/verify-document?documentType=${fDT}&documentNumber=${fDN}`);
       if (r.ok) { const d: VerifyResult = await r.json(); setDRes(d); setDOk(true); if (d.found) { toast({ title: 'Documento encontrado', description: `${d.results.clients.length} cliente(s), ${d.results.staff.length} personal(es)`, variant: 'destructive' }); } else { toast({ title: 'Documento verificado', description: 'Sin registros previos' }); } }
       else toast({ title: 'Error', description: 'No se pudo verificar', variant: 'destructive' });
     } catch { toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' }); } finally { setVDoc(false); }
-  };
+  }, [docOk, fDT, fDN, toast]);
 
-  const onVerifyPh = async () => { if (!phOk_) return; setVPh(true); await new Promise(r => setTimeout(r, 600)); setPhOk(true); toast({ title: 'Teléfono verificado', description: `${fPh} es válido` }); setVPh(false); };
+  const autoVerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => {
+    clearTimeout(autoVerRef.current);
+    if (docOk && !editingMember) {
+      autoVerRef.current = setTimeout(() => { onVerifyDoc(); }, 400);
+    } else { setDOk(false); setDRes(null); }
+  }, [fDN, fDT, docOk, editingMember, onVerifyDoc]);
+
+  const onVerifyPh = useCallback(async () => {
+    if (!phOk_) return; setPhVDocing(true); setPhVRes(null);
+    try {
+      const r = await fetch(`/api/verify-document?phone=${fPh}`);
+      if (r.ok) { const d = await r.json(); setPhVRes(d); setPhOk(!d.found); if (d.found) toast({ title: 'Teléfono registrado', description: `${d.results.clients.length} cliente(s), ${d.results.staff.length} personal(es)`, variant: 'destructive' }); else toast({ title: 'Teléfono verificado', description: 'Disponible' }); }
+      else { setPhOk(true); toast({ title: 'Teléfono verificado', description: 'Formato válido' }); }
+    } catch { setPhOk(true); } finally { setPhVDocing(false); }
+  }, [phOk_, fPh, toast]);
+
+  const autoPhRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => {
+    clearTimeout(autoPhRef.current);
+    if (phOk_ && !editingMember) {
+      autoPhRef.current = setTimeout(() => { onVerifyPh(); }, 400);
+    } else { setPhOk(false); setPhVRes(null); }
+  }, [fPh, phOk_, editingMember, onVerifyPh]);
 
   const generatePassword = (name: string): string => {
     const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -258,7 +282,7 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
       ) : filtered.length === 0 ? (
         <Card className="border-0 shadow-md"><CardContent className="p-12 text-center"><div className="w-16 h-16 rounded-full bg-background/70 dark:bg-[#05060b]/70 flex items-center justify-center mx-auto mb-4"><Users className="h-8 w-8 text-muted-foreground dark:text-muted-foreground" /></div><h3 className="text-lg font-semibold text-foreground/80 dark:text-foreground/80 mb-2">No hay personal</h3><p className="text-muted-foreground dark:text-muted-foreground">{search ? 'Sin resultados' : 'No hay personal registrado'}</p></CardContent></Card>
       ) : (
-        <div className="space-y-2 max-h-96 overflow-y-auto">
+        <div className="space-y-2 max-h-96 overflow-y-auto overflow-x-hidden">
           {filtered.map(m => { const rs = RS[m.role] || { c: 'bg-background/70 dark:bg-[#05060b]/70 text-foreground/70 dark:text-muted-foreground border-input dark:border-emerald-500/5', l: m.role }; const ds = DS[m.documentType] || { c: 'bg-background/50 dark:bg-[#05060b]/70 text-foreground/70 dark:text-muted-foreground border-input dark:border-emerald-500/5', l: m.documentType }; const Ic = RI[m.role] || User; return (
             <Card key={m.id} className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => openDet(m)}>
               <CardContent className="p-3"><div className="flex items-center gap-3">
@@ -293,7 +317,7 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
                 <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 flex items-center gap-2"><IdCard className="h-4 w-4 text-muted-foreground" /> Número de Documento *</Label>
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1"><Input placeholder={fDT === 'dni' ? 'Ej: 12345678' : 'Ej: 123456789 (mín 9, máx 25)'} value={fDN} onChange={e => { setFDN(e.target.value.replace(/\D/g, '').slice(0, maxDig)); setDOk(false); setDRes(null); }} maxLength={maxDig} className={`pr-16 bg-white dark:bg-[#05060b]/80 font-mono tracking-wider ${vb(fDN, docOk)}`} /><div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">{fDN.length > 0 && (docOk ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <XCircle className="h-3.5 w-3.5 text-red-400" />)}<span className={`text-xs font-medium tabular-nums ${docOk ? 'text-emerald-600 dark:text-emerald-300' : 'text-muted-foreground'}`}>{fDN.length}/{maxDig}</span></div></div>
-                  <Button type="button" variant="outline" className={`shrink-0 h-10 ${dOk && !dRes?.found ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50' : 'border-input'}`} disabled={!docOk || vDoc} onClick={onVerifyDoc}>{vDoc ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : dOk && !dRes?.found ? <CheckCircle2 className="h-4 w-4 mr-1.5" /> : null} Verificar</Button>
+                  <div className={`shrink-0 h-10 flex items-center gap-2 px-4 rounded-xl border font-semibold text-sm ${dRes?.found ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-200 text-amber-700 dark:text-amber-300' : dOk && dRes ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 text-emerald-700 dark:text-emerald-300' : docOk ? 'border-emerald-300 text-muted-foreground' : 'border-input text-muted-foreground'}`}>{vDoc ? <><Loader2 className="h-4 w-4 animate-spin" /><span>Verificando...</span></> : dRes ? <><CheckCircle2 className="h-4 w-4" /><span>{dRes.found ? 'Con incidentes' : 'Disponible'}</span></> : <><IdCard className="h-4 w-4" /><span>Automático</span></>}</div>
                 </div>
                 {dOk && dRes && (
                   <div className={`mt-2 p-3 rounded-xl border ${dRes.found ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-200' : 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200'}`}>
@@ -309,8 +333,8 @@ export default function CollectorsTab({ refreshTrigger }: Props) {
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-foreground/80 dark:text-foreground/80 flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" /> Teléfono</Label>
                 <div className="flex items-center gap-2">
-                  <div className="relative flex-1"><Input placeholder="Ej: 999888777" value={fPh} onChange={e => { setFPh(e.target.value.replace(/\D/g, '').slice(0, 9)); setPhOk(false); }} className={`pr-14 bg-white dark:bg-[#05060b]/80 font-mono tracking-wider ${vb(fPh, phOk_)}`} /><div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">{fPh.length > 0 && (phOk_ ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <XCircle className="h-3.5 w-3.5 text-red-400" />)}<span className={`text-xs font-medium tabular-nums ${fPh.length === 9 ? 'text-emerald-600 dark:text-emerald-300' : 'text-muted-foreground'}`}>{fPh.length}/9</span></div></div>
-                  <Button type="button" variant="outline" className={`shrink-0 h-10 ${phOk && phOk_ ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50' : 'border-input'}`} disabled={!phOk_ || vPh} onClick={onVerifyPh}>{vPh ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : phOk && phOk_ ? <CheckCircle2 className="h-4 w-4 mr-1.5" /> : null} Verificar</Button>
+                  <div className="relative flex-1"><Input placeholder="Ej: 999888777" value={fPh} onChange={e => { setFPh(e.target.value.replace(/\D/g, '').slice(0, 9)); setPhOk(false); setPhVRes(null); }} className={`pr-14 bg-white dark:bg-[#05060b]/80 font-mono tracking-wider ${vb(fPh, phOk_)}`} /><div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">{fPh.length > 0 && (phOk_ ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <XCircle className="h-3.5 w-3.5 text-red-400" />)}<span className={`text-xs font-medium tabular-nums ${fPh.length === 9 ? 'text-emerald-600 dark:text-emerald-300' : 'text-muted-foreground'}`}>{fPh.length}/9</span></div></div>
+                  <div className={`shrink-0 h-10 flex items-center gap-2 px-4 rounded-xl border font-semibold text-sm ${phVRes?.found?'bg-amber-50 dark:bg-amber-950/50 border-amber-200 text-amber-700 dark:text-amber-300':phOk?'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 text-emerald-700 dark:text-emerald-300':phOk_?'border-emerald-300 text-muted-foreground':'border-input text-muted-foreground'}`}>{phVDocing?<><Loader2 className="h-4 w-4 animate-spin"/><span>Verificando...</span></>:phOk?<><CheckCircle2 className="h-4 w-4"/><span>{phVRes?.found?'Con incidentes':'Disponible'}</span></>:<><Phone className="h-4 w-4"/><span>Automático</span></>}</div>
                 </div>
                 <p className="text-xs text-muted-foreground">9 dígitos, empieza con 9</p>
               </div>

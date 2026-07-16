@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, isVercel } from '@/lib/db';
+import {
+  findMany,
+  findById,
+  findFirst,
+  createDoc,
+  createMany,
+  updateDoc,
+  deleteDoc,
+  collections,
+} from '@/lib/firestore-db';
 
-// GET /api/loans - List loans with filters
+// GET /api/loans
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -12,92 +21,129 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
 
-    // Try Supabase first if configured (lazy-loaded) - with timeout to prevent hanging
-    try {
-      const { isSupabaseConfigured, getLoans: supabaseGetLoans } = await import('@/lib/supabase-server');
-      if (isSupabaseConfigured()) {
-        try {
-          const data = await Promise.race([
-            supabaseGetLoans({
-              status: status || undefined,
-              clientId: clientId || undefined,
-              collectorId: collectorId || undefined,
-              zoneId: zoneId || undefined,
-              page,
-              limit,
-            }),
-            new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), 5000)),
-          ]);
-          // Only return Supabase data if query succeeded (even if empty resultset)
-          if (data && data !== null) {
-            return NextResponse.json(data);
-          }
-        } catch (error) {
-          console.error('Supabase getLoans failed, falling back to Prisma:', error);
-        }
-      }
-    } catch (error) {
-      console.error('Supabase not available, using Prisma fallback:', error);
-    }
-
-    // On Vercel, if Supabase failed, don't fall back to Prisma (no SQLite)
-
-
-    // Fallback to Prisma
-    const skip = (page - 1) * limit;
-
     const where: Record<string, unknown> = {};
     if (status) where.status = status;
     if (clientId) where.clientId = clientId;
     if (collectorId) where.collectorId = collectorId;
     if (zoneId) where.zoneId = zoneId;
 
-    const [loans, total] = await Promise.all([
-      db.loan.findMany({
-        where,
-        include: {
-          client: { select: { id: true, name: true, documentNumber: true, documentType: true, phone: true, creditScore: true } },
-          collector: { select: { id: true, name: true } },
-          zone: { select: { id: true, name: true } },
-          payments: {
-            where: { status: 'completed' },
-            orderBy: { paymentDate: 'desc' },
-            take: 5,
-          },
-          lateFees: {
-            where: { status: 'pending' },
-          },
-          schedule: {
-            orderBy: { installmentNumber: 'asc' },
-            take: 5,
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      db.loan.count({ where }),
-    ]);
+    let loans = await findMany(
+      collections.loans,
+      Object.keys(where).length > 0 ? where : undefined,
+      { field: 'createdAt', direction: 'desc' },
+    );
+
+    const total = loans.length;
+
+    const skip = (page - 1) * limit;
+    loans = loans.slice(skip, skip + limit);
+
+    const loanIds = loans.map((l) => l.id as string);
+    const clientIds = [...new Set(loans.map((l) => l.clientId as string).filter(Boolean))];
+    const collectorIds = [...new Set(loans.map((l) => l.collectorId as string).filter(Boolean))];
+    const zoneIds = [...new Set(loans.map((l) => l.zoneId as string).filter(Boolean))];
+
+    const allClients = clientIds.length > 0 ? await findMany(collections.clients) : [];
+    const clientMap: Record<string, Record<string, unknown>> = {};
+    for (const c of allClients) {
+      if (clientIds.includes(c.id)) clientMap[c.id] = c;
+    }
+
+    const allCollectors = collectorIds.length > 0 ? await findMany(collections.profiles) : [];
+    const collectorMap: Record<string, Record<string, unknown>> = {};
+    for (const c of allCollectors) {
+      if (collectorIds.includes(c.id)) collectorMap[c.id] = c;
+    }
+
+    const allZones = zoneIds.length > 0 ? await findMany(collections.zones) : [];
+    const zoneMap: Record<string, Record<string, unknown>> = {};
+    for (const z of allZones) {
+      if (zoneIds.includes(z.id)) zoneMap[z.id] = z;
+    }
+
+    const allPayments = loanIds.length > 0 ? await findMany(collections.payments, { status: 'completed' }) : [];
+    const paymentsByLoan: Record<string, Record<string, unknown>[]> = {};
+    for (const p of allPayments) {
+      const lid = p.loanId as string;
+      if (loanIds.includes(lid)) {
+        if (!paymentsByLoan[lid]) paymentsByLoan[lid] = [];
+        paymentsByLoan[lid].push(p);
+      }
+    }
+    for (const lid of Object.keys(paymentsByLoan)) {
+      paymentsByLoan[lid].sort((a, b) => {
+        const da = new Date(a.paymentDate as string).getTime();
+        const db = new Date(b.paymentDate as string).getTime();
+        return db - da;
+      });
+      paymentsByLoan[lid] = paymentsByLoan[lid].slice(0, 5);
+    }
+
+    const allLateFees = loanIds.length > 0 ? await findMany(collections.lateFees) : [];
+    const lateFeesByLoan: Record<string, Record<string, unknown>[]> = {};
+    for (const f of allLateFees) {
+      const lid = f.loanId as string;
+      if (loanIds.includes(lid)) {
+        if (!lateFeesByLoan[lid]) lateFeesByLoan[lid] = [];
+        lateFeesByLoan[lid].push(f);
+      }
+    }
+
+    const allSchedules = loanIds.length > 0 ? await findMany(collections.paymentSchedules) : [];
+    const schedulesByLoan: Record<string, Record<string, unknown>[]> = {};
+    for (const s of allSchedules) {
+      const lid = s.loanId as string;
+      if (loanIds.includes(lid)) {
+        if (!schedulesByLoan[lid]) schedulesByLoan[lid] = [];
+        schedulesByLoan[lid].push(s);
+      }
+    }
+    for (const lid of Object.keys(schedulesByLoan)) {
+      schedulesByLoan[lid].sort((a, b) => (a.installmentNumber as number) - (b.installmentNumber as number));
+      schedulesByLoan[lid] = schedulesByLoan[lid].slice(0, 5);
+    }
 
     const loansWithProgress = loans.map((loan) => {
-      const progressPercent = loan.totalAmount > 0 ? (loan.amountPaid / loan.totalAmount) * 100 : 0;
-      const remaining = loan.totalAmount - loan.amountPaid;
+      const client = clientMap[loan.clientId as string];
+      const collector = collectorMap[loan.collectorId as string];
+      const zone = zoneMap[loan.zoneId as string];
+      const clientLoans = paymentsByLoan[loan.id as string] || [];
+      const pendingFees = (lateFeesByLoan[loan.id as string] || []).filter((f) => f.status === 'pending');
+      const schedule = schedulesByLoan[loan.id as string] || [];
+
+      const totalAmount = Number(loan.totalAmount) || 0;
+      const amountPaid = Number(loan.amountPaid) || 0;
+      const progressPercent = totalAmount > 0 ? (amountPaid / totalAmount) * 100 : 0;
+      const remaining = totalAmount - amountPaid;
       const daysElapsed = loan.startDate
-        ? Math.floor((Date.now() - new Date(loan.startDate).getTime()) / 86400000)
+        ? Math.floor((Date.now() - new Date(loan.startDate as string).getTime()) / 86400000)
         : 0;
       const daysRemaining = loan.endDate
-        ? Math.floor((new Date(loan.endDate).getTime() - Date.now()) / 86400000)
+        ? Math.floor((new Date(loan.endDate as string).getTime() - Date.now()) / 86400000)
         : null;
       const isOverdue = daysRemaining !== null && daysRemaining < 0;
 
       return {
         ...loan,
+        client: client ? {
+          id: client.id,
+          name: client.name,
+          documentNumber: client.documentNumber,
+          documentType: client.documentType,
+          phone: client.phone,
+          creditScore: client.creditScore,
+        } : null,
+        collector: collector ? { id: collector.id, name: collector.name } : null,
+        zone: zone ? { id: zone.id, name: zone.name } : null,
+        payments: clientLoans,
+        lateFees: pendingFees,
+        schedule,
         progressPercent: Math.min(100, Math.round(progressPercent * 100) / 100),
         remaining: Math.max(0, remaining),
         daysElapsed,
         daysRemaining,
         isOverdue,
-        pendingLateFees: loan.lateFees.length,
+        pendingLateFees: pendingFees.length,
       };
     });
 
@@ -111,7 +157,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/loans - Create a new loan (GOTA A GOTA)
+// POST /api/loans
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -131,11 +177,10 @@ export async function POST(request: NextRequest) {
       guarantors,
     } = body;
 
-    // Validation
     if (!clientId || !amount || !interestRate || !days) {
       return NextResponse.json(
         { error: 'Cliente, monto, tasa de interés y días son requeridos' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -147,75 +192,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'La tasa de interés debe estar entre 0 y 100' }, { status: 400 });
     }
 
-    // Try Supabase first if configured (lazy-loaded)
-    try {
-      const { isSupabaseConfigured, createLoan: supabaseCreateLoan } = await import('@/lib/supabase-server');
-      if (isSupabaseConfigured()) {
-        try {
-          const loan = await Promise.race([
-            supabaseCreateLoan({
-              clientId,
-              collectorId,
-              zoneId,
-              amount,
-              interestRate,
-              days,
-              numCuotas: numCuotasInput,
-              dailyPayment: dailyPaymentInput,
-              paymentFrequency,
-              restDays,
-              startDate,
-              notes,
-              createdBy: collectorId,
-            }),
-            new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), 5000)),
-          ]);
-          if (loan === null) throw new Error('Supabase timeout');
-          if (loan) {
-            return NextResponse.json(loan, { status: 201 });
-          }
-        } catch (error) {
-          // Map known errors to HTTP responses (only if not a data mismatch issue)
-          if (error instanceof Error) {
-            if (error.message.includes('préstamo activo')) {
-              return NextResponse.json(
-                { error: 'El cliente ya tiene un préstamo activo. Debe completar o cancelar el préstamo anterior.' },
-                { status: 409 }
-              );
-            }
-            if (error.message.includes('Capital insuficiente')) {
-              return NextResponse.json({ error: error.message }, { status: 400 });
-            }
-          }
-          console.error('Supabase createLoan failed, falling back to Prisma:', error);
-        }
-      }
-    } catch (error) {
-      console.error('Supabase not available, using Prisma fallback:', error);
-    }
-
-    // On Vercel, if Supabase failed, don't fall back to Prisma (no SQLite)
-
-
-    // Fallback to Prisma
-    // Check client exists
-    const client = await db.client.findUnique({ where: { id: clientId } });
+    const client = await findById(collections.clients, clientId);
     if (!client) {
       return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 });
     }
 
-    // Check if client already has an active loan
-    const activeLoan = await db.loan.findFirst({
-      where: { clientId, status: { in: ['active', 'mora'] } },
-    });
+    const clientLoans = await findMany(collections.loans, { clientId });
+    const activeLoan = clientLoans.find((l) => l.status === 'active' || l.status === 'mora');
     if (activeLoan) {
       return NextResponse.json(
         { error: 'El cliente ya tiene un préstamo activo. Debe completar o cancelar el préstamo anterior.' },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
-    // Calculate loan amounts (GOTA A GOTA logic)
     const interestAmount = amount * (interestRate / 100);
     const totalAmount = amount + interestAmount;
     const numCuotas = numCuotasInput || days;
@@ -223,208 +213,122 @@ export async function POST(request: NextRequest) {
     const loanStartDate = startDate ? new Date(startDate) : new Date();
     const loanEndDate = new Date(loanStartDate.getTime() + days * 86400000);
 
-    // Check capital availability
-    const lastCapitalMovement = await db.capitalMovement.findFirst({
-      orderBy: { createdAt: 'desc' },
-    });
-    const currentCapital = lastCapitalMovement?.newCapital || 0;
+    const movements = await findMany(collections.capitalMovements, undefined, { field: 'createdAt', direction: 'desc' }, 1);
+    const lastCapitalMovement = movements[0];
+    const currentCapital = Number(lastCapitalMovement?.newCapital) || 0;
 
     if (currentCapital < amount) {
       return NextResponse.json(
         { error: `Capital insuficiente. Disponible: S/${currentCapital.toFixed(2)}, Necesario: S/${amount.toFixed(2)}` },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Create loan with payment schedule
-    const loan = await db.loan.create({
-      data: {
-        clientId,
-        collectorId: collectorId || null,
-        zoneId: zoneId || client.zoneId || null,
-        amount,
-        totalAmount,
-        interest: interestAmount,
-        days,
-        dailyPayment,
-        paymentFrequency: paymentFrequency || 'daily',
-        numCuotas,
-        amountPaid: 0,
-        startDate: loanStartDate,
-        endDate: loanEndDate,
-        status: 'active',
-        creditApproved: true,
-        notes: notes || null,
-        restDays: restDays ? (Array.isArray(restDays) ? restDays.join(',') : String(restDays)) : '',
-        createdBy: collectorId || null,
-        // Generate payment schedule
-        schedule: {
-          create: (() => {
-            const restSet = new Set((restDays ? String(restDays).split(',').map(Number) : []).filter(n => !isNaN(n)));
-            const nextBiz = (d: Date) => { const d2 = new Date(d); while (restSet.has(d2.getDay())) d2.setDate(d2.getDate() + 1); return d2; };
-            return Array.from({ length: numCuotas }, (_, i) => {
-              const offset = paymentFrequency === 'weekly' ? (i + 1) * 7 : (i + 1);
-              const dueDate = nextBiz(new Date(loanStartDate.getTime() + offset * 86400000));
-              return { installmentNumber: i + 1, amount: dailyPayment, dueDate, status: 'pending' };
-            });
-          })(),
-        },
-      },
-      include: {
-        client: { select: { id: true, name: true, documentNumber: true, documentType: true, phone: true } },
-        collector: { select: { id: true, name: true } },
-        zone: { select: { id: true, name: true } },
-        schedule: { orderBy: { installmentNumber: 'asc' } },
-      },
-    });
-
-    // Deduct from capital
-    const newCapital = currentCapital - amount;
-    await db.capitalMovement.create({
-      data: {
-        type: 'PRESTAMO',
-        amount,
-        previousCapital: currentCapital,
-        newCapital,
-        description: `Préstamo creado para ${client.name} - ${days} cuotas de S/${dailyPayment}`,
-      },
-    });
-
-    // Update client credit score (slight decrease for new loan)
-    await db.client.update({
-      where: { id: clientId },
-      data: {
-        creditScore: Math.max(0, (client.creditScore || 50) - 2),
-      },
-    });
-
-    // Create guarantors if provided
-    if (guarantors && Array.isArray(guarantors)) {
-      for (const g of guarantors) {
-        if (g.name) {
-          await db.guarantor.create({
-            data: {
-              clientId,
-              name: g.name,
-              documentNumber: g.documentNumber || null,
-              documentType: g.documentType || null,
-              phone: g.phone || null,
-              address: g.address || null,
-            },
-          });
-        }
-      }
-    }
-
-    // Audit log
-    await db.auditLog.create({
-      data: {
-        action: 'CREATE',
-        entityType: 'loan',
-        entityId: loan.id,
-        entityName: `Préstamo ${client.name} - S/${amount}`,
-        severity: 'info',
-        notes: `Préstamo creado: S/${amount} a ${client.name}, ${days} cuotas de S/${dailyPayment}, interés ${interestRate}%`,
-        changes: JSON.stringify({
-          amount,
-          totalAmount,
-          interest: interestAmount,
-          days,
-          dailyPayment,
-          clientId,
-          startDate: loanStartDate,
-          endDate: loanEndDate,
-        }),
-      },
-    });
-
-    // Push loan to Supabase in background
-    pushLoanToSupabase({
-      id: loan.id,
+    const loan = await createDoc(collections.loans, {
       clientId,
       collectorId: collectorId || null,
       zoneId: zoneId || client.zoneId || null,
       amount,
       totalAmount,
-      interestRate,
-      interestAmount,
-      dailyPayment,
+      interest: interestAmount,
       days,
-      startDate: loanStartDate,
-      endDate: loanEndDate,
+      dailyPayment,
+      paymentFrequency: paymentFrequency || 'daily',
+      numCuotas,
+      amountPaid: 0,
+      startDate: loanStartDate.toISOString(),
+      endDate: loanEndDate.toISOString(),
       status: 'active',
-    }).catch((err) => console.error('[Loans] Push to Supabase error:', err));
+      creditApproved: true,
+      notes: notes || null,
+      restDays: restDays ? (Array.isArray(restDays) ? restDays.join(',') : String(restDays)) : '',
+      createdBy: collectorId || null,
+    });
 
-    return NextResponse.json(loan, { status: 201 });
+    const restSet = new Set((restDays ? String(restDays).split(',').map(Number) : []).filter((n) => !isNaN(n)));
+    const nextBiz = (d: Date) => {
+      const d2 = new Date(d);
+      while (restSet.has(d2.getDay())) d2.setDate(d2.getDate() + 1);
+      return d2;
+    };
+    const scheduleItems = Array.from({ length: numCuotas }, (_, i) => {
+      const offset = paymentFrequency === 'weekly' ? (i + 1) * 7 : (i + 1);
+      const dueDate = nextBiz(new Date(loanStartDate.getTime() + offset * 86400000));
+      return {
+        loanId: loan.id,
+        installmentNumber: i + 1,
+        amount: dailyPayment,
+        dueDate: dueDate.toISOString(),
+        status: 'pending',
+      };
+    });
+    await createMany(collections.paymentSchedules, scheduleItems);
+
+    const newCapital = currentCapital - amount;
+    await createDoc(collections.capitalMovements, {
+      type: 'PRESTAMO',
+      amount,
+      previousCapital: currentCapital,
+      newCapital,
+      description: `Préstamo creado para ${client.name} - ${days} cuotas de S/${dailyPayment}`,
+    });
+
+    await updateDoc(collections.clients, clientId, {
+      creditScore: Math.max(0, (Number(client.creditScore) || 50) - 2),
+    });
+
+    if (guarantors && Array.isArray(guarantors)) {
+      for (const g of guarantors) {
+        if (g.name) {
+          await createDoc(collections.guarantors, {
+            clientId,
+            name: g.name,
+            documentNumber: g.documentNumber || null,
+            documentType: g.documentType || null,
+            phone: g.phone || null,
+            address: g.address || null,
+          });
+        }
+      }
+    }
+
+    await createDoc(collections.auditLogs, {
+      action: 'CREATE',
+      entityType: 'loan',
+      entityId: loan.id,
+      entityName: `Préstamo ${client.name} - S/${amount}`,
+      severity: 'info',
+      notes: `Préstamo creado: S/${amount} a ${client.name}, ${days} cuotas de S/${dailyPayment}, interés ${interestRate}%`,
+      changes: JSON.stringify({
+        amount,
+        totalAmount,
+        interest: interestAmount,
+        days,
+        dailyPayment,
+        clientId,
+        startDate: loanStartDate,
+        endDate: loanEndDate,
+      }),
+    });
+
+    const clientData = await findById(collections.clients, clientId);
+    const collectorData = collectorId ? await findById(collections.profiles, collectorId) : null;
+    const loanZone = loan.zoneId ? await findById(collections.zones, loan.zoneId) : null;
+
+    return NextResponse.json({
+      ...loan,
+      client: clientData ? { id: clientData.id, name: clientData.name, documentNumber: clientData.documentNumber, documentType: clientData.documentType, phone: clientData.phone } : null,
+      collector: collectorData ? { id: collectorData.id, name: collectorData.name } : null,
+      zone: loanZone ? { id: loanZone.id, name: loanZone.name } : null,
+      schedule: scheduleItems.map((s, i) => ({ ...s, id: `temp-${i}` })),
+    }, { status: 201 });
   } catch (error) {
     console.error('Error creating loan:', error);
     return NextResponse.json({ error: 'Error al crear préstamo' }, { status: 500 });
   }
 }
 
-// ============================================================
-// Helper: Get Supabase client
-// ============================================================
-async function getSupabase() {
-  try {
-    const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    // Priority: service_role key (bypasses RLS for admin operations)
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const envKey = serviceKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (envUrl && envKey) {
-      const { createClient } = await import('@supabase/supabase-js');
-      return createClient(envUrl, envKey);
-    }
-
-    // Fallback to DB settings (only available locally, not on Vercel)
-    if (!isVercel) {
-      const urlSetting = await db.setting.findUnique({ where: { key: 'supabase_url' } });
-      const keySetting = await db.setting.findUnique({ where: { key: 'supabase_anon_key' } });
-      const serviceKeySetting = await db.setting.findUnique({ where: { key: 'supabase_service_role_key' } });
-      const url = urlSetting?.value;
-      const key = serviceKeySetting?.value || keySetting?.value;
-      if (url && key) {
-        const { createClient } = await import('@supabase/supabase-js');
-        return createClient(url, key);
-      }
-    }
-  } catch { /* not configured */ }
-  return null;
-}
-
-// ============================================================
-// Helper: Push loan to Supabase
-// ============================================================
-async function pushLoanToSupabase(loan: {
-  id: string; clientId: string; collectorId: string | null; zoneId: string | null;
-  amount: number; totalAmount: number; interestRate: number; interestAmount: number;
-  dailyPayment: number; days: number; startDate: Date; endDate: Date; status: string;
-}) {
-  const supabase = await getSupabase();
-  if (!supabase) return;
-
-  const { error } = await supabase.from('loans').insert({
-    id: loan.id,
-    client_id: loan.clientId,
-    collector_id: loan.collectorId,
-    zone_id: loan.zoneId,
-    amount: loan.amount,
-    total_amount: loan.totalAmount,
-    interest_rate: loan.interestRate,
-    interest_amount: loan.interestAmount,
-    daily_payment: loan.dailyPayment,
-    num_cuotas: loan.days,
-    amount_paid: 0,
-    start_date: loan.startDate.toISOString(),
-    end_date: loan.endDate.toISOString(),
-    status: loan.status,
-  });
-
-  if (error) console.error('[Loans] Push to Supabase error:', error.message);
-  else console.log('[Loans] Loan pushed to Supabase:', loan.id);
-}
-
-// PUT /api/loans - Update a loan
+// PUT /api/loans
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
@@ -434,125 +338,73 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
     }
 
-    // Try Supabase first if configured (lazy-loaded)
-    try {
-      const { isSupabaseConfigured, updateLoan: supabaseUpdateLoan } = await import('@/lib/supabase-server');
-      if (isSupabaseConfigured()) {
-        try {
-          const loan = await Promise.race([
-            supabaseUpdateLoan(id, {
-              status,
-              notes,
-              collectorId,
-              cancellationReason,
-            }),
-            new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), 5000)),
-          ]);
-          if (loan === null) throw new Error('Supabase timeout');
-          if (loan) {
-            return NextResponse.json(loan);
-          }
-        } catch (error) {
-          if (error instanceof Error) {
-            if (error.message.includes('no encontrado')) {
-              return NextResponse.json({ error: 'Préstamo no encontrado' }, { status: 404 });
-            }
-            if (error.message.includes('totalmente pagado')) {
-              return NextResponse.json(
-                { error: 'No se puede completar un préstamo que no está totalmente pagado' },
-                { status: 400 }
-              );
-            }
-          }
-          console.error('Supabase updateLoan failed, falling back to Prisma:', error);
-        }
-      }
-    } catch (error) {
-      console.error('Supabase not available, using Prisma fallback:', error);
-    }
-
-    // On Vercel, if Supabase failed, don't fall back to Prisma (no SQLite)
-
-
-    // Fallback to Prisma
-    const existing = await db.loan.findUnique({
-      where: { id },
-      include: { client: { select: { name: true } } },
-    });
-
+    const existing = await findById(collections.loans, id);
     if (!existing) {
       return NextResponse.json({ error: 'Préstamo no encontrado' }, { status: 404 });
     }
+
+    const existingClient = await findById(collections.clients, existing.clientId as string);
 
     const updateData: Record<string, unknown> = {};
     if (status) updateData.status = status;
     if (notes !== undefined) updateData.notes = notes;
     if (collectorId !== undefined) updateData.collectorId = collectorId;
 
-    // If marking as completed, check if fully paid
-    if (status === 'completed' && existing.amountPaid < existing.totalAmount) {
+    if (status === 'completed' && Number(existing.amountPaid) < Number(existing.totalAmount)) {
       return NextResponse.json(
         { error: 'No se puede completar un préstamo que no está totalmente pagado' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // If cancelling, set cancellation fields and return remaining to capital
     if (status === 'cancelled' && existing.status !== 'cancelled') {
       updateData.cancellationReason = cancellationReason || null;
-      updateData.cancelledBy = null; // TODO: pass user info when auth context is available
+      updateData.cancelledBy = null;
       updateData.cancelledAt = new Date().toISOString();
-      const remaining = existing.amount - existing.amountPaid;
+      const remaining = Number(existing.amount) - Number(existing.amountPaid);
       if (remaining > 0) {
-        const lastCapital = await db.capitalMovement.findFirst({ orderBy: { createdAt: 'desc' } });
-        const currentCapital = lastCapital?.newCapital || 0;
-        await db.capitalMovement.create({
-          data: {
-            type: 'RETIRO',
-            amount: remaining,
-            previousCapital: currentCapital,
-            newCapital: currentCapital + remaining,
-            description: `Préstamo cancelado - reintegro de ${existing.client.name}`,
-          },
+        const movements = await findMany(collections.capitalMovements, undefined, { field: 'createdAt', direction: 'desc' }, 1);
+        const currentCapital = Number(movements[0]?.newCapital) || 0;
+        await createDoc(collections.capitalMovements, {
+          type: 'RETIRO',
+          amount: remaining,
+          previousCapital: currentCapital,
+          newCapital: currentCapital + remaining,
+          description: `Préstamo cancelado - reintegro de ${existingClient?.name || ''}`,
         });
       }
-      // Update client credit score (penalty for cancellation)
-      await db.client.update({
-        where: { id: existing.clientId },
-        data: { creditScore: Math.max(0, (await db.client.findUnique({ where: { id: existing.clientId } }))!.creditScore! - 15) },
+      const currentScore = Number(existingClient?.creditScore) || 50;
+      await updateDoc(collections.clients, existing.clientId as string, {
+        creditScore: Math.max(0, currentScore - 15),
       });
     }
 
-    const loan = await db.loan.update({
-      where: { id },
-      data: updateData,
-      include: {
-        client: { select: { id: true, name: true, documentNumber: true, documentType: true, phone: true } },
-        collector: { select: { id: true, name: true } },
-      },
+    const loan = await updateDoc(collections.loans, id, updateData);
+
+    const collectorData = loan.collectorId ? await findById(collections.profiles, loan.collectorId as string) : null;
+
+    await createDoc(collections.auditLogs, {
+      action: 'UPDATE',
+      entityType: 'loan',
+      entityId: id,
+      entityName: `Préstamo ${existingClient?.name || id}`,
+      severity: status === 'cancelled' ? 'critical' : status === 'completed' ? 'info' : 'warning',
+      notes: `Préstamo actualizado: estado ${existing.status} → ${status || existing.status}`,
+      changes: JSON.stringify({ field: 'status', oldValue: existing.status, newValue: status }),
     });
 
-    // Audit log
-    await db.auditLog.create({
-      data: {
-        action: 'UPDATE',
-        entityType: 'loan',
-        entityId: id,
-        entityName: `Préstamo ${existing.client.name}`,
-        severity: status === 'cancelled' ? 'critical' : status === 'completed' ? 'info' : 'warning',
-        notes: `Préstamo actualizado: estado ${existing.status} → ${status || existing.status}`,
-        changes: JSON.stringify({ field: 'status', oldValue: existing.status, newValue: status }),
-      },
+    return NextResponse.json({
+      ...loan,
+      client: existingClient ? { id: existingClient.id, name: existingClient.name, documentNumber: existingClient.documentNumber, documentType: existingClient.documentType, phone: existingClient.phone } : null,
+      collector: collectorData ? { id: collectorData.id, name: collectorData.name } : null,
     });
-
-    return NextResponse.json(loan);
   } catch (error) {
     console.error('Error updating loan:', error);
     return NextResponse.json({ error: 'Error al actualizar préstamo' }, { status: 500 });
   }
 }
 
-// DELETE /api/loans - Delete a loan
+// DELETE /api/loans
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -562,36 +414,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
     }
 
-    // On Vercel: use Supabase as primary DB
-    if (isVercel) {
-      const supabase = await getSupabase();
-      if (!supabase) {
-        return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 503 });
-      }
-
-      // Check existing via Supabase
-      const { data: loan, error: findError } = await supabase.from('loans').select('id, client_id, status, amount').eq('id', id).maybeSingle();
-      if (!loan || findError) {
-        return NextResponse.json({ error: 'Préstamo no encontrado' }, { status: 404 });
-      }
-
-      // Only allow deleting cancelled or completed loans
-      if (loan.status !== 'cancelled' && loan.status !== 'completed') {
-        return NextResponse.json({ error: 'Solo se pueden eliminar préstamos cancelados o completados' }, { status: 400 });
-      }
-
-      // Delete via Supabase
-      const { error: deleteError } = await supabase.from('loans').delete().eq('id', id);
-      if (deleteError) {
-        console.error('[Loans] Supabase delete error:', deleteError.message);
-        return NextResponse.json({ error: 'Error al eliminar préstamo' }, { status: 500 });
-      }
-
-      return NextResponse.json({ message: 'Préstamo eliminado' });
-    }
-
-    // Local mode: Prisma-first with Supabase
-    const loan = await db.loan.findUnique({ where: { id }, include: { client: { select: { name: true } } } });
+    const loan = await findById(collections.loans, id);
     if (!loan) {
       return NextResponse.json({ error: 'Préstamo no encontrado' }, { status: 404 });
     }
@@ -600,24 +423,17 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Solo se pueden eliminar préstamos cancelados o completados' }, { status: 400 });
     }
 
-    await db.loan.delete({ where: { id } });
+    const loanClient = await findById(collections.clients, loan.clientId as string);
 
-    // Also delete from Supabase in background
-    const supabase = await getSupabase();
-    if (supabase) {
-      supabase.from('loans').delete().eq('id', id).then(({ error }) => {
-        if (error) console.error('[Loans] Delete from Supabase error:', error.message);
-      });
-    }
+    await deleteDoc(collections.loans, id);
 
-    // Audit log
-    await db.auditLog.create({
-      data: {
-        action: 'DELETE', entityType: 'loan', entityId: id,
-        entityName: `Préstamo ${loan.client.name}`,
-        severity: 'warning',
-        notes: `Préstamo eliminado: ${loan.client.name} - S/${loan.amount}`,
-      },
+    await createDoc(collections.auditLogs, {
+      action: 'DELETE',
+      entityType: 'loan',
+      entityId: id,
+      entityName: `Préstamo ${loanClient?.name || id}`,
+      severity: 'warning',
+      notes: `Préstamo eliminado: ${loanClient?.name || ''} - S/${loan.amount}`,
     }).catch(() => {});
 
     return NextResponse.json({ message: 'Préstamo eliminado' });

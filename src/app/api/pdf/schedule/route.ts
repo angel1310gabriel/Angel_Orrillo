@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { findById, findMany, collections } from '@/lib/firestore-db';
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN', minimumFractionDigits: 2 }).format(amount);
@@ -24,25 +19,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'loanId requerido' }, { status: 400 });
     }
 
-    const { data: loan, error: loanError } = await supabase
-      .from('loans')
-      .select(`
-        *,
-        clients!client_id (name, document_number, phone),
-        profiles!collector_id (name)
-      `)
-      .eq('id', loanId)
-      .single();
-
-    if (loanError || !loan) {
+    const loan = await findById(collections.loans, loanId);
+    if (!loan) {
       return NextResponse.json({ error: 'Préstamo no encontrado' }, { status: 404 });
     }
 
-    const { data: schedule } = await supabase
-      .from('payment_schedule')
-      .select('*')
-      .eq('loan_id', loanId)
-      .order('installment_number', { ascending: true });
+    const client = loan.client_id ? await findById(collections.clients, loan.client_id) : null;
+    const collector = loan.collector_id ? await findById(collections.profiles, loan.collector_id) : null;
+
+    const schedule = await findMany(
+      collections.paymentSchedules,
+      { loan_id: loanId },
+      { field: 'installment_number', direction: 'asc' }
+    );
 
     const pdfDoc = await PDFDocument.create();
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -64,13 +53,13 @@ export async function GET(request: NextRequest) {
     // Header
     drawText('CRONOGRAMA DE PAGOS', width / 2 - 60, y, 16, true, rgb(0.1, 0.4, 0.3));
     y -= 22;
-    drawText(`Préstamo: ${loanId.slice(0, 8).toUpperCase()} | Cliente: ${loan.clients?.name || '—'}`, margin, y, 9);
+    drawText(`Préstamo: ${loanId.slice(0, 8).toUpperCase()} | Cliente: ${client?.name || '—'}`, margin, y, 9);
     y -= 15;
-    drawText(`DNI: ${loan.clients?.document_number || '—'} | Tel: ${loan.clients?.phone || '—'}`, margin, y, 9);
+    drawText(`DNI: ${client?.document_number || '—'} | Tel: ${client?.phone || '—'}`, margin, y, 9);
     y -= 15;
     drawText(`Capital: ${formatCurrency(loan.amount)} | Total: ${formatCurrency(loan.total_amount)} | Cuota: ${formatCurrency(loan.daily_payment)}`, margin, y, 9);
     y -= 15;
-    drawText(`Frecuencia: ${loan.payment_frequency} | Cobrador: ${loan.profiles?.name || '—'}`, margin, y, 9);
+    drawText(`Frecuencia: ${loan.payment_frequency} | Cobrador: ${collector?.name || '—'}`, margin, y, 9);
     y -= 25;
     drawLine(y);
     y -= 10;
@@ -92,14 +81,10 @@ export async function GET(request: NextRequest) {
     y -= 8;
 
     // Rows
-    const paidPayments = await supabase
-      .from('payments')
-      .select('installment_number, amount, payment_method, payment_date')
-      .eq('loan_id', loanId);
+    const paidPayments = await findMany(collections.payments, { loan_id: loanId });
+    const paymentMap = new Map(paidPayments.map((p: any) => [p.installment_number, p]));
 
-    const paymentMap = new Map(paidPayments.data?.map(p => [p.installment_number, p]) || []);
-
-    schedule?.forEach((s) => {
+    schedule?.forEach((s: any) => {
       if (y < margin + 30) {
         pdfDoc.addPage();
         y = height - margin;
@@ -134,10 +119,10 @@ export async function GET(request: NextRequest) {
     drawLine(y, rgb(0.5, 0.5, 0.5));
     y -= 15;
 
-    const totalPaid = schedule?.filter(s => s.status === 'paid').length || 0;
-    const totalPending = schedule?.filter(s => s.status === 'pending').length || 0;
-    const totalAmount = schedule?.reduce((sum, s) => sum + s.amount, 0) || 0;
-    const paidAmount = paidPayments.data?.reduce((sum, p) => sum + p.amount, 0) || 0;
+    const totalPaid = schedule?.filter((s: any) => s.status === 'paid').length || 0;
+    const totalPending = schedule?.filter((s: any) => s.status === 'pending').length || 0;
+    const totalAmount = schedule?.reduce((sum: number, s: any) => sum + s.amount, 0) || 0;
+    const paidAmount = paidPayments.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
 
     drawText(`Total cuotas: ${schedule?.length || 0} | Pagadas: ${totalPaid} | Pendientes: ${totalPending}`, margin, y, 9, true);
     y -= 15;

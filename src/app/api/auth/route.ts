@@ -1,40 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  findFirst,
+  findById,
+  findProfileByEmail,
+  findProfileByFirebaseUid,
+  findManyProfiles,
+  collections,
+} from '@/lib/firestore-db';
+import { requireRole } from '@/lib/route-guard';
 
-// ============================================================
-// KC Cobranzas - Auth API Route
-// Login con DNI, Email o Celular via Supabase Auth
-// Vercel: 100% Supabase (no SQLite, no Prisma)
-// Local:  Supabase Auth + SQLite sync
-// ============================================================
-
-const isVercel = process.env.VERCEL === '1';
-
-// ============================================================
-// Supabase client helper (lazy, no module-level side effects)
-// ============================================================
-let supabaseModule: typeof import('@supabase/supabase-js') | null = null;
-
-async function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const key = serviceKey || anonKey;
-
-  if (!url || !key) {
-    console.error('[Auth] Missing Supabase env vars. URL:', !!url, 'KEY:', !!key);
-    return null;
-  }
-
-  if (!supabaseModule) {
-    supabaseModule = await import('@supabase/supabase-js');
-  }
-
-  return supabaseModule.createClient(url, key);
-}
-
-// ============================================================
-// POST handler
-// ============================================================
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -44,7 +18,7 @@ export async function POST(request: NextRequest) {
       case 'login':
         return await handleLogin(body);
       case 'change-password':
-        return await handleChangePassword(body);
+        return await handleChangePassword(request, body);
       case 'sync-users':
         return await handleSyncUsers();
       case 'sync-data':
@@ -61,9 +35,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ============================================================
-// GET handler - check session
-// ============================================================
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization');
@@ -73,25 +44,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 401 });
     }
 
-    // Use Supabase directly (works on both Vercel and local)
-    const supabase = await getSupabaseClient();
-    if (!supabase) {
-      return NextResponse.json({ success: false, error: 'Supabase no configurado' }, { status: 500 });
-    }
+    let profile = await findById(collections.profiles, userId);
+    if (!profile) profile = await findProfileByFirebaseUid(userId);
 
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, email, name, role, phone, dni, is_active')
-      .eq('id', userId)
-      .single();
-
-    if (profileError || !profile) {
+    if (!profile) {
       return NextResponse.json({ success: false, error: 'Usuario no encontrado' }, { status: 404 });
     }
-
-    const profileRole = profile.role
-      || (await supabase.auth.admin.getUserById(profile.id)).data?.user?.user_metadata?.role
-      || 'collector';
 
     return NextResponse.json({
       success: true,
@@ -99,10 +57,10 @@ export async function GET(request: NextRequest) {
         id: profile.id,
         email: profile.email,
         name: profile.name,
-        role: profileRole,
+        role: profile.role || 'collector',
         phone: profile.phone,
-        documentNumber: profile.dni,
-        isActive: profile.is_active ?? true,
+        documentNumber: profile.dni || profile.documentNumber,
+        isActive: profile.is_active ?? profile.isActive ?? true,
       },
     });
   } catch (error) {
@@ -111,9 +69,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ============================================================
-// LOGIN - Always uses Supabase Auth
-// ============================================================
 async function handleLogin(body: { username: string; password: string }) {
   const { username, password } = body;
 
@@ -125,72 +80,24 @@ async function handleLogin(body: { username: string; password: string }) {
   }
 
   const isEmail = username.includes('@');
-  // Detect if it's a phone number: starts with 9 and is 9 digits (Peruvian mobile)
   const isPhone = /^9\d{8}$/.test(username);
 
-  // Step 1: If DNI or phone entered, look up email from profiles table
   let emailToTry = username;
   let step1ProfileId: string | null = null;
-  if (!isEmail) {
-    const supabase = await getSupabaseClient();
-    if (!supabase) {
-      return NextResponse.json(
-        { success: false, error: 'Error de configuración del servidor' },
-        { status: 500 }
-      );
-    }
 
-    // Search by DNI first, then by phone if not found
+  if (!isEmail) {
     let profileLookup: Record<string, unknown> | null = null;
-    let lookupError: unknown = null;
 
     if (isPhone) {
-      // Search by phone number
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email, role, dni, phone')
-        .eq('phone', username)
-        .single();
-      profileLookup = data;
-      lookupError = error;
-      console.log('[Auth] Step 1 - Phone lookup:', { username, data, error: error?.message });
+      profileLookup = await findFirst(collections.profiles, { phone: username });
     } else {
-      // Search by DNI
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email, role, dni, phone')
-        .eq('dni', username)
-        .single();
-      profileLookup = data;
-      lookupError = error;
-      console.log('[Auth] Step 1 - DNI lookup:', { username, data, error: error?.message });
+      profileLookup = await findFirst(collections.profiles, { documentNumber: username });
     }
 
-    // If not found by the first method, try the other
     if (!profileLookup && !isPhone) {
-      // DNI not found, try phone
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email, role, dni, phone')
-        .eq('phone', username)
-        .single();
-      if (data) {
-        profileLookup = data;
-        lookupError = null;
-        console.log('[Auth] Step 1 - Found by phone instead');
-      }
+      profileLookup = await findFirst(collections.profiles, { phone: username });
     } else if (!profileLookup && isPhone) {
-      // Phone not found, try DNI
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email, role, dni, phone')
-        .eq('dni', username)
-        .single();
-      if (data) {
-        profileLookup = data;
-        lookupError = null;
-        console.log('[Auth] Step 1 - Found by DNI instead');
-      }
+      profileLookup = await findFirst(collections.profiles, { documentNumber: username });
     }
 
     if (profileLookup?.email) {
@@ -204,188 +111,62 @@ async function handleLogin(body: { username: string; password: string }) {
     }
   }
 
-  // Step 2: Authenticate with Supabase Auth
-  const supabase = await getSupabaseClient();
-  if (!supabase) {
+  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCYbYHvlGwOLY071631rtb2A-j0MVPQeMo';
+
+  let firebaseUser: { localId: string; email: string; displayName?: string; registered: boolean };
+  try {
+    const res = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailToTry, password, returnSecureToken: true }),
+      }
+    );
+    const data = await res.json();
+    if (!res.ok) {
+      console.error('[Auth] Firebase signIn error:', data.error?.message);
+      return NextResponse.json(
+        { success: false, error: 'Usuario o contraseña incorrectos' },
+        { status: 401 }
+      );
+    }
+    firebaseUser = data;
+  } catch (err) {
+    console.error('[Auth] Firebase signIn network error:', err);
     return NextResponse.json(
-      { success: false, error: 'Error de configuración del servidor' },
+      { success: false, error: 'Error de conexión con el servidor de autenticación' },
       { status: 500 }
     );
   }
 
-  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-    email: emailToTry,
-    password,
-  });
+  let profile = await findById(collections.profiles, firebaseUser.localId);
+  if (!profile) profile = await findProfileByFirebaseUid(firebaseUser.localId);
+  if (!profile) profile = await findProfileByEmail(emailToTry);
+  if (!profile && step1ProfileId) profile = await findById(collections.profiles, step1ProfileId);
 
-  if (authError || !authData.user) {
-    console.error('[Auth] Supabase auth error:', authError?.message);
-    return NextResponse.json(
-      { success: false, error: 'Usuario o contraseña incorrectos' },
-      { status: 401 }
-    );
-  }
-
-  // Refresh user data from server to ensure latest app_metadata
-  try {
-    const { data: { user: refreshedUser } } = await supabase.auth.getUser();
-    if (refreshedUser) authData.user = refreshedUser;
-  } catch { /* non-critical */ }
-
-  // Step 3: Get profile from Supabase profiles table
-  let { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('id, email, name, role, phone, dni, is_active')
-    .eq('id', authData.user.id)
-    .single();
-
-  console.log('[Auth] Step 3 - Profile by ID:', {
-    authUserId: authData.user.id,
-    profileFound: !!profile,
-    profileRole: profile?.role,
-    profileDni: profile?.dni,
-    profileError: profileError?.message,
-  });
-
-  // Fallback: If profile not found by auth ID, try by email or by step1 profile ID
-  if (profileError || !profile) {
-    console.log('[Auth] Step 3 fallback - trying by email:', emailToTry);
-    const { data: profileByEmail, error: emailError } = await supabase
-      .from('profiles')
-      .select('id, email, name, role, phone, dni, is_active')
-      .eq('email', emailToTry)
-      .single();
-
-    console.log('[Auth] Step 3 fallback by email:', {
-      profileFound: !!profileByEmail,
-      profileRole: profileByEmail?.role,
-      profileDni: profileByEmail?.dni,
-      emailError: emailError?.message,
-    });
-
-    if (profileByEmail) {
-      profile = profileByEmail;
-      profileError = null;
-    }
-  }
-
-  // Fallback 2: If still not found and we have step1 profile ID
-  if ((!profile || profileError) && step1ProfileId) {
-    console.log('[Auth] Step 3 fallback 2 - trying by step1 ID:', step1ProfileId);
-    const { data: profileById } = await supabase
-      .from('profiles')
-      .select('id, email, name, role, phone, dni, is_active')
-      .eq('id', step1ProfileId)
-      .single();
-
-    if (profileById) {
-      profile = profileById;
-      profileError = null;
-      console.log('[Auth] Step 3 fallback 2 - found profile:', { role: profileById.role, dni: profileById.dni });
-    }
-  }
-
-  // Fallback 3: Use Supabase Auth Admin API (bypasses RLS, uses /auth/v1/admin/users)
-  if (!profile && profileError?.message?.includes('permission denied')) {
-    console.log('[Auth] Step 3 fallback 3 - trying Auth Admin API:', authData.user.id);
-    try {
-      const adminUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const adminKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      if (adminUrl && adminKey) {
-        const { createClient } = await import('@supabase/supabase-js');
-        const adminSupabase = createClient(adminUrl, adminKey, { auth: { persistSession: false } });
-        const { data: authUserData, error: authUserErr } = await adminSupabase.auth.admin.getUserById(authData.user.id);
-        if (!authUserErr && authUserData?.user) {
-          const metaRole = authUserData.user?.app_metadata?.role || authUserData.user?.user_metadata?.role;
-          if (metaRole) {
-            profile = { id: authData.user.id, email: emailToTry, name: emailToTry.split('@')[0], role: metaRole } as any;
-            profileError = null;
-            console.log('[Auth] Step 3 fallback 3 - found role in auth metadata:', { role: metaRole });
-          }
-        }
-      }
-    } catch (adminErr) {
-      console.error('[Auth] Admin API fallback error:', adminErr);
-    }
-  }
-  // Fallback 4: Try Prisma (direct DB via DATABASE_URL, bypasses RLS)
-  if (!profile && profileError?.message?.includes('permission denied')) {
-    console.log('[Auth] Step 3 fallback 4 - trying Prisma:', authData.user.id);
-    try {
-      const { PrismaClient } = await import('@prisma/client');
-      const prisma = new PrismaClient();
-      const dbProfile = await prisma.profiles.findUnique({
-        where: { id: authData.user.id },
-        select: { id: true, email: true, name: true, role: true, phone: true, documentNumber: true, isActive: true },
-      });
-      await prisma.$disconnect();
-      if (dbProfile) {
-        profile = {
-          id: dbProfile.id,
-          email: dbProfile.email,
-          name: dbProfile.name,
-          role: dbProfile.role,
-          phone: dbProfile.phone,
-          dni: dbProfile.documentNumber,
-          isActive: dbProfile.isActive,
-        };
-        profileError = null;
-        console.log('[Auth] Step 3 fallback 4 - found via Prisma:', { role: dbProfile.role });
-      }
-    } catch (prismaErr) {
-      console.error('[Auth] Prisma fallback error:', prismaErr);
-    }
-  }
-
-  if (profileError) {
-    console.error('[Auth] Profile fetch error (all attempts):', profileError.message);
-  }
-
-  // Determine role with fallback chain:
-  // 1. From profiles table (role column)
-  // 2. From auth user_metadata (set by Flutter app)
-  // 3. From auth app_metadata
-  // 4. Default to 'collector'
-  const userRole = profile?.role
-    || authData.user?.user_metadata?.role
-    || authData.user?.app_metadata?.role
-    || 'collector';
-
-  console.log('[Auth] Role resolution:', {
-    profileRole: profile?.role,
-    userMetaRole: authData.user?.user_metadata?.role,
-    appMetaRole: authData.user?.app_metadata?.role,
-    finalRole: userRole,
-  });
+  const userRole = profile?.role || 'collector';
 
   const user = {
-    id: authData.user.id,
-    email: profile?.email || authData.user.email || emailToTry,
-    name: profile?.name || authData.user.user_metadata?.name || emailToTry.split('@')[0],
+    id: firebaseUser.localId,
+    email: profile?.email || firebaseUser.email || emailToTry,
+    name: profile?.name || firebaseUser.displayName || emailToTry.split('@')[0],
     role: userRole,
     phone: profile?.phone || null,
-    documentNumber: profile?.dni || null,
-    isActive: profile?.is_active ?? true,
+    documentNumber: profile?.documentNumber || null,
+    isActive: profile?.isActive ?? true,
   };
-
-  console.log('[Auth] Final user object:', { id: user.id, name: user.name, role: user.role, dni: user.documentNumber });
-
-  // Step 4: On local, sync to SQLite in background (non-blocking)
-  if (!isVercel) {
-    syncToLocalDB(user, password).catch(() => { });
-    syncFromSupabaseBackground().catch(() => { });
-  }
 
   return NextResponse.json({ success: true, user });
 }
 
-// ============================================================
-// CHANGE PASSWORD
-// ============================================================
-async function handleChangePassword(body: { userId: string; currentPassword: string; newPassword: string }) {
-  const { userId, currentPassword, newPassword } = body;
+async function handleChangePassword(request: NextRequest, body: { userId: string; newPassword: string }) {
+  const auth = await requireRole(request, ['admin']);
+  if (auth instanceof NextResponse) return auth;
 
-  if (!userId || !currentPassword || !newPassword) {
+  const { userId, newPassword } = body;
+
+  if (!userId || !newPassword) {
     return NextResponse.json(
       { success: false, error: 'Todos los campos son requeridos' },
       { status: 400 }
@@ -393,38 +174,43 @@ async function handleChangePassword(body: { userId: string; currentPassword: str
   }
 
   try {
-    const supabase = await getSupabaseClient();
-    if (!supabase) {
-      return NextResponse.json(
-        { success: false, error: 'Supabase no configurado' },
-        { status: 500 }
-      );
-    }
+    const { createSign } = await import('crypto');
+    const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}');
+    const now = Math.floor(Date.now() / 1000);
+    const jwtPayload = {
+      iss: sa.client_email,
+      scope: 'https://www.googleapis.com/auth/identitytoolkit',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600,
+    };
+    const header = { alg: 'RS256', typ: 'JWT' };
+    const b64 = (obj: any) => Buffer.from(JSON.stringify(obj)).toString('base64url');
+    const sigInput = `${b64(header)}.${b64(jwtPayload)}`;
+    const sign = createSign('RSA-SHA256');
+    sign.update(sigInput);
+    const signature = sign.sign(sa.private_key, 'base64url');
+    const jwt = `${sigInput}.${signature}`;
 
-    const { error } = await supabase.auth.admin.updateUserById(userId, { password: newPassword });
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: 'Error al actualizar contraseña en Supabase' },
-        { status: 500 }
-      );
-    }
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwt }),
+    });
+    const tokenData = await tokenRes.json() as any;
+    if (!tokenRes.ok) throw new Error(tokenData.error_description || 'OAuth error');
 
-    // Update local SQLite if available
-    if (!isVercel) {
-      try {
-        const { db } = await import('@/lib/db');
-        const user = await db.profile.findUnique({ where: { id: userId } });
-        if (user && user.password === currentPassword) {
-          await db.profile.update({
-            where: { id: userId },
-            data: { password: newPassword },
-          });
-        }
-      } catch { /* non-critical */ }
-    }
+    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:update?key=${process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCYbYHvlGwOLY071631rtb2A-j0MVPQeMo'}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${tokenData.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ localId: userId, password: newPassword, returnSecureToken: false }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || 'Firebase error');
 
     return NextResponse.json({ success: true, message: 'Contraseña actualizada correctamente' });
-  } catch {
+  } catch (error: any) {
+    console.error('[Auth] Firebase updateUser error:', error?.message || error);
     return NextResponse.json(
       { success: false, error: 'Error al actualizar contraseña' },
       { status: 500 }
@@ -432,72 +218,13 @@ async function handleChangePassword(body: { userId: string; currentPassword: str
   }
 }
 
-// ============================================================
-// SYNC USERS - Pull all profiles from Supabase
-// ============================================================
 async function handleSyncUsers() {
   try {
-    const supabase = await getSupabaseClient();
-    if (!supabase) {
-      return NextResponse.json(
-        { success: false, error: 'Supabase no configurado' },
-        { status: 400 }
-      );
-    }
-
-    const { data: profiles, error } = await supabase.from('profiles').select('*');
-
-    if (error || !profiles) {
-      return NextResponse.json(
-        { success: false, error: 'Error al sincronizar desde Supabase' },
-        { status: 500 }
-      );
-    }
-
-    // On Vercel: just return the count
-    if (isVercel) {
-      return NextResponse.json({
-        success: true,
-        message: `${profiles.length} usuarios disponibles en Supabase`,
-        synced: profiles.length,
-      });
-    }
-
-    // Locally: sync to SQLite
-    const { db } = await import('@/lib/db');
-    let synced = 0;
-    for (const profile of profiles) {
-      try {
-        const profileRole = profile.role || 'collector';
-        await db.profile.upsert({
-          where: { id: profile.id },
-          update: {
-            email: profile.email,
-            name: profile.name,
-            role: profileRole,
-            phone: profile.phone,
-            documentNumber: profile.dni,
-            isActive: profile.is_active ?? true,
-          },
-          create: {
-            id: profile.id,
-            email: profile.email,
-            name: profile.name || profile.email.split('@')[0],
-            role: profileRole,
-            phone: profile.phone,
-            documentNumber: profile.dni,
-            password: 'synced_from_supabase',
-            isActive: profile.is_active ?? true,
-          },
-        });
-        synced++;
-      } catch { /* skip */ }
-    }
-
+    const profiles = await findManyProfiles();
     return NextResponse.json({
       success: true,
-      message: `${synced} usuarios sincronizados`,
-      synced,
+      message: `${profiles.length} usuarios disponibles`,
+      synced: profiles.length,
     });
   } catch {
     return NextResponse.json(
@@ -507,122 +234,9 @@ async function handleSyncUsers() {
   }
 }
 
-// ============================================================
-// SYNC DATA
-// ============================================================
 async function handleSyncData() {
-  try {
-    if (isVercel) {
-      return NextResponse.json({
-        success: true,
-        message: 'Usando Supabase directamente - no se necesita sync',
-      });
-    }
-
-    await syncFromSupabaseBackground();
-    return NextResponse.json({
-      success: true,
-      message: 'Datos sincronizados desde Supabase',
-    });
-  } catch {
-    return NextResponse.json(
-      { success: false, error: 'Error al sincronizar datos' },
-      { status: 500 }
-    );
-  }
-}
-
-// ============================================================
-// Local-only: Sync user to SQLite
-// ============================================================
-async function syncToLocalDB(
-  user: { id: string; email: string; name: string; role: string; phone: string | null; documentNumber: string | null },
-  password: string
-) {
-  try {
-    const { db } = await import('@/lib/db');
-    await db.profile.upsert({
-      where: { id: user.id },
-      update: {
-        email: user.email,
-        name: user.name,
-        role: user.role as 'admin' | 'supervisor' | 'collector',
-        phone: user.phone,
-        documentNumber: user.documentNumber,
-        password,
-        isActive: true,
-      },
-      create: {
-        id: user.id,
-        email: user.email,
-        name: user.name || user.email.split('@')[0],
-        role: user.role as 'admin' | 'supervisor' | 'collector',
-        phone: user.phone,
-        documentNumber: user.documentNumber,
-        password,
-        isActive: true,
-      },
-    });
-  } catch (err) {
-    console.error('[Auth] Local sync error:', err);
-  }
-}
-
-// ============================================================
-// Local-only: Background sync from Supabase (zones + profiles)
-// ============================================================
-async function syncFromSupabaseBackground() {
-  try {
-    const supabase = await getSupabaseClient();
-    if (!supabase) return;
-
-    const { db } = await import('@/lib/db');
-
-    // Sync ZONES
-    const { data: zones } = await supabase.from('zones').select('*');
-    if (zones && zones.length > 0) {
-      for (const zone of zones) {
-        try {
-          await db.zone.upsert({
-            where: { id: zone.id },
-            update: { name: zone.name },
-            create: { id: zone.id, name: zone.name },
-          });
-        } catch { /* skip */ }
-      }
-    }
-
-    // Sync PROFILES
-    const { data: profiles } = await supabase.from('profiles').select('*');
-    if (profiles && profiles.length > 0) {
-      for (const profile of profiles) {
-        try {
-          const profileRole = profile.role || 'collector';
-          await db.profile.upsert({
-            where: { id: profile.id },
-            update: {
-              email: profile.email,
-              name: profile.name,
-              role: profileRole,
-              phone: profile.phone,
-              documentNumber: profile.dni,
-              isActive: profile.is_active ?? true,
-            },
-            create: {
-              id: profile.id,
-              email: profile.email,
-              name: profile.name || profile.email.split('@')[0],
-              role: profileRole,
-              phone: profile.phone,
-              documentNumber: profile.dni,
-              password: 'synced_from_supabase',
-              isActive: profile.is_active ?? true,
-            },
-          });
-        } catch { /* skip */ }
-      }
-    }
-  } catch (err) {
-    console.error('[Auth] Background sync error:', err);
-  }
+  return NextResponse.json({
+    success: true,
+    message: 'Usando Firestore directamente - no se necesita sync',
+  });
 }
